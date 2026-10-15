@@ -195,7 +195,8 @@ allowed_hosts = ["door.example.com"]
 
 Write each name exactly as typed in the browser, without the port and without wildcards. A name
 with accents or other non-ASCII letters goes in its ASCII form (punycode, starting with
-`xn--`). If the Kindle's `URL` uses a name that is not allowed, the door shows a screen saying
+`xn--`); an entry with a port or with non-ASCII letters is reported as a config error. If the
+Kindle's `URL` uses a name that is not allowed, the door shows a screen saying
 so.
 
 ### On a laptop

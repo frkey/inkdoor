@@ -199,7 +199,8 @@ allowed_hosts = ["porta.example.com"]
 
 Escreva cada nome exatamente como você digita no navegador, sem a porta e sem curingas. Um nome
 com acentos ou outras letras fora do ASCII vai na forma ASCII (punycode, que começa com
-`xn--`). Se a `URL` do Kindle usa um nome que não está liberado, a porta mostra uma tela
+`xn--`); uma entrada com porta ou com letras fora do ASCII aparece como erro na config. Se a
+`URL` do Kindle usa um nome que não está liberado, a porta mostra uma tela
 avisando.
 
 ### Num notebook
