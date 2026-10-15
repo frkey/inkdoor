@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "name": "Português (Brasil)",
+    "clock": "24h"
+  },
+  "weekdays": ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"],
+  "months_short": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+  "date_header": "{weekday}, {day} de {month}",
+  "updated_at": "atualizado às {time}",
+  "untitled": "(sem título)",
+
+  "duration": {
+    "hours_minutes": "{h}h{m:02d}",
+    "hours": "{h}h",
+    "minutes": "{m} min"
+  },
+
+  "status": {
+    "busy": "Em reunião",
+    "free": "Livre",
+    "until": "até {time}",
+    "then_free_until": "depois, livre até {time}",
+    "then_free_rest": "depois, livre pelo resto do dia",
+    "next_in": "Próximo: {title} · começa em {minutes} min",
+    "next_at": "Próximo: {title} · às {time}",
+    "after_hours": "fora do expediente",
+    "tomorrow_first": "Amanhã o primeiro é às {time}",
+    "tomorrow_empty": "Nada marcado para amanhã",
+    "rest_of_day": "pelo resto do dia",
+    "no_more_today": "Sem mais compromissos hoje"
+  },
+
+  "section": {
+    "today": "Hoje",
+    "tomorrow": "Amanhã · {weekday}",
+    "tasks": "Tarefas"
+  },
+
+  "agenda": {
+    "remaining": "{left} de {total} pela frente",
+    "events": {"one": "{n} compromisso", "other": "{n} compromissos"},
+    "free_for": "Livre por {duration}",
+    "gap": "livre · {duration}",
+    "no_more": "Sem mais compromissos hoje",
+    "done": {"one": "✓  {n} compromisso já concluído", "other": "✓  {n} compromissos já concluídos"},
+    "more_later": {"one": "+ {n} compromisso mais tarde", "other": "+ {n} compromissos mais tarde"},
+    "now": "agora",
+    "none": "Nenhum compromisso."
+  },
+
+  "tasks": {
+    "for_today": "{n} para hoje",
+    "overdue_count": {"one": "{n} atrasada", "other": "{n} atrasadas"},
+    "overdue_tag": "ATRASADA",
+    "more": {"one": "+ {n} tarefa", "other": "+ {n} tarefas"}
+  },
+
+  "footer": {
+    "tomorrow_long": {"one": "Amanhã: {n} compromisso, às {time}", "other": "Amanhã: {n} compromissos, o primeiro às {time}"},
+    "tomorrow_medium": "Amanhã: {n} · o primeiro às {time}",
+    "tomorrow_short": "Amanhã: {n} · {time}",
+    "tomorrow_free": "Amanhã: agenda livre",
+    "today_done": {"one": "Hoje: {n} compromisso concluído", "other": "Hoje: {n} compromissos concluídos"},
+    "today_empty": "Hoje: dia sem compromissos",
+    "unreachable": "Sem acesso: {sources}"
+  },
+
+  "cli": {
+    "description": "Painel de agenda em e-ink para a porta.",
+    "config_missing": "Não encontrei '{path}'. Copie o config.example.toml para config.toml e cole seus links.",
+    "preview": "Prévia: {path}",
+    "serving": "Servindo em http://<ip-deste-computador>:{port}/kindle.png  (Ctrl+C para sair)",
+    "rendered": "[{time}] tela gerada ({events} compromissos, {tasks} tarefas)",
+    "rendered_errors": " — sem acesso: {sources}",
+    "error": "Erro: {error}"
+  },
+
+  "check": {
+    "not_configured": "link ainda não foi colado no config.toml",
+    "unreachable": "não consegui acessar o endereço ({error})",
+    "denied": "acesso negado (HTTP {status}). Normalmente é a empresa bloqueando calendários publicados, ou o link foi despublicado.",
+    "not_found": "link não encontrado (HTTP 404). Publique de novo e copie o link ICS.",
+    "http_error": "o servidor respondeu com erro HTTP {status}",
+    "html_page": "o link abriu uma página da web, não uma agenda. Use o link que termina em .ics (não o HTML).",
+    "not_ics": "o conteúdo não é uma agenda ICS",
+    "invalid": "a agenda veio com formato inválido",
+    "ok": "agenda acessível ({kb} KB)",
+    "no_events": "nenhum compromisso nos próximos 14 dias. Se a agenda não está vazia,\n     confira se publicou o calendário certo.",
+    "events_found": "{n} compromissos nos próximos 14 dias",
+    "busy_only": "o link só mostra 'Ocupado', sem os títulos das reuniões.\n     Publique de novo com a permissão 'Pode ver todos os detalhes'.\n     Se essa opção não existir, a empresa limita a publicação: o status da\n     porta funciona, mas a lista vai mostrar só 'Ocupado'.",
+    "timezone": "muitos compromissos de madrugada: talvez o fuso esteja errado.\n     Confira se os horários acima batem com o seu aplicativo de agenda.",
+    "tasks_found": "{n} tarefas para hoje ou atrasadas",
+    "overdue_prefix": "[atrasada] ",
+    "all_good": "Tudo certo! Pode rodar: inkdoor serve",
+    "fix_errors": "Corrija os itens marcados com ✖ e rode o teste de novo."
+  }
+}
