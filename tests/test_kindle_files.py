@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import re
 import subprocess
 import tarfile
 from pathlib import Path
@@ -118,11 +119,13 @@ def connect_kpm(tmp_path, url=URL, kpm_works=True, kpm_present=True):
         text = (FOLDER / name).read_text().replace("/mnt/us", str(root)).replace(
             "/var/local/kmc/bin", str(bin_dir))
         if name == "inkdoor/config.sh":
-            text = kindle_files.config_sh(text, url, "en-US") if url.startswith("http://") else \
-                text.replace('URL="http://192.168.0.10:3667/kindle.png"', f'URL="{url}"')
+            # by hand, not with config_sh(): some tests need an address it would refuse
+            text = re.sub(r'(?m)^URL=".*"$', lambda _: f"URL='{url}'", text, count=1)
         (root / name).parent.mkdir(exist_ok=True)
         (root / name).write_text(text)
-    stubs = {"lipc-get-prop": "echo CONNECTED", "lipc-set-prop": "true"}
+    # su runs its command through a shell, as KMC's does: the scriptlet must hand it a safe line
+    stubs = {"lipc-get-prop": "echo CONNECTED", "lipc-set-prop": "true",
+             str(bin_dir / "su"): '[ "$1" = -c ] && exec sh -c "$2"'}
     if kpm_present:
         stubs[str(bin_dir / "kpm")] = f'echo "$@" >> "{calls}"; ' + (
             "true" if kpm_works else '[ "$2" != install ]')
@@ -131,7 +134,7 @@ def connect_kpm(tmp_path, url=URL, kpm_works=True, kpm_present=True):
         path.write_text(f"#!/bin/sh\n{body}\n")
         path.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "TMPDIR": str(tmp_path)}
-    run = subprocess.run(["sh", str(root / "documents/inkdoor-kpm.sh")], env=env,
+    run = subprocess.run(["sh", str(root / "documents/inkdoor-kpm.sh")], env=env, cwd=tmp_path,
                          capture_output=True, text=True)
     lines = calls.read_text().splitlines() if calls.exists() else []
     return run, lines
@@ -140,18 +143,29 @@ def connect_kpm(tmp_path, url=URL, kpm_works=True, kpm_present=True):
 def test_connect_kpm_adds_this_server_and_installs(tmp_path):
     run, calls = connect_kpm(tmp_path)
     assert run.returncode == 0, run.stdout + run.stderr
+    # add-repo only records the repository: KPM reads its packages on update
     assert calls == ["-y remove-repo inkdoor", "-y add-repo http://192.168.0.50:3667/kpm.json",
-                     "-y install inkdoor"]
+                     "-y update", "-y install inkdoor"]
     assert "OK! To update later" in run.stdout
 
 
 def test_connect_kpm_reports_a_failed_install(tmp_path):
     run, calls = connect_kpm(tmp_path, kpm_works=False)
     assert run.returncode == 1 and "FAILED: KPM could not install inkdoor." in run.stdout
+    assert "the server's admin is on" in run.stdout
 
 
 def test_connect_kpm_needs_kpm_and_an_image_address(tmp_path):
     run, calls = connect_kpm(tmp_path / "a", kpm_present=False)
     assert run.returncode == 1 and "KPM is not installed" in run.stdout and calls == []
-    run, calls = connect_kpm(tmp_path / "b", url="http://192.168.0.50:3667/other")
-    assert run.returncode == 1 and "must be http://.../kindle.png" in run.stdout and calls == []
+    for i, url in enumerate(["http://192.168.0.50:3667/other",
+                             "http://192.168.0.50/;touch hacked;/kindle.png",
+                             "http://192.168.0.50/$(touch hacked)/kindle.png"]):
+        run, calls = connect_kpm(tmp_path / f"b{i}", url=url)
+        assert run.returncode == 1 and "must be http://.../kindle.png" in run.stdout, url
+        assert calls == [] and not list(tmp_path.rglob("hacked"))
+
+
+def test_connect_kpm_takes_an_ipv6_address(tmp_path):
+    run, calls = connect_kpm(tmp_path, url="http://[fd00::5]:3667/kindle.png")
+    assert run.returncode == 0 and "-y add-repo http://[fd00::5]:3667/kpm.json" in calls

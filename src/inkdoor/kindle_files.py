@@ -26,7 +26,7 @@ KPM_HOOKS = ("kpm/install.sh", "kpm/uninstall.sh")
 # bump it whenever a file in SCRIPTS or KPM_HOOKS changes. A test compares SCRIPTS_SHA256 with
 # the files and fails until both are updated.
 KINDLE_VERSION = (1, 1, 0)
-SCRIPTS_SHA256 = "a9669f33231ef67acfdae358ed23b991f2b8a6f6c9588adba8a57ee94777c560"
+SCRIPTS_SHA256 = "3f7d951b4959349712a1b7c79aa228cf1c0c28001e806d92f631ff903cadb5b1"
 PACKAGE_ID = "inkdoor"
 _STAMP = (2026, 1, 1, 0, 0, 0)            # fixed timestamps: the same files make the same archive
 _MTIME = int(dt.datetime(*_STAMP, tzinfo=dt.timezone.utc).timestamp())

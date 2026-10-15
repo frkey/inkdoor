@@ -28,12 +28,16 @@ if [ ! -x "$KPM" ]; then
   echo "$MSG_KPM_MISSING"
   exit 1
 fi
+# only what an address needs: the line below passes REPO to a root shell through su -c
 case "$URL" in
+  *[!]A-Za-z0-9.:/_[-]*) REPO="" ;;
   http://*/kindle.png) REPO="${URL%/kindle.png}/kpm.json" ;;
-  *)
-    echo "$MSG_KPM_BAD_URL"
-    exit 1 ;;
+  *) REPO="" ;;
 esac
+if [ -z "$REPO" ]; then
+  echo "$MSG_KPM_BAD_URL"
+  exit 1
+fi
 echo "$MSG_ADDRESS: $REPO"
 echo "$MSG_WIFI"
 if ! ensure_wifi; then
@@ -41,16 +45,17 @@ if ! ensure_wifi; then
   log "kpm: no Wi-Fi"
   exit 1
 fi
-# replace a repository added before (perhaps at another address), then install, which also
-# reinstalls an inkdoor that KPM already has
+# replace a repository added before (perhaps at another address), read its packages (add-repo
+# alone does not), then install, which also reinstalls an inkdoor that KPM already has
 kpm remove-repo inkdoor >/dev/null 2>&1 || true
 kpm add-repo "$REPO" 2>&1
+kpm update 2>&1
 if kpm install inkdoor 2>&1; then
   echo "$MSG_KPM_OK"
   log "kpm: connected ($REPO)"
 else
   echo "$MSG_KPM_FAILED"
-  echo "$MSG_HINT"
+  echo "$MSG_KPM_HINT"
   log "kpm: install failed ($REPO)"
   exit 1
 fi

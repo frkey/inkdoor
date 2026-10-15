@@ -27,6 +27,7 @@ case "$LANGUAGE" in
     MSG_KPM_BAD_URL="A URL em inkdoor/config.sh precisa ser http://.../kindle.png"
     MSG_KPM_OK="OK! Para atualizar depois: ;kpm update e ;kpm upgrade na busca."
     MSG_KPM_FAILED="FALHOU: o KPM nao conseguiu instalar o inkdoor."
+    MSG_KPM_HINT="Confira a URL em inkdoor/config.sh e se o admin do servidor esta ligado."
     ;;
   *)
     MSG_NO_CONNECTION="cannot reach the computer"
@@ -40,6 +41,7 @@ case "$LANGUAGE" in
     MSG_KPM_BAD_URL="URL in inkdoor/config.sh must be http://.../kindle.png"
     MSG_KPM_OK="OK! To update later: ;kpm update, then ;kpm upgrade in the search bar."
     MSG_KPM_FAILED="FAILED: KPM could not install inkdoor."
+    MSG_KPM_HINT="Check URL in inkdoor/config.sh and that the server's admin is on."
     ;;
 esac
 

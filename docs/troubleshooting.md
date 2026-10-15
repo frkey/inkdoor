@@ -34,7 +34,7 @@ The door never says **Free** without knowing: whenever it cannot tell, it says *
 | *cannot reach the computer* (corner of the screen) | The last 3 downloads failed. The server is off, its address changed, or the Wi-Fi dropped. |
 | *KPM is not installed on this Kindle.* | **inkdoor - connect KPM** needs KPM, which comes with recent jailbreaks. Without it, update by copying the zip again. |
 | *URL in inkdoor/config.sh must be http://.../kindle.png* | **inkdoor - connect KPM** finds the server from `URL`. Fix it, or download the zip again. |
-| *FAILED: KPM could not install inkdoor.* | The lines above it show KPM's error. Check that the server is on and that the admin is enabled: the KPM repository is only served while it is. |
+| *FAILED: KPM could not install inkdoor.* | The lines above it show KPM's error. Check `URL` in `inkdoor/config.sh`, that the server is on and that the admin is enabled: the KPM repository is only served while it is. |
 
 - **The address changed**: if the server got its IP from DHCP, reserve that address on your
   router so it never moves.

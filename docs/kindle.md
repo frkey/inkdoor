@@ -46,8 +46,8 @@ To remove inkdoor, type `;kpm uninstall inkdoor`.
 The server cannot be added with `;kpm add-repo` from the search bar: the Kindle drops any
 search command whose text has a `.` or a `:`, so an address never reaches KPM
 ([KindleModding/KPM#5](https://github.com/KindleModding/KPM/issues/5)). That is why the
-scriptlet does it. If the server's address changes, download the zip again, copy it over the
-old files and open **inkdoor - connect KPM** again.
+scriptlet does it. If the server's address changes, put the new one in `URL` in
+`inkdoor/config.sh` (the admin's **Home** page shows it) and open **inkdoor - connect KPM** again.
 
 ### By hand
 
