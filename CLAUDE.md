@@ -107,8 +107,8 @@ Work is tracked in GitHub issues on `frkey/inkdoor` (use `gh issue ...`).
 - **Labels**: every issue gets exactly one `type:`, exactly one `priority:` and at least one
   `area:` label. Add a `status:` label only when it applies, and remove it when it no longer does.
   Do not use GitHub's default `bug`, `enhancement` or `documentation` labels; use the `type:` ones.
-- **Link the work**: branches and PRs reference the issue, and the PR description closes it
-  ("Fixes #12"). One issue per independent piece of work; split issues that mix unrelated changes.
+- **Link the work**: branches and PRs reference the issue (see "Pull requests"). One issue per
+  independent piece of work; split issues that mix unrelated changes.
 - **Creating or editing labels changes the public repository**: ask the maintainer before running
   `gh label create`/`gh label edit`. If a label from the table is missing, ask before creating it
   instead of picking another one.
@@ -142,14 +142,16 @@ available alongside these.
 
 ## Pull requests
 
-- **Always run `/code-review` before opening a pull request.** Run the Claude Code skill on the
-  branch's changes once the work is committed and the tests pass, and again before pushing large
-  new changes to an open PR.
-- **Handle every finding before opening the PR**: fix it, or say in the PR description why it does
-  not apply. A real problem that is out of scope becomes an issue (see "Issues and labels") and the
-  PR links to it.
-- **Record it**: the PR's test plan has a checked line saying `/code-review` ran, with the number of
-  findings fixed and deferred.
+- **Always run `/code-review high` before opening a pull request**, once the work is committed and
+  the tests pass. Run it again before pushing any later change to `src/`, `deploy/` or `kindle/`
+  on an open PR. Contributors without Claude Code review their own diff line by line and ask the
+  maintainer to run `/code-review` on the PR.
+- **Handle every finding before opening the PR**: fix it; or explain in the PR description why it
+  does not apply; or, if it is real but out of scope, open an issue (see "Issues and labels") and
+  link it.
+- **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
+  issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the number
+  of findings fixed, not applicable and deferred.
 
 ## Privacy
 
