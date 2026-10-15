@@ -107,7 +107,7 @@ Work is tracked in GitHub issues on `frkey/inkdoor` (use `gh issue ...`).
 - **Labels**: every issue gets exactly one `type:`, exactly one `priority:` and at least one
   `area:` label. Add a `status:` label only when it applies, and remove it when it no longer does.
   Do not use GitHub's default `bug`, `enhancement` or `documentation` labels; use the `type:` ones.
-- **Link the work**: branches and PRs reference the issue (see "Pull requests"). One issue per
+- **Link the work**: every PR references its issue (see "Pull requests"). One issue per
   independent piece of work; split issues that mix unrelated changes.
 - **Creating or editing labels changes the public repository**: ask the maintainer before running
   `gh label create`/`gh label edit`. If a label from the table is missing, ask before creating it
@@ -142,16 +142,32 @@ available alongside these.
 
 ## Pull requests
 
-- **Always run `/code-review high` before opening a pull request**, once the work is committed and
-  the tests pass. Run it again before pushing any later change to `src/`, `deploy/` or `kindle/`
-  on an open PR. Contributors without Claude Code review their own diff line by line and ask the
-  maintainer to run `/code-review` on the PR.
-- **Handle every finding before opening the PR**: fix it; or explain in the PR description why it
-  does not apply; or, if it is real but out of scope, open an issue (see "Issues and labels") and
-  link it.
+- **Review until clean, before opening a pull request.** Once the work is committed and the tests
+  pass, run `git fetch` and `/code-review high origin/master...HEAD` (always name the range:
+  without one the skill compares with the pushed branch and can review nothing). Handle its
+  findings (see "Handle every finding"), commit, and run another round on the fix commits only
+  (`/code-review high <last-reviewed-commit>..HEAD`): the fixes are new code that the previous
+  round did not see. Repeat until a round is clean.
+- **A round is clean** when it reports no new real defect: nothing about correctness, security,
+  data loss, the door's status or a rule in this file. Polish and style suggestions do not keep
+  the loop going; record them as not applicable or defer them to an issue.
+- **Same loop before every later push** to an open PR: review the new commits (from the last
+  reviewed commit to `HEAD`) until a round is clean, then push. If `master` was merged into the
+  branch since the last round, review `origin/master...HEAD` instead (after `git fetch`), so the
+  round covers the merge result without re-reviewing `master`'s own commits.
+- **Stop and ask**: if the fourth round of the same loop still finds a new real defect, stop and
+  ask the maintainer; it usually means the approach needs rethinking, not another patch.
+- **Handle every finding**: fix it; or explain in the PR description why it does not apply; or, if
+  it is real but out of scope, open an issue (see "Issues and labels") and link it. A finding
+  already recorded as not applicable or deferred does not need to be handled again in later rounds.
+- **Without Claude Code**: contributors review their own diff line by line before opening the PR.
+  The maintainer then runs `/code-review` on the PR and posts the findings; the contributor
+  handles them and pushes, and the maintainer reviews the new commits, until a round is clean.
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
-  issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the number
-  of findings fixed, not applicable and deferred.
+  issue it closes or references ("Fixes #12", or "Refs #12" when it only does part of it), and a
+  test plan whose checked `/code-review` line gives the totals over every loop on the PR: the
+  number of rounds, that the last round was clean, and the findings (each counted once) fixed, not
+  applicable and deferred.
 
 ## Privacy
 
