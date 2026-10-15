@@ -8,6 +8,7 @@ a pull request.
 - [Development setup](#development-setup)
 - [Project layout](#project-layout)
 - [Making a change](#making-a-change)
+- [Docs images](#docs-images)
 - [Translations](#translations)
 - [Testing on real hardware](#testing-on-real-hardware)
 
@@ -85,6 +86,7 @@ kindle/           POSIX sh scripts that run on the Kindle (BusyBox)
 deploy/           systemd unit, Debian/Ubuntu installer, Proxmox container script
 tests/            pytest suite with fictional calendars in tests/fixtures/
 docs/             user docs, each with a pt-BR translation in docs/pt-BR/
+scripts/          docs_images.py regenerates docs/img/ from the demo
 ```
 
 ## Making a change
@@ -98,6 +100,8 @@ docs/             user docs, each with a pt-BR translation in docs/pt-BR/
 4. **Anything visual?** Render the demo in both languages at a few times (for example 7:30, 10:20,
    15:20, 16:50 and 21:10) and look at the images; Portuguese strings are longer and are the
    usual cause of overflow. Keep strokes at least 3 px wide so they survive e-ink.
+   If the change shows up in the README's images, regenerate them
+   (see [Docs images](#docs-images)).
 5. **Anything user-visible?** Update the docs in both languages: `README.md` and
    `README.pt-BR.md`, and each file in `docs/` with its twin in `docs/pt-BR/`.
 6. **Open a pull request** with the template: what changes and why, `Fixes #N` (or `Refs #N`),
@@ -117,6 +121,20 @@ way. Style suggestions alone do not hold a pull request back.
 update. They must never overwrite `/etc/inkdoor/config.toml` or `admin-password`. If you touch
 the systemd sandbox in `inkdoor.service`, check that it still starts in an unprivileged Proxmox
 container with nesting.
+
+## Docs images
+
+Every image in `docs/img/` comes from the demo's fictional data, through one script:
+
+```sh
+python scripts/docs_images.py           # everything
+python scripts/docs_images.py screens   # only the door screens (no browser needed)
+python scripts/docs_images.py admin     # only the admin screenshots, light and dark
+```
+
+The admin screenshots need a browser engine: on macOS the built-in Quick Look (`qlmanage`) is
+used; elsewhere a headless Chromium-family browser on the `PATH`, or the one named in
+`INKDOOR_BROWSER`. Commit the regenerated images with the change that made them stale.
 
 ## Translations
 
