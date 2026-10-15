@@ -142,16 +142,23 @@ available alongside these.
 
 ## Pull requests
 
-- **Always run `/code-review high` before opening a pull request**, once the work is committed and
-  the tests pass. Run it again before pushing any later change to `src/`, `deploy/` or `kindle/`
-  on an open PR. Contributors without Claude Code review their own diff line by line and ask the
-  maintainer to run `/code-review` on the PR.
-- **Handle every finding before opening the PR**: fix it; or explain in the PR description why it
-  does not apply; or, if it is real but out of scope, open an issue (see "Issues and labels") and
-  link it.
+- **Review until clean, before opening a pull request.** Once the work is committed and the tests
+  pass, run `/code-review high`. Handle its findings (next bullet), commit, and run it again: the
+  fixes are new code that the previous round did not see. Repeat until a round returns no finding
+  that needs a change (none, or only findings recorded as not applicable or deferred).
+- **Same loop before every later push** to an open PR: review the new commits until a round is
+  clean, then push.
+- **Stop and ask**: if a fourth round still finds new problems that need changes, stop and ask the
+  maintainer; it usually means the approach needs rethinking, not another patch.
+- **Handle every finding**: fix it; or explain in the PR description why it does not apply; or, if
+  it is real but out of scope, open an issue (see "Issues and labels") and link it. A finding
+  already recorded as not applicable or deferred does not need to be handled again in later rounds.
+- **Without Claude Code**: contributors review their own diff line by line and ask the maintainer
+  to run the loop on the PR.
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
   issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the number
-  of findings fixed, not applicable and deferred.
+  of rounds, confirms the last one was clean, and counts the findings fixed, not applicable and
+  deferred.
 
 ## Privacy
 

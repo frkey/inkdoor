@@ -9,4 +9,4 @@ Fixes #
 - [ ] `pytest`
 - [ ] ShellCheck (deploy and kindle scripts), if any shell script changed
 - [ ] Rendered the demo in en-US and pt-BR, if anything visual changed
-- [ ] `/code-review high`: N findings — N fixed, N not applicable (explained above), N deferred (#issue)
+- [ ] `/code-review high` until clean: N rounds, last round clean; N findings — N fixed, N not applicable (explained above), N deferred (#issue)
