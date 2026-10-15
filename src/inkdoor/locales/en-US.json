@@ -1,0 +1,165 @@
+{
+  "_meta": {
+    "name": "English (United States)",
+    "clock": "12h"
+  },
+  "weekdays": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+  ],
+  "months_short": [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec"
+  ],
+  "date_header": "{weekday}, {month} {day}",
+  "updated_at": "updated {time}",
+  "untitled": "(untitled)",
+  "duration": {
+    "hours_minutes": "{h}h {m}m",
+    "hours": "{h}h",
+    "minutes": "{m} min"
+  },
+  "status": {
+    "busy": "In a meeting",
+    "free": "Free",
+    "until": "until {time}",
+    "then_free_until": "then free until {time}",
+    "then_free_rest": "then free for the rest of the day",
+    "next_in": "Next: {title} · starts in {duration}",
+    "next_at": "Next: {title} · at {time}",
+    "after_hours": "after hours",
+    "tomorrow_first": "Tomorrow starts at {time}",
+    "tomorrow_empty": "Nothing scheduled for tomorrow",
+    "rest_of_day": "for the rest of the day",
+    "no_more_today": "No more events today",
+    "unknown": "Knock first",
+    "unknown_headline": "calendar unavailable",
+    "unknown_detail": "Could not read: {sources}",
+    "error_headline": "display error",
+    "error_detail": "Check the computer running inkdoor serve"
+  },
+  "section": {
+    "today": "Today",
+    "tomorrow": "Tomorrow · {weekday}",
+    "tasks": "Tasks"
+  },
+  "agenda": {
+    "remaining": "{left} of {total} ahead",
+    "events": {
+      "one": "{n} event",
+      "other": "{n} events"
+    },
+    "free_for": "Free for {duration}",
+    "gap": "free · {duration}",
+    "no_more": "No more events today",
+    "done": {
+      "one": "✓  {n} event done",
+      "other": "✓  {n} events done"
+    },
+    "more_later": {
+      "one": "+ {n} more later",
+      "other": "+ {n} more later"
+    },
+    "now": "now",
+    "none": "No events."
+  },
+  "tasks": {
+    "for_today": "{n} for today",
+    "overdue_count": {
+      "one": "{n} overdue",
+      "other": "{n} overdue"
+    },
+    "overdue_tag": "OVERDUE",
+    "more": {
+      "one": "+ {n} task",
+      "other": "+ {n} tasks"
+    }
+  },
+  "footer": {
+    "tomorrow_long": {
+      "one": "Tomorrow: {n} event, at {time}",
+      "other": "Tomorrow: {n} events, first at {time}"
+    },
+    "tomorrow_medium": "Tomorrow: {n} · first at {time}",
+    "tomorrow_short": "Tomorrow: {n} · {time}",
+    "tomorrow_free": "Tomorrow: nothing scheduled",
+    "today_done": {
+      "one": "Today: {n} event done",
+      "other": "Today: {n} events done"
+    },
+    "today_empty": "Today: no events",
+    "unreachable": "Unreachable: {sources}"
+  },
+  "cli": {
+    "description": "E-ink calendar display for your door.",
+    "config_missing": "Could not find '{path}'. Copy config.example.toml to config.toml and paste your links.",
+    "preview": "Preview: {path}",
+    "serving": "Serving at http://<this-computer-ip>:{port}/kindle.png  (Ctrl+C to stop)",
+    "rendered": "[{time}] screen rendered ({events} events, {tasks} tasks)",
+    "rendered_errors": " — unreachable: {sources}",
+    "error": "Error: {error}",
+    "config_invalid": "Invalid config: {message}",
+    "kept_last_config": "Invalid config, still using the last valid one: {message}",
+    "port_in_use": "Port {port} is already in use. Change [server] port in config.toml or stop the other program.",
+    "help": {
+      "config": "path to config.toml (default: ./config.toml)",
+      "output": "folder where images are written (default: ./output)",
+      "lang": "language for the screen and messages (overrides the config)",
+      "serve": "render and serve the screen continuously",
+      "render": "render the screen once",
+      "check": "test the calendar links",
+      "demo": "render previews with fictional data",
+      "hours": "one or more times, e.g. 10:20 15:20"
+    }
+  },
+  "check": {
+    "not_configured": "link not pasted into config.toml yet",
+    "unreachable": "could not reach the address ({error})",
+    "denied": "access denied (HTTP {status}). Usually your company blocks published calendars, or the link was unpublished.",
+    "not_found": "link not found (HTTP 404). Publish the calendar again and copy the ICS link.",
+    "http_error": "the server answered with HTTP {status}",
+    "html_page": "the link opened a web page, not a calendar. Use the link ending in .ics (not the HTML one).",
+    "not_ics": "the content is not an ICS calendar",
+    "invalid": "the calendar is malformed",
+    "ok": "calendar reachable ({kb} KB)",
+    "no_events": "no events in the next 14 days. If the calendar is not empty,\n     make sure you published the right one.",
+    "events_found": "{n} events in the next 14 days",
+    "busy_only": "the link only shows 'Busy', without meeting titles.\n     Publish it again with 'Can view all details'.\n     If that option is missing, your organization limits publishing: the door status\n     still works, but the list will only say 'Busy'.",
+    "timezone": "many events in the middle of the night: the time zone may be wrong.\n     Check that the times above match your calendar app.",
+    "tasks_found": "{n} tasks due today or overdue",
+    "overdue_prefix": "[overdue] ",
+    "all_good": "All good! Run: inkdoor serve",
+    "fix_errors": "Fix the items marked with ✖ and run the check again.",
+    "read_failed": "could not read the events ({error})"
+  },
+  "date_short": "{month:02d}/{day:02d}",
+  "config_error": {
+    "syntax": "config.toml has a syntax error: {error}",
+    "timezone": "unknown timezone '{value}'. Use a name like America/New_York.",
+    "hour": "{key} must be a whole hour from 0 to 24 (got {value}).",
+    "workdays": "workdays must be a list of numbers from 0 (Monday) to 6 (Sunday).",
+    "clock": "clock must be \"12h\" or \"24h\" (got {value}).",
+    "refresh": "refresh_minutes must be from 1 to 1440 (got {value}).",
+    "port": "port must be from 1 to 65535 (got {value}).",
+    "calendar_name": "calendar #{index} needs a name.",
+    "calendar_duplicate": "two calendars are named '{name}'; names must be unique.",
+    "style": "calendar '{name}': style must be solid, striped or outline (got {value}).",
+    "encoding": "config.toml is not UTF-8. Save it again as UTF-8 (in Notepad: File → Save as → Encoding: UTF-8).",
+    "section": "[{section}] has the wrong shape. Compare it with config.example.toml."
+  }
+}
