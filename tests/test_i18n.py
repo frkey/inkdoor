@@ -59,3 +59,11 @@ def test_config_errors_share_one_style(language):
     for key, message in Translator(language).get("config_error").items():
         assert not message[0].isupper(), key
         assert message.endswith((".", "}")), key
+
+
+def test_ticktick_steps_use_the_menu_names_of_its_portuguese_app():
+    # TickTick is translated, so the pt-BR steps name its menus as a Portuguese user sees them
+    text = json.dumps(load("pt-BR"), ensure_ascii=False)
+    for english in ("Subscribe to TickTick", "Integrations & Import", "Enable the URL"):
+        assert english not in text
+    assert "Assinar o TickTick" in text and "Integrações e Importação" in text
