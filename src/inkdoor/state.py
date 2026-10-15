@@ -38,6 +38,9 @@ class ServerState:
     render_event: threading.Event = field(default_factory=threading.Event, repr=False)
     write_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     last_render: RenderInfo | None = None
+    # True while no config (neither the file nor its .bak) has ever loaded and ``cfg`` holds
+    # only the defaults: the door then shows the setup or error screen instead of a status.
+    using_defaults: bool = False
     _manual_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _last_manual: float | None = field(default=None, init=False, repr=False)
 

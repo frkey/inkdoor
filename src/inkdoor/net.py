@@ -292,6 +292,14 @@ def lan_address() -> str | None:
     return None
 
 
+def admin_url(cfg: dict) -> str | None:
+    """Address of the admin for other devices on the LAN, or None when there is no LAN address."""
+    address = lan_address()
+    if address is None:
+        return None
+    return f"http://{address}:{cfg['server']['port']}"
+
+
 def _is_private_ipv4(address) -> bool:
     try:
         ip = ipaddress.ip_address(address)

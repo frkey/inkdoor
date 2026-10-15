@@ -1,71 +1,266 @@
+"""The render loop, one render cycle and the startup fallback of `inkdoor serve`."""
+import os
 import threading
-import urllib.error
-import urllib.request
-from http.server import ThreadingHTTPServer
 
 import pytest
+from PIL import Image
 
-from inkdoor.server import make_handler
+from inkdoor import net, server
+from inkdoor.config import with_defaults
+from inkdoor.i18n import Translator
+from inkdoor.render import render, render_error, render_setup
+from inkdoor.sources import SourceCache, collect
+from inkdoor.state import IMAGE_NAME, ServerState
+
+from conftest import at
+
+EN = Translator("en-US")
+CANARY = "c4n4ry7Zq9"
+
+
+def make_state(tmp_path, cfg, problem=None, admin_enabled=False, **kwargs):
+    out = tmp_path / "out"
+    return ServerState(str(tmp_path / "config.toml"), str(out), None, cfg, problem, admin_enabled,
+                       **kwargs)
 
 
 @pytest.fixture
-def server(tmp_path):
-    image = tmp_path / "kindle.png"
-    image.write_bytes(b"\x89PNG fake")
-    (tmp_path / "config.toml").write_text("secret")
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(str(image)))
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{httpd.server_address[1]}"
-    httpd.shutdown()
+def state(tmp_path, cfg):
+    return make_state(tmp_path, cfg)
 
 
-def get(url):
-    try:
-        with urllib.request.urlopen(url) as r:
-            return r.status, r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, b""
+@pytest.fixture(autouse=True)
+def no_lang_env(monkeypatch):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
 
 
-def test_serves_only_the_image(server, monkeypatch):
-    monkeypatch.setenv("NO_PROXY", "*")
-    monkeypatch.setenv("no_proxy", "*")
-    assert get(server + "/kindle.png") == (200, b"\x89PNG fake")
-    assert get(server + "/kindle.png?t=1")[0] == 200
-    for path in ("/", "/config.toml", "/../config.toml", "/kindle.png/"):
-        assert get(server + path)[0] == 404
+def pixels(path_or_image) -> bytes:
+    image = path_or_image if isinstance(path_or_image, Image.Image) else Image.open(path_or_image)
+    return image.convert("L").tobytes()
 
 
-def test_cycle_keeps_last_valid_config_and_never_leaves_a_stale_screen(tmp_path, monkeypatch, cfg):
-    from inkdoor import server
+def image_path(state) -> str:
+    return os.path.join(state.output_dir, IMAGE_NAME)
 
+
+# ------------------------------------------------------------ render loop
+
+def test_event_during_render_triggers_another_cycle(state, monkeypatch):
+    calls = []
+    stop = threading.Event()
+
+    def fake_cycle(st, cache):
+        calls.append(1)
+        if len(calls) == 1:
+            st.render_event.set()          # a save lands mid-render
+        if len(calls) == 2:
+            stop.set()
+            st.render_event.set()          # wakes the wait so the loop sees `stop`
+
+    monkeypatch.setattr(server, "run_cycle", fake_cycle)
+    state.cfg["server"]["refresh_minutes"] = 60
+    t = threading.Thread(target=server.render_loop, args=(state, SourceCache(), stop), daemon=True)
+    t.start()
+    t.join(2)
+    assert len(calls) == 2
+    assert not t.is_alive()
+
+
+def test_render_loop_survives_a_failing_cycle(state, monkeypatch, capsys):
+    calls = []
+    stop = threading.Event()
+
+    def fake_cycle(st, cache):
+        calls.append(1)
+        st.render_event.set()
+        if len(calls) == 1:
+            raise OSError(f"disk full at /secret/{CANARY}")
+        stop.set()
+
+    monkeypatch.setattr(server, "run_cycle", fake_cycle)
+    t = threading.Thread(target=server.render_loop, args=(state, SourceCache(), stop), daemon=True)
+    t.start()
+    t.join(2)
+    assert len(calls) == 2 and not t.is_alive()
+    out = capsys.readouterr()
+    assert "OSError" in out.out + out.err
+    assert CANARY not in out.out + out.err
+
+
+# ------------------------------------------------------------ startup fallback
+
+def test_startup_with_broken_missing_and_unreadable_config(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text("[server]\nrefresh_minutes = 0\n")       # broken on purpose
-    out = tmp_path / "out"
-    kept = server.run_cycle(str(path), str(out), None, cfg, server.SourceCache())
-    assert kept is cfg and (out / "kindle.png").exists()
+
+    cfg, problem = server.load_for_serve(str(path), None)               # missing
+    assert problem == "missing" and cfg == with_defaults({})
+    assert cfg["server"]["port"] == 8000 and cfg["admin"]["enabled"] is False
+
+    path.write_text("[server\n")                                         # broken, no backup
+    cfg, problem = server.load_for_serve(str(path), None)
+    assert problem == "broken" and cfg == with_defaults({})
+
+    (tmp_path / "config.toml.bak").write_text("[server]\nport = 8123\n")  # broken, good backup
+    cfg, problem = server.load_for_serve(str(path), None)
+    assert problem == "broken" and cfg["server"]["port"] == 8123
+
+    (tmp_path / "config.toml.bak").write_text("[server]\nport = 70000\n")  # backup invalid too
+    cfg, problem = server.load_for_serve(str(path), None)
+    assert problem == "broken" and cfg["server"]["port"] == 8000
+
+    path.write_text("[server]\nport = 8124\n")                          # fixed
+    cfg, problem = server.load_for_serve(str(path), None)
+    assert problem is None and cfg["server"]["port"] == 8124
+
+    path.unlink()
+    path.mkdir()                                                         # unreadable: a folder
+    cfg, problem = server.load_for_serve(str(path), None)
+    assert problem == "broken" and cfg["server"]["port"] == 8000
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anything")
+def test_startup_with_a_config_without_permission(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text("[server]\nport = 8125\n")
+    path.chmod(0)
+    try:
+        cfg, problem = server.load_for_serve(str(path), None)
+    finally:
+        path.chmod(0o600)
+    assert problem == "broken" and cfg["server"]["port"] == 8000
+
+
+def test_startup_defaults_honor_the_language_override(tmp_path, monkeypatch):
+    cfg, _ = server.load_for_serve(str(tmp_path / "config.toml"), "pt-BR")
+    assert cfg["display"]["language"] == "pt-BR"
+    monkeypatch.setenv("INKDOOR_LANG", "pt-BR")
+    cfg, _ = server.load_for_serve(str(tmp_path / "config.toml"), None)
+    assert cfg["display"]["language"] == "pt-BR"
+
+
+def test_defaults_with_a_missing_file_show_the_setup_screen(tmp_path):
+    cfg, problem = server.load_for_serve(str(tmp_path / "config.toml"), None)
+    st = make_state(tmp_path, cfg, problem, using_defaults=True)
+    server.run_cycle(st, SourceCache())
+    assert pixels(image_path(st)) == pixels(render_setup(cfg, None))
+    assert st.config_problem == "missing"
+    assert st.last_render.word == EN("status.setup")
+
+
+def test_defaults_with_a_broken_file_show_the_error_screen(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(f'[[calendar]]\nname = "Work"\nurl = "https://calendar.example/{CANARY}\n')
+    cfg, problem = server.load_for_serve(str(path), None)
+    st = make_state(tmp_path, cfg, problem, using_defaults=True)
+    server.run_cycle(st, SourceCache())
+    assert pixels(image_path(st)) == pixels(render_error(cfg, "ConfigInvalid"))
+    assert st.config_problem == "broken"
+    assert st.last_render.word == EN("status.unknown")
+
+
+def test_a_backup_config_keeps_the_door_working(tmp_path, cfg):
+    path = tmp_path / "config.toml"
+    path.write_text("[server\n")
+    st = make_state(tmp_path, cfg, "broken")         # cfg came from config.toml.bak
+    server.run_cycle(st, SourceCache())
+    assert st.cfg is cfg and st.config_problem == "broken"
+    assert st.last_render.word not in (EN("status.setup"), EN("status.unknown"))
+
+
+# ------------------------------------------------------------ one cycle
+
+def test_nothing_configured_renders_setup_not_free(tmp_path, monkeypatch):
+    path = tmp_path / "config.toml"
+    path.write_text('[[calendar]]\nname = "Work"\nurl = "PASTE_YOUR_LINK_HERE"\n')
+    cfg = with_defaults({})
+    st = make_state(tmp_path, cfg)
+    server.run_cycle(st, SourceCache())
+    setup = pixels(render_setup(st.cfg, None))
+    assert pixels(image_path(st)) == setup
+    snap = collect(st.cfg, now=at("10:00"))
+    assert setup != pixels(render(snap, st.cfg))                       # what "Free" would look like
+    assert st.last_render.word == EN("status.setup") and st.last_render.errors == []
+    assert st.config_problem is None
+
+    monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
+    st.admin_enabled = True
+    server.run_cycle(st, SourceCache())
+    assert pixels(image_path(st)) == pixels(render_setup(st.cfg, "http://192.168.1.20:8000"))
+
+
+def test_cycle_logs_exception_type_only(state, monkeypatch, capsys):
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"render exploded on https://calendar.example/{CANARY}")
+
+    monkeypatch.setattr(server, "render", boom)
+    server.run_cycle(state, SourceCache())
+    out = capsys.readouterr()
+    assert "RuntimeError" in out.out + out.err
+    assert CANARY not in out.out + out.err
+    assert pixels(image_path(state)) == pixels(render_error(state.cfg, "RuntimeError"))
+    assert state.last_render.word == EN("status.unknown")
+
+
+def test_cycle_logs_config_errors_without_their_content(state, capsys):
+    path = state.config_path
+    with open(path, "w") as f:   # unterminated string on the line with the link
+        f.write(f'[[calendar]]\nname = "Work"\nurl = "https://calendar.example/{CANARY}\n')
+    server.run_cycle(state, SourceCache())
+    out = capsys.readouterr()
+    assert "syntax" in out.out
+    assert CANARY not in out.out + out.err
+
+
+def test_render_info_lists_failing_sources_without_links(tmp_path, cfg, capsys):
+    cfg["calendar"].append({"name": "Gone", "busy": False,
+                            "url": f"https://calendar.example/{CANARY}.ics"})
+    st = make_state(tmp_path, cfg)
+    server.run_cycle(st, SourceCache())
+    assert any(e.startswith("Gone: ") for e in st.last_render.errors)
+    assert CANARY not in repr(st.last_render)
+    out = capsys.readouterr()
+    assert CANARY not in out.out + out.err
+
+
+def test_cycle_keeps_last_valid_config_and_never_leaves_a_stale_screen(state, monkeypatch, cfg):
+    with open(state.config_path, "w") as f:
+        f.write("[server]\nrefresh_minutes = 0\n")       # broken on purpose
+    server.run_cycle(state, SourceCache())
+    assert state.cfg is cfg and os.path.exists(image_path(state))
+    assert state.config_problem == "broken"
+    assert state.last_render is not None
 
     def boom(*args, **kwargs):
         raise RuntimeError("render exploded")
 
     monkeypatch.setattr(server, "render", boom)
-    before = (out / "kindle.png").read_bytes()
-    server.run_cycle(str(path), str(out), None, cfg, server.SourceCache())
-    assert (out / "kindle.png").read_bytes() != before   # replaced by the error screen
+    before = open(image_path(state), "rb").read()
+    server.run_cycle(state, SourceCache())
+    assert open(image_path(state), "rb").read() != before   # replaced by the error screen
 
 
-def test_cycle_survives_a_non_utf8_config(tmp_path, cfg):
-    from inkdoor import server
+def test_cycle_survives_a_non_utf8_config(state, cfg):
+    with open(state.config_path, "wb") as f:
+        f.write('[display]\nlanguage = "pt-BR"  # é\n'.encode("latin-1"))
+    server.run_cycle(state, SourceCache())
+    assert state.cfg is cfg and state.config_problem == "broken"
 
-    path = tmp_path / "config.toml"
-    path.write_bytes('[display]\nlanguage = "pt-BR"  # é\n'.encode("latin-1"))
-    assert server.run_cycle(str(path), str(tmp_path / "out"), None, cfg, server.SourceCache()) is cfg
+
+def test_cycle_picks_up_a_fixed_config(tmp_path):
+    cfg, problem = server.load_for_serve(str(tmp_path / "config.toml"), None)
+    st = make_state(tmp_path, cfg, problem, using_defaults=True)
+    (tmp_path / "config.toml").write_text("[server]\nrefresh_minutes = 7\n")
+    server.run_cycle(st, SourceCache())
+    assert st.cfg["server"]["refresh_minutes"] == 7
+    assert st.config_problem is None and st.using_defaults is False
 
 
-def test_head_request_has_no_body(server):
-    import http.client
-    host, port = server.removeprefix("http://").split(":")
-    conn = http.client.HTTPConnection(host, int(port))
-    conn.request("HEAD", "/kindle.png")
-    response = conn.getresponse()
-    assert response.status == 200 and response.read() == b""
+def test_a_config_deleted_later_is_broken_not_missing(state, cfg):
+    server.run_cycle(state, SourceCache())                   # no file, but a valid cfg in hand
+    assert state.cfg is cfg and state.config_problem == "broken"
+
+
+def test_render_once_shows_setup_when_nothing_is_configured(tmp_path):
+    cfg = with_defaults({})
+    path = server.render_once(cfg, str(tmp_path / "out"))
+    assert pixels(path) == pixels(render_setup(cfg, None))

@@ -64,3 +64,51 @@ def test_cli_password_honors_inkdoor_lang_without_a_config(tmp_path, monkeypatch
     (tmp_path / "config.toml").write_text("[server]\nrefresh_minutes = 0\n")   # invalid config
     assert main(["password", "--config", str(tmp_path / "config.toml")]) == 0
     assert "Nova senha" in capsys.readouterr().out
+
+
+def test_cli_url_prints_the_admin_address(tmp_path, monkeypatch, capsys):
+    from inkdoor import net
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
+    config_path = tmp_path / "config.toml"
+    assert main(["url", "--config", str(config_path)]) == 0           # missing: default port
+    assert capsys.readouterr().out == "http://192.168.1.20:8000\n"
+    config_path.write_text("[server]\nport = 8123\n")
+    assert main(["url", "--config", str(config_path)]) == 0
+    assert capsys.readouterr().out == "http://192.168.1.20:8123\n"
+    config_path.write_text("[server\n")                                 # broken: default port
+    assert main(["url", "--config", str(config_path)]) == 0
+    assert capsys.readouterr().out == "http://192.168.1.20:8000\n"
+
+
+def test_cli_url_fails_without_a_lan_address(tmp_path, monkeypatch, capsys):
+    from inkdoor import net
+    from inkdoor.i18n import Translator
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    monkeypatch.setattr(net, "lan_address", lambda: None)
+    assert main(["url", "--config", str(tmp_path / "config.toml")]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err.strip() == Translator("en-US")("cli.no_address")
+    assert main(["url", "--config", str(tmp_path / "config.toml"), "--lang", "pt-BR"]) == 1
+    assert capsys.readouterr().err.strip() == Translator("pt-BR")("cli.no_address")
+
+
+def test_serve_starts_with_a_broken_config(tmp_path, monkeypatch, capsys):
+    from inkdoor import server
+    calls = []
+    monkeypatch.setattr(server, "serve", lambda *args: calls.append(args))
+    (tmp_path / "config.toml").write_text("[server\n")
+    assert main(["serve", "--config", str(tmp_path / "config.toml")]) == 0
+    assert calls
+
+
+def test_serve_port_in_use_exits_with_1(tmp_path, monkeypatch, capsys):
+    from inkdoor import server
+
+    def busy(*args):
+        raise server.PortInUse(8123)
+
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    monkeypatch.setattr(server, "serve", busy)
+    assert main(["serve", "--config", str(tmp_path / "config.toml")]) == 1
+    assert "8123" in capsys.readouterr().err

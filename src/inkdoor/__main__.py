@@ -5,6 +5,7 @@
     inkdoor check            test every calendar link
     inkdoor demo [HH:MM...]  render previews with fictional data
     inkdoor password         create a new admin password next to config.toml and print it
+    inkdoor url              print the admin address for other devices on the network
 """
 from __future__ import annotations
 
@@ -42,6 +43,7 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     demo = commands.add_parser("demo", parents=[common], help=t("cli.help.demo"))
     demo.add_argument("hours", nargs="*", default=["16:50"], help=t("cli.help.hours"))
     commands.add_parser("password", parents=[common], help=t("cli.help.password"))
+    commands.add_parser("url", parents=[common], help=t("cli.help.url"))
     return parser
 
 
@@ -108,7 +110,20 @@ def main(argv: list[str] | None = None) -> int:
             render_once(config.load(config_path, language), output)
             return 0
 
+        if args.command == "url":
+            from . import net
+            from .render import translator_for
+            from .server import load_for_serve
+            cfg, _ = load_for_serve(config_path, language)  # a broken file still has a port
+            url = net.admin_url(cfg)
+            if url is None:
+                print(translator_for(cfg)("cli.no_address"), file=sys.stderr)
+                return 1
+            print(url)
+            return 0
+
         if args.command == "serve":
+            # a missing or broken config does not stop serve: it falls back on its own
             from .server import PortInUse, serve
             try:
                 serve(config_path, output, language)

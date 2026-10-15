@@ -501,3 +501,12 @@ def test_lan_address_survives_resolver_errors(monkeypatch):
         raise socket.gaierror(8, "nodename nor servname provided")
     monkeypatch.setattr(net.socket, "getaddrinfo", no_such_host)
     assert lan_address() is None
+
+
+def test_admin_url_uses_the_lan_address_and_the_port(monkeypatch):
+    from inkdoor.config import with_defaults
+    monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
+    assert net.admin_url(with_defaults({})) == "http://192.168.1.20:8000"
+    assert net.admin_url(with_defaults({"server": {"port": 8123}})) == "http://192.168.1.20:8123"
+    monkeypatch.setattr(net, "lan_address", lambda: None)
+    assert net.admin_url(with_defaults({})) is None
