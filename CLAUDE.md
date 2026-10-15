@@ -164,9 +164,10 @@ available alongside these.
   The maintainer then runs `/code-review` on the PR and posts the findings; the contributor
   handles them and pushes, and the maintainer reviews the new commits, until a round is clean.
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
-  issue it closes ("Fixes #12", or "Refs #12" when it only does part of it), and a test plan whose checked `/code-review` line gives the
-  totals over every loop on the PR: the number of rounds, that the last round was clean, and the
-  findings (each counted once) fixed, not applicable and deferred.
+  issue it closes or references ("Fixes #12", or "Refs #12" when it only does part of it), and a
+  test plan whose checked `/code-review` line gives the totals over every loop on the PR: the
+  number of rounds, that the last round was clean, and the findings (each counted once) fixed, not
+  applicable and deferred.
 
 ## Privacy
 
