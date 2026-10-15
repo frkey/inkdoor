@@ -5,9 +5,11 @@ Every calendar or task link is fetched through `fetch`, which:
 - caps the body (5 MB by default) and follows at most 3 redirects, by hand, so every hop can
   be checked;
 - enforces a total deadline (30 s by default): each request gets timeouts clamped to the time
-  left, and a watchdog shuts down the connection when time runs out, so a server that trickles
-  headers or body one byte at a time cannot hold a fetch past the deadline (DNS lookups cannot
-  be interrupted and are bounded by the system resolver's own timeout instead);
+  left, and a watchdog shuts down the connection (http or https) when time runs out, so a
+  server that trickles the TLS handshake, the headers or the body one byte at a time cannot hold
+  a fetch past the deadline. Two steps cannot be cut: DNS lookups (bounded by the system
+  resolver's own timeout) and the TCP connect (bounded by the clamped connect timeout, once per
+  resolved address);
 - refuses hosts that resolve to loopback, link-local (including the cloud metadata address
   169.254.169.254) or unspecified addresses, on every hop. Private LAN addresses (RFC 1918,
   IPv6 ULA) stay allowed on purpose: a calendar on a LAN Nextcloud or Radicale is a real use,
@@ -103,7 +105,6 @@ def _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
         remaining = _remaining(started, deadline)
         response = session.get(url, stream=True, allow_redirects=False,
                                timeout=(min(5, remaining), min(10, remaining)), headers=_HEADERS)
-        watchdog.watch_response(response)
         with response:
             if response.is_redirect:
                 url = urljoin(url, response.headers["Location"])
@@ -162,15 +163,21 @@ class _Watchdog:
     """Enforces the total deadline while a request or read is blocked.
 
     Socket timeouts apply to each read, so a server sending one byte every few seconds never
-    trips them. When time runs out, this shuts down every socket the fetch opened and closes the
-    current response; the blocked read returns and the fetch fails with "timeout".
+    trips them. Every socket the fetch opens is duplicated (`dup()`: a second descriptor for the
+    same connection) and kept here. When time runs out, the watchdog shuts the duplicates down,
+    which ends the connection for every descriptor, so the read blocked in the fetch thread
+    returns and the fetch fails with "timeout".
+
+    The duplicate keeps working after TLS wraps (and detaches) the original socket, and since
+    the watchdog owns it, its number cannot be reused by an unrelated socket. The watchdog never
+    closes anything the fetch thread uses; it only closes its own duplicates on exit.
     """
 
     def __init__(self, seconds: float):
         self.expired = False
+        self._done = False
         self._lock = threading.Lock()
-        self._sockets: list = []
-        self._response = None
+        self._dups: list = []
         self._timer = threading.Timer(seconds, self._expire)
         self._timer.daemon = True
 
@@ -180,47 +187,43 @@ class _Watchdog:
 
     def __exit__(self, *exc_info):
         self._timer.cancel()
+        with self._lock:                    # waits for an _expire that is already running
+            self._done = True
+            for dup in self._dups:
+                dup.close()
 
     def watch_socket(self, sock) -> None:
+        dup = sock.dup()
         with self._lock:
-            self._sockets.append(sock)
-            expired = self.expired
-        if expired:
-            _shutdown(sock)
-
-    def watch_response(self, response) -> None:
-        with self._lock:
-            self._response = response
-            expired = self.expired
-        if expired:
-            _close(response)
+            if self._done:
+                dup.close()
+                return
+            self._dups.append(dup)
+            if self.expired:
+                _shutdown(dup)
 
     def _expire(self) -> None:
         with self._lock:
+            if self._done:
+                return
             self.expired = True
-            sockets, response = list(self._sockets), self._response
-        for sock in sockets:
-            _shutdown(sock)
-        if response is not None:
-            _close(response)
+            for dup in self._dups:
+                _shutdown(dup)
 
 
 def _shutdown(sock) -> None:
     try:
         sock.shutdown(socket.SHUT_RDWR)     # wakes a read blocked in another thread
     except OSError:
-        pass
-
-
-def _close(response) -> None:
-    try:
-        response.close()
-    except Exception:
-        pass
+        pass                                # already disconnected
 
 
 class _WatchedAdapter(HTTPAdapter):
-    """Hands every socket urllib3 opens (directly or through a proxy) to the watchdog."""
+    """Hands every socket urllib3 opens (directly or through a proxy) to the watchdog.
+
+    The socket is registered as soon as it is connected, before any TLS handshake, so the
+    handshake, the headers and the body are all covered.
+    """
 
     def __init__(self, watchdog: _Watchdog):
         self._watchdog = watchdog

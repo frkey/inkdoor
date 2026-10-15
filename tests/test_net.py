@@ -1,5 +1,8 @@
 import io
+import shutil
 import socket
+import ssl
+import subprocess
 import threading
 import time
 
@@ -208,37 +211,40 @@ def test_no_request_once_the_budget_is_spent(monkeypatch):
     assert len(calls) == 1
 
 
-class BlockingBody(io.RawIOBase):
-    """A body that never sends anything until the response is closed (like a stalled server)."""
-
-    def __init__(self):
-        self.released = threading.Event()
+class LateBody(io.RawIOBase):
+    """A body that ends (empty read) only after the deadline, like a connection that was cut."""
 
     def read(self, *args):
-        self.released.wait(5)
+        time.sleep(0.4)
         return b""
 
-    def close(self):
-        self.released.set()
 
-
-def test_watchdog_stops_a_stalled_body(monkeypatch):
+def test_a_body_that_ends_after_the_deadline_is_a_timeout(monkeypatch):
     resolve_to(monkeypatch, "203.0.113.10")
-    body = BlockingBody()
-    respond_sequence(monkeypatch, make_response(200, raw=body))
-    started = time.monotonic()
+    respond_sequence(monkeypatch, make_response(200, raw=LateBody()))
     with pytest.raises(FetchError) as e:
         fetch("https://cal.example/x.ics", deadline=0.2)
     assert e.value.reason == "timeout"                  # an empty read after the deadline is not success
-    assert time.monotonic() - started < 1.5
-    assert body.released.is_set()
+
+
+def test_watchdog_shuts_down_without_closing():
+    ours, peer = socket.socketpair()
+    with ours, peer:
+        with net._Watchdog(0.05) as watchdog:
+            watchdog.watch_socket(ours)
+            time.sleep(0.3)
+            assert watchdog.expired
+            assert ours.fileno() != -1                  # the fetch thread still owns and closes it
+            peer.settimeout(1)
+            assert peer.recv(1) == b""                  # but the connection was shut down
+        assert all(dup.fileno() == -1 for dup in watchdog._dups)   # its own duplicates are closed
 
 
 class TricklingServer:
-    """Local HTTP server that sends one byte every 50 ms, forever, to every client."""
+    """Local HTTP(S) server that sends one byte every 50 ms, forever, to its one client."""
 
-    def __init__(self, prefix):
-        self.prefix = prefix
+    def __init__(self, prefix, tls=None):
+        self.prefix, self.tls = prefix, tls
         self.stop = threading.Event()
         self.listener = socket.socket()
         self.listener.bind(("127.0.0.1", 0))
@@ -248,15 +254,17 @@ class TricklingServer:
         self.thread.start()
 
     def _serve(self):
-        conn, _ = self.listener.accept()
-        with conn:
-            try:
+        try:
+            conn, _ = self.listener.accept()
+            if self.tls:
+                conn = self.tls.wrap_socket(conn, server_side=True)
+            with conn:
                 conn.recv(65536)
                 conn.sendall(self.prefix)
                 while not self.stop.wait(0.05):
                     conn.sendall(b"x")
-            except OSError:
-                pass
+        except (OSError, ssl.SSLError):
+            pass
 
     def close(self):
         self.stop.set()
@@ -264,22 +272,82 @@ class TricklingServer:
         self.thread.join(2)
 
 
-@pytest.mark.parametrize("prefix", [
-    b"HTTP/1.1 200 OK\r\nContent-Type: text/calendar\r\n\r\n",     # slow body
-    b"HTTP/1.1 200 OK\r\nX-Slow: ",                                    # slow headers
-])
-def test_watchdog_stops_a_trickling_server(monkeypatch, prefix):
+SLOW_BODY = b"HTTP/1.1 200 OK\r\nContent-Type: text/calendar\r\n\r\n"
+SLOW_HEADERS = b"HTTP/1.1 200 OK\r\nX-Slow: "
+
+
+def trickle(monkeypatch, url_scheme, prefix, deadline, tls=None):
     monkeypatch.setattr(net, "_refuse_blocked", lambda host, port: None)   # allow 127.0.0.1 here
-    server = TricklingServer(prefix)
+    server = TricklingServer(prefix, tls)
     try:
         started = time.monotonic()
         with pytest.raises(FetchError) as e:
-            fetch(f"http://127.0.0.1:{server.port}/x.ics", deadline=0.3)
+            fetch(f"{url_scheme}://127.0.0.1:{server.port}/x.ics", deadline=deadline)
         elapsed = time.monotonic() - started
     finally:
         server.close()
-    assert e.value.reason == "timeout"
+    return e.value, elapsed
+
+
+@pytest.mark.parametrize("prefix", [SLOW_BODY, SLOW_HEADERS], ids=["slow body", "slow headers"])
+def test_watchdog_stops_a_trickling_server(monkeypatch, prefix):
+    error, elapsed = trickle(monkeypatch, "http", prefix, deadline=0.3)
+    assert error.reason == "timeout"
     assert elapsed < 2
+
+
+@pytest.fixture(scope="module")
+def tls_cert(tmp_path_factory):
+    """Throwaway self-signed certificate for 127.0.0.1, made with the openssl CLI."""
+    openssl = shutil.which("openssl")
+    if not openssl:
+        pytest.skip("openssl CLI not available")
+    folder = tmp_path_factory.mktemp("tls")
+    cert, key = folder / "cert.pem", folder / "key.pem"
+    result = subprocess.run(
+        [openssl, "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+         "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1",
+         "-keyout", str(key), "-out", str(cert)],
+        capture_output=True)
+    if result.returncode != 0:
+        pytest.skip("openssl could not create a test certificate")
+    return cert, key
+
+
+@pytest.mark.parametrize("prefix", [SLOW_BODY, SLOW_HEADERS], ids=["slow body", "slow headers"])
+def test_watchdog_stops_a_trickling_https_server(monkeypatch, tls_cert, prefix):
+    cert, key = tls_cert
+    tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls.load_cert_chain(cert, key)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(cert))
+    error, elapsed = trickle(monkeypatch, "https", prefix, deadline=0.5, tls=tls)
+    assert error.reason == "timeout"
+    assert elapsed < 1.5
+
+
+def test_https_test_server_is_trusted(monkeypatch, tls_cert):
+    """Guards the test above: with a normal response, the TLS setup must succeed."""
+    cert, key = tls_cert
+    tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls.load_cert_chain(cert, key)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(cert))
+    monkeypatch.setattr(net, "_refuse_blocked", lambda host, port: None)
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+
+    def serve():
+        conn, _ = listener.accept()
+        with tls.wrap_socket(conn, server_side=True) as conn:
+            conn.recv(65536)
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\n\r\nBEGIN:VCALENDAR")
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    try:
+        assert fetch(f"https://127.0.0.1:{listener.getsockname()[1]}/x.ics") == b"BEGIN:VCALENDAR"
+    finally:
+        listener.close()
+        thread.join(2)
 
 
 def test_requests_timeout(monkeypatch):
