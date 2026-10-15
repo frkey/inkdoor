@@ -37,10 +37,15 @@ são convertidos automaticamente.
 
 ## TickTick
 
-Recurso do plano Premium.
+No TickTick para desktop ou na web:
 
-1. Configurações → **Calendário** → **Assinatura de calendário**.
-2. Copie o link (pode começar com `webcal://`, o inkdoor aceita).
+1. Avatar → **Settings** → **Integrations & Import** (os nomes podem aparecer traduzidos).
+2. Em **Others**, abra **Subscribe to TickTick**.
+3. Clique em **Enable the URL**, escolha a lista e copie o link gerado (pode começar com
+   `webcal://`; o inkdoor aceita).
+
+Quais planos têm essa opção é decisão do TickTick; veja o
+[artigo de ajuda](https://help.ticktick.com/articles/7055781574649839616) deles.
 
 São mostradas as tarefas com data de hoje e as atrasadas (até `overdue_days` dias).
 Tarefas concluídas são ignoradas.

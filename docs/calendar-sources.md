@@ -37,10 +37,15 @@ converted automatically.
 
 ## TickTick
 
-Premium feature.
+On TickTick for desktop or the web:
 
-1. Settings → **Calendar** → **Calendar subscription**.
-2. Copy the link (it may start with `webcal://`; inkdoor accepts it).
+1. Avatar → **Settings** → **Integrations & Import**.
+2. Under **Others**, open **Subscribe to TickTick**.
+3. Click **Enable the URL**, pick the list and copy the link it makes (it may start with
+   `webcal://`; inkdoor accepts it).
+
+Which plans include this option is up to TickTick; see its
+[help article](https://help.ticktick.com/articles/7055781574649839616).
 
 Tasks due today and overdue ones (up to `overdue_days`) are shown. Completed tasks are skipped.
 
