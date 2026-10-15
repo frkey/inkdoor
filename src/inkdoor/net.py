@@ -21,6 +21,12 @@ Every calendar or task link is fetched through `fetch`, which:
 Known limit, accepted: the host is resolved and checked before each request, and `requests`
 resolves it again to connect. A DNS server that answers differently the second time (DNS
 rebinding) can slip past the check.
+
+Proxies, a deliberate choice: the proxy settings of the environment apply (HTTPS_PROXY, NO_PROXY,
+and on macOS the system proxy), so inkdoor works on a network that only reaches the internet
+through one. The address check above still runs on the calendar's host as this machine resolves
+it; what the proxy itself can reach is the proxy's business. Credentials from a .netrc file are
+never sent: a link carries its own secret.
 """
 from __future__ import annotations
 
@@ -41,6 +47,9 @@ DEADLINE = 30.0
 REASONS = ("blocked", "too_large", "timeout", "redirects", "http", "unreachable", "bad_link")
 
 _SCHEME = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*)://")
+# Mistyped links that would otherwise be read as a local file: "https:/x", "mailto:x",
+# "https//x". A single letter before ":" stays a file path (a Windows drive, "C:\cal.ics").
+_MISTYPED = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]+:|(?:https?|webcal)//)", re.IGNORECASE)
 _CHUNK = 65536
 _HEADERS = {"User-Agent": "inkdoor"}
 _RFC1918 = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
@@ -85,6 +94,8 @@ def _fetch(url: str, max_bytes: int, deadline: float, max_redirects: int) -> byt
         raise FetchError("bad_link")
     match = _SCHEME.match(url)
     if not match:
+        if _MISTYPED.match(url):
+            raise FetchError("bad_link")
         return _read_file(url, max_bytes)        # hand-edited configs and test fixtures
     scheme = match.group(1).lower()
     if scheme == "webcal":
@@ -94,6 +105,7 @@ def _fetch(url: str, max_bytes: int, deadline: float, max_redirects: int) -> byt
         adapter = _WatchedAdapter(watchdog)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
+        session.auth = _link_auth                 # an auth of our own: requests skips .netrc
         try:
             return _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
         except FetchError:
@@ -119,6 +131,15 @@ def _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
                 raise FetchError("http", response.status_code)
             return _read_body(response, watchdog, started, deadline, max_bytes)
     raise FetchError("redirects")
+
+
+def _link_auth(request):
+    """Basic auth from the link's own user info (https://user:pass@host/...), as requests does
+    when no auth is set; setting one is what keeps it from reading a .netrc file instead."""
+    user, password = requests.utils.get_auth_from_url(request.url)
+    if user or password:
+        return requests.auth.HTTPBasicAuth(user, password)(request)
+    return request
 
 
 def _parse(url: str) -> tuple[str, int]:

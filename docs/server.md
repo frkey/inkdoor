@@ -226,3 +226,7 @@ do not trust.
   with **Test link**, including other services on the server's own LAN address; only loopback
   (`127.0.0.1`, `localhost`) and link-local addresses are refused. That is how a calendar on a
   LAN server such as Nextcloud works, and it is an accepted risk, so keep the password private.
+- Calendar links are fetched through the proxy set in inkdoor's environment, if any
+  (`HTTPS_PROXY`, `NO_PROXY`; on macOS also the system proxy), so it works on networks that only
+  reach the internet through one. The loopback and link-local check above uses the calendar's
+  address as this machine sees it. Logins from a `.netrc` file are never sent with a link.

@@ -31,7 +31,10 @@ class _WebLink(NamedTuple):
 
 
 def _valid_host(name: str) -> bool:
-    """A DNS name (ASCII letters, digits and hyphens; IDN as punycode) or an IPv4 address."""
+    """A DNS name (ASCII letters, digits and hyphens; IDN as punycode; one trailing dot allowed,
+    as in "calendar.example.") or an IPv4 address."""
+    if name.endswith("."):
+        name = name[:-1]
     if not name or len(name) > 253:
         return False
     labels = name.split(".")
