@@ -44,20 +44,17 @@
         <a class="button" href="/kindle-files.zip" download>{{ t("admin.kindle_download") }}</a>
         <p class="help">{{ t("admin.kindle_download_help") }}</p>
       </div>
-      {% call m.howto(t("admin.howto_kpm_title")) %}
-      <p>{{ t("admin.howto_kpm_intro") | emphasis }}</p>
-      <pre class="commands">;kpm add-repo {{ kpm_repo }}
-;kpm update
-;kpm install inkdoor</pre>
-      <p>{{ t("admin.howto_kpm_after") | emphasis }}</p>
-      <p class="help">{{ t("admin.howto_kpm_upgrade") }}</p>
-      <pre class="commands">;kpm update
-;kpm upgrade</pre>
-      {% endcall %}
       {% call m.howto(t("admin.howto_kindle_title")) %}
       {{ m.steps("admin.howto_kindle") }}
       <p class="help">{{ t("admin.howto_kindle_note") }}
         <a href="{{ docs_url('kindle.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_kindle_more") }}</a></p>
+      {% endcall %}
+      {% call m.howto(t("admin.howto_kpm_title")) %}
+      <p>{{ t("admin.howto_kpm_intro") | emphasis }}</p>
+      <p class="help">{{ t("admin.howto_kpm_upgrade") }}</p>
+      <pre class="commands">;kpm update
+;kpm upgrade</pre>
+      <p class="help">{{ t("admin.howto_kpm_note") }}</p>
       {% endcall %}
       {% endif %}
       {{ m.copy_field("kindle-url", t("admin.kindle_url_label"), kindle_url,

@@ -32,6 +32,9 @@ A porta nunca diz **Livre** sem saber: quando não tem como saber, diz **Bata an
 | *FALHOU: o Wi-Fi nao conectou* | Confira se o Kindle está na rede Wi-Fi certa e fora do modo avião. |
 | *FALHOU: nao consegui baixar a imagem.* | Confira a `URL` em `inkdoor/config.sh`: o endereço, a porta (3667 em instalações novas, 8000 nas antigas) e o `/kindle.png` no fim. Abra o mesmo endereço num navegador na mesma rede. |
 | *sem conexao com o PC* (no canto da tela) | Os últimos 3 downloads falharam. O servidor está desligado, mudou de endereço ou o Wi-Fi caiu. |
+| *O KPM nao esta instalado neste Kindle.* | O **inkdoor - connect KPM** precisa do KPM, que vem com os jailbreaks recentes. Sem ele, atualize copiando o zip de novo. |
+| *A URL em inkdoor/config.sh precisa ser http://.../kindle.png* | O **inkdoor - connect KPM** acha o servidor pela `URL`. Corrija, ou baixe o zip de novo. |
+| *FALHOU: o KPM nao conseguiu instalar o inkdoor.* | As linhas acima mostram o erro do KPM. Confira a `URL` em `inkdoor/config.sh`, se o servidor está ligado e se o admin está ativo: o repositório do KPM só existe enquanto ele está. |
 
 As mensagens do Kindle não têm acento: a fonte de tela do aparelho não tem esses caracteres.
 

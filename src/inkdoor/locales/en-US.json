@@ -422,18 +422,18 @@
     "howto_kindle": [
       "Download the files with the button above and unzip them.",
       "Connect the Kindle with a USB cable and copy the **inkdoor** folder to its root, next to **documents**.",
-      "Copy the two files in **scriptlets** into the Kindle's **documents** folder. Copy the files, not the folder: replacing **documents** would remove your books.",
+      "Copy the files in **scriptlets** into the Kindle's **documents** folder. Copy the files, not the folder: replacing **documents** would remove your books.",
       "Eject the Kindle. In its library, open **inkdoor - test connection**, then **inkdoor - start display**."
     ],
     "howto_kindle_note": "The Kindle needs a jailbreak that runs scriptlets. To go back to the normal Kindle, restart it.",
     "howto_kindle_more": "Kindle guide",
-    "howto_kpm_title": "Install from the Kindle with KPM (no cable)",
-    "howto_kpm_intro": "If your Kindle has **KPM**, tap its search bar and type each line, pressing Enter after each one:",
-    "howto_kpm_after": "Then, in the library, open **inkdoor - test connection** and **inkdoor - start display**.",
-    "howto_kpm_upgrade": "To update the Kindle after updating this server:"
+    "howto_kpm_title": "Updates through KPM (optional)",
+    "howto_kpm_intro": "If your Kindle has **KPM**, open **inkdoor - connect KPM** in its library once, after installing with the .zip. It adds this server to KPM and installs inkdoor through it.",
+    "howto_kpm_upgrade": "From then on, to update the Kindle after updating this server, type in its search bar:",
+    "howto_kpm_note": "The search bar cannot add this server to KPM itself: the Kindle ignores search commands whose words contain a “.” or a “:”, so a web address never gets through."
   },
   "kindle_zip": {
-    "readme": "inkdoor for the Kindle\n======================\n\nThe image address is already set in inkdoor/config.sh:\n  {url}\n\n1. Connect the Kindle to the computer with a USB cable.\n2. Copy the \"inkdoor\" folder to the root of the Kindle, next to its \"documents\" folder.\n3. Copy the two files in \"scriptlets\" into the Kindle's \"documents\" folder.\n   Copy the files, not the folder: replacing \"documents\" would remove your books.\n4. Eject the Kindle. In its library, open \"inkdoor - test connection\",\n   then \"inkdoor - start display\".\n\nTo go back to the normal Kindle, restart it (hold the power button).\nMore help: {docs}\n"
+    "readme": "inkdoor for the Kindle\n======================\n\nThe image address is already set in inkdoor/config.sh:\n  {url}\n\n1. Connect the Kindle to the computer with a USB cable.\n2. Copy the \"inkdoor\" folder to the root of the Kindle, next to its \"documents\" folder.\n3. Copy the files in \"scriptlets\" into the Kindle's \"documents\" folder.\n   Copy the files, not the folder: replacing \"documents\" would remove your books.\n4. Eject the Kindle. In its library, open \"inkdoor - test connection\",\n   then \"inkdoor - start display\".\n5. Optional, if the Kindle has KPM: open \"inkdoor - connect KPM\" once.\n   Later updates are then \";kpm update\" and \";kpm upgrade\" in the search bar.\n\nTo go back to the normal Kindle, restart it (hold the power button).\nMore help: {docs}\n"
   },
   "kpm": {
     "repo_name": "inkdoor (this server)",

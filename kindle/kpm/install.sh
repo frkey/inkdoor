@@ -17,4 +17,5 @@ if [ -f "$DEST/config.sh" ]; then
 else
   cp payload/inkdoor/config.sh "$DEST/config.sh"
 fi
-cp payload/documents/inkdoor-start.sh payload/documents/inkdoor-test.sh "$DOCS/"
+cp payload/documents/inkdoor-start.sh payload/documents/inkdoor-test.sh \
+  payload/documents/inkdoor-kpm.sh "$DOCS/"

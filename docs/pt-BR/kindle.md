@@ -2,7 +2,7 @@
 
 [English](../kindle.md) · **Português (Brasil)**
 
-O inkdoor roda em Kindles com jailbreak. O lado do Kindle é simples: dois scriptlets que
+O inkdoor roda em Kindles com jailbreak. O lado do Kindle é simples: alguns scriptlets que
 desligam a interface do aparelho e mostram a imagem gerada pelo computador.
 
 ## 1. Jailbreak
@@ -16,38 +16,39 @@ Antes de começar, deixe o Kindle em **modo avião** para ele não atualizar o f
 
 ## 2. Instalação
 
-### Pelo Kindle, com o KPM (sem cabo)
-
-Os jailbreaks recentes já vêm com o **KPM**, o gerenciador de pacotes do Kindle, e o seu servidor
-inkdoor funciona como um repositório do KPM. No Kindle, toque na barra de busca e digite cada
-linha, apertando Enter depois de cada uma (a página **Início** do admin mostra as linhas com o
-endereço do seu servidor):
-
-```
-;kpm add-repo http://192.168.1.50:3667/kpm.json
-;kpm update
-;kpm install inkdoor
-```
-
-O pacote já vem apontando para o seu servidor e no idioma do admin. Para atualizar o Kindle
-depois de atualizar o servidor, digite `;kpm update` e depois `;kpm upgrade`: as configurações do
-seu `config.sh` são mantidas. Para remover o inkdoor, digite `;kpm uninstall inkdoor`.
-
-Se o endereço do servidor mudar, instale de novo a partir do novo: `;kpm uninstall inkdoor` e
-`;kpm remove-repo inkdoor`, depois as três linhas acima com o endereço novo (isso volta o
-`config.sh` ao padrão; reservar o endereço do servidor no roteador evita isso).
-
-### Sem o KPM: baixe os arquivos no admin
+### Baixe os arquivos no admin
 
 Na página **Início** do admin, aperte **Baixar os arquivos do Kindle**. O `.zip` já vem com o
 endereço do seu servidor e o seu idioma no `inkdoor/config.sh`. Com o Kindle ligado no USB:
 
 1. Descompacte.
 2. Copie a pasta `inkdoor` para a raiz do Kindle, ao lado da pasta `documents`.
-3. Copie os dois arquivos de `scriptlets` para a pasta `documents` do Kindle. Copie os arquivos,
-   não a pasta: substituir `documents` apagaria os seus livros.
+3. Copie os arquivos de `scriptlets` para a pasta `documents` do Kindle. Copie os arquivos, não a
+   pasta: substituir `documents` apagaria os seus livros.
 
 O `README.txt` dentro do zip tem os mesmos passos.
+
+### Atualizações pelo KPM (opcional)
+
+Os jailbreaks recentes já vêm com o **KPM**, o gerenciador de pacotes do Kindle, e o seu servidor
+inkdoor funciona como um repositório do KPM. Com os arquivos acima no Kindle, abra **inkdoor -
+connect KPM** na biblioteca, uma vez só: ele adiciona o seu servidor ao KPM e instala o inkdoor a
+partir dele, mantendo as configurações do seu `config.sh`. A partir daí, para atualizar o Kindle
+depois de atualizar o servidor, digite na barra de busca do Kindle, apertando Enter depois de cada
+linha:
+
+```
+;kpm update
+;kpm upgrade
+```
+
+Para remover o inkdoor, digite `;kpm uninstall inkdoor`.
+
+Não dá para adicionar o servidor com `;kpm add-repo` pela barra de busca: o Kindle descarta
+qualquer comando de busca com `.` ou `:` no texto, então um endereço nunca chega ao KPM
+([KindleModding/KPM#5](https://github.com/KindleModding/KPM/issues/5)). Por isso o scriptlet
+faz isso. Se o endereço do servidor mudar, coloque o novo na `URL` do `inkdoor/config.sh` (a
+página **Início** do admin mostra) e abra **inkdoor - connect KPM** de novo.
 
 ### À mão
 
@@ -57,7 +58,8 @@ A partir de uma cópia deste repositório, com o Kindle ligado no USB:
 Kindle/
 ├── documents/
 │   ├── inkdoor-start.sh       ← de kindle/documents/
-│   └── inkdoor-test.sh        ← de kindle/documents/
+│   ├── inkdoor-test.sh        ← de kindle/documents/
+│   └── inkdoor-kpm.sh         ← de kindle/documents/ (opcional, para atualizar pelo KPM)
 └── inkdoor/                   ← a pasta kindle/inkdoor/ inteira
     ├── common.sh
     ├── config.sh
@@ -82,6 +84,7 @@ Ejete o Kindle. Na biblioteca aparecem:
 - **inkdoor - test connection**: liga o Wi-Fi, baixa a imagem uma vez e diz se deu certo.
   Não muda nada no Kindle.
 - **inkdoor - start display**: desliga a interface do Kindle e passa a mostrar a agenda.
+- **inkdoor - connect KPM**: só precisa uma vez, para as [atualizações pelo KPM](#atualizações-pelo-kpm-opcional).
 
 **Para voltar ao Kindle normal, reinicie o aparelho** (segure o botão liga/desliga). O painel
 não inicia sozinho depois de reiniciar.

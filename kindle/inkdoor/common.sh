@@ -23,6 +23,11 @@ case "$LANGUAGE" in
     MSG_OK="OK! Imagem baixada. Pode usar 'inkdoor - start display'."
     MSG_DOWNLOAD_FAILED="FALHOU: nao consegui baixar a imagem."
     MSG_HINT="Confira o IP em inkdoor/config.sh e se o 'inkdoor serve' esta rodando no PC."
+    MSG_KPM_MISSING="O KPM nao esta instalado neste Kindle."
+    MSG_KPM_BAD_URL="A URL em inkdoor/config.sh precisa ser http://.../kindle.png"
+    MSG_KPM_OK="OK! Para atualizar depois: ;kpm update e ;kpm upgrade na busca."
+    MSG_KPM_FAILED="FALHOU: o KPM nao conseguiu instalar o inkdoor."
+    MSG_KPM_HINT="Confira a URL em inkdoor/config.sh e se o admin do servidor esta ligado."
     ;;
   *)
     MSG_NO_CONNECTION="cannot reach the computer"
@@ -32,6 +37,11 @@ case "$LANGUAGE" in
     MSG_OK="OK! Image downloaded. You can now use 'inkdoor - start display'."
     MSG_DOWNLOAD_FAILED="FAILED: could not download the image."
     MSG_HINT="Check the IP in inkdoor/config.sh and that 'inkdoor serve' is running on the computer."
+    MSG_KPM_MISSING="KPM is not installed on this Kindle."
+    MSG_KPM_BAD_URL="URL in inkdoor/config.sh must be http://.../kindle.png"
+    MSG_KPM_OK="OK! To update later: ;kpm update, then ;kpm upgrade in the search bar."
+    MSG_KPM_FAILED="FAILED: KPM could not install inkdoor."
+    MSG_KPM_HINT="Check URL in inkdoor/config.sh and that the server's admin is on."
     ;;
 esac
 

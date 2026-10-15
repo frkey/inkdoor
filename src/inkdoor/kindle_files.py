@@ -19,21 +19,22 @@ import zipfile
 from pathlib import Path
 
 SCRIPTS = ("inkdoor/common.sh", "inkdoor/loop.sh", "inkdoor/config.sh",
-           "documents/inkdoor-start.sh", "documents/inkdoor-test.sh")
+           "documents/inkdoor-start.sh", "documents/inkdoor-test.sh", "documents/inkdoor-kpm.sh")
 KPM_HOOKS = ("kpm/install.sh", "kpm/uninstall.sh")
 
 # Version of the Kindle side, as KPM sees it: ";kpm upgrade" only installs a higher version, so
 # bump it whenever a file in SCRIPTS or KPM_HOOKS changes. A test compares SCRIPTS_SHA256 with
 # the files and fails until both are updated.
-KINDLE_VERSION = (1, 0, 0)
-SCRIPTS_SHA256 = "55e96c1da316f68e771eed42edf27f1cbba443d2b14de3972b29ae7c3922c5fc"
+KINDLE_VERSION = (1, 1, 0)
+SCRIPTS_SHA256 = "3f7d951b4959349712a1b7c79aa228cf1c0c28001e806d92f631ff903cadb5b1"
 PACKAGE_ID = "inkdoor"
 _STAMP = (2026, 1, 1, 0, 0, 0)            # fixed timestamps: the same files make the same archive
 _MTIME = int(dt.datetime(*_STAMP, tzinfo=dt.timezone.utc).timestamp())
 # Inside the zip, the scriptlets go in "scriptlets/", not "documents/": dragging a folder named
 # "documents" onto the Kindle in Finder can replace the Kindle's own, books included.
 _ZIP_NAMES = {"documents/inkdoor-start.sh": "scriptlets/inkdoor-start.sh",
-              "documents/inkdoor-test.sh": "scriptlets/inkdoor-test.sh"}
+              "documents/inkdoor-test.sh": "scriptlets/inkdoor-test.sh",
+              "documents/inkdoor-kpm.sh": "scriptlets/inkdoor-kpm.sh"}
 # What may go between the quotes of URL="..." in a shell file: an http address with no quotes,
 # "$", backticks or backslashes
 _SAFE_URL = re.compile(r"http://[A-Za-z0-9.:\[\]/_-]+")

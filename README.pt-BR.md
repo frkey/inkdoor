@@ -149,18 +149,15 @@ mostrar.
 
 ### 3. Coloque no Kindle
 
-Se o seu Kindle tem o **KPM** (os jailbreaks recentes têm), o seu servidor é um repositório do
-KPM: no Kindle, digite na barra de busca `;kpm add-repo http://<servidor>:3667/kpm.json`,
-`;kpm update` e `;kpm install inkdoor` (a página **Início** do admin mostra as linhas com o seu
-endereço). Sem o KPM:
-
 1. Na página **Início** do admin, aperte **Baixar os arquivos do Kindle**: um `.zip` já com o
    endereço do seu servidor e o seu idioma.
-2. Descompacte. Copie a pasta `inkdoor` para a raiz do Kindle e os dois arquivos de
-   `scriptlets` para a pasta `documents` dele.
+2. Descompacte. Copie a pasta `inkdoor` para a raiz do Kindle e os arquivos de `scriptlets` para
+   a pasta `documents` dele.
 
 Depois, na biblioteca do Kindle, abra **inkdoor - test connection** e **inkdoor - start
-display**.
+display**. Se o seu Kindle tem o **KPM** (os jailbreaks recentes têm), abra **inkdoor - connect
+KPM** uma vez, e as próximas atualizações são `;kpm update` e `;kpm upgrade` na barra de busca,
+sem cabo.
 
 Passo a passo, com dicas de energia e Wi-Fi: [docs/pt-BR/kindle.md](docs/pt-BR/kindle.md).
 

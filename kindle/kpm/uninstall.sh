@@ -4,5 +4,6 @@
 # INKDOOR_KINDLE_ROOT only exists for the tests; on the Kindle it is /mnt/us.
 [ "$1" = "upgrade" ] && exit 0
 ROOT="${INKDOOR_KINDLE_ROOT:-/mnt/us}"
-rm -f "$ROOT/documents/inkdoor-start.sh" "$ROOT/documents/inkdoor-test.sh"
+rm -f "$ROOT/documents/inkdoor-start.sh" "$ROOT/documents/inkdoor-test.sh" \
+  "$ROOT/documents/inkdoor-kpm.sh"
 rm -rf "$ROOT/inkdoor"
