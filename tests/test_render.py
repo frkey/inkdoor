@@ -172,3 +172,19 @@ def test_long_status_label_renders_in_kindle_grays(cfg, language):
     cfg["calendar"][0]["status_label"] = "Em reunião com cliente importa"
     img = render(collect(cfg, at("09:10")), cfg)
     assert img.size == (W, H) and grays(img) <= KINDLE_GRAYS
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_current_event_box_has_even_padding_and_round_corners(language):
+    from inkdoor import render as r
+    cfg = demo_config(language)
+    img = render(demo_snapshot(cfg, "10:20"), cfg)        # 10:00-11:00 is happening
+    box = [y for y in range(H) if img.getpixel((r.M - 10, y)) == 0]
+    top, bottom = box[0], box[-1]
+    assert box == list(range(top, bottom + 1))            # one box
+    text = [y for y in range(top, bottom + 1)
+            if any(img.getpixel((x, y)) > 100 for x in range(r.M, W - r.M, 2))]
+    above, below = text[0] - top, bottom - text[-1]
+    assert above >= 12 and below >= 12 and abs(above - below) <= 2
+    assert img.getpixel((r.M - 20, top)) == 255             # the corner is rounded
+    assert grays(img) <= KINDLE_GRAYS

@@ -20,6 +20,10 @@ from .sources import Event, Snapshot
 
 W, H = 1072, 1448
 M = 64                       # side margin
+EVENT_ROW = 96               # height of an event row
+# The current event sits in a rounded black box with 14 px above and below its text, so its row
+# is taller; the text keeps the position it has in any other row.
+CURRENT_ROW = 110
 BLACK, DARK, GRAY, LIGHT, WHITE = 0, 68, 119, 187, 255
 
 _FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
@@ -235,7 +239,8 @@ def build_rows(events: list, now, cfg, t: Translator, mark_now=True) -> list[Row
                                 past=mark_now and e.start <= now))
         if current:
             now_marked = True
-        rows.append(Row("event", 96, event=e, current=current, past=mark_now and past))
+        rows.append(Row("event", CURRENT_ROW if current else EVENT_ROW, event=e, current=current,
+                        past=mark_now and past))
         cursor = max(cursor, e.end) if cursor else e.end
 
     if events and not now_marked:
@@ -280,12 +285,12 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
         if r.kind == "event":
             e = r.event
             if r.current:
-                d.rectangle((M - 20, y, W - M + 20, y + r.height - 8), fill=BLACK)
+                d.rounded_rectangle((M - 20, y, W - M + 20, y + r.height - 8), 16, fill=BLACK)
             color = WHITE if r.current else (GRAY if r.past else BLACK)
             color2 = LIGHT if (r.current or r.past) else GRAY
             d.text((col_time, y + 14), t.time(e.start), font=f_start, fill=color)
             d.text((col_time, y + 56), t.time(e.end), font=f_end, fill=color2)
-            marker(d, (col_marker, y + 14, col_marker + 16, y + r.height - 22), e.style,
+            marker(d, (col_marker, y + 14, col_marker + 16, y + EVENT_ROW - 22), e.style,
                    color=(WHITE if r.current else (LIGHT if r.past else BLACK)),
                    background=(BLACK if r.current else WHITE))
             f_title = font("SemiBold", 36)
