@@ -24,6 +24,7 @@ from .sources import SourceCache, Snapshot, collect
 from .state import IMAGE_NAME, RenderInfo, ServerState
 
 THREADS = 8
+_wall_clock = time.time      # when the next render happens, as /kindle.png reads it (tests pin it)
 
 
 class PortInUse(Exception):
@@ -200,7 +201,7 @@ def render_loop(state: ServerState, cache: SourceCache, stop: threading.Event) -
             _log_error(state.cfg, ex)
         state.render_seconds = time.monotonic() - started
         wait = _wait_seconds(state)
-        state.next_render_at = time.time() + wait
+        state.next_render_at = _wall_clock() + wait
         state.render_event.wait(wait)
 
 

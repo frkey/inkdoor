@@ -442,7 +442,7 @@ def test_the_loop_publishes_when_it_renders_next(state, monkeypatch):
 
     monkeypatch.setattr(server, "run_cycle", lambda st, cache: None)
     monkeypatch.setattr(server, "_now", lambda cfg: at("10:01"))
-    monkeypatch.setattr(server.time, "time", lambda: 5000.0)
+    monkeypatch.setattr(server, "_wall_clock", lambda: 5000.0)
     state.render_event = OneWait()
     server.render_loop(state, SourceCache(), stop)
     assert OneWait.timeout == 240 and state.next_render_at == 5240.0
