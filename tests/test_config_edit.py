@@ -363,3 +363,53 @@ def test_save_and_restore_refuse_a_symlinked_config(tmp_path):
     assert link.is_symlink() and os.readlink(link) == str(real)
     assert real.read_text() == '[display]\nlanguage = "en-US"\n'
     assert (tmp_path / "config.toml.bak").read_text() == '[display]\nlanguage = "pt-BR"\n'
+
+
+def test_save_keeps_calendars_as_table_blocks_in_file_order(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('[display]\nlanguage = "en-US"\n\n[[calendar]]\nname = "Work"\nurl = "https://a"\n\n'
+                 '[tasks]\nurl = "https://b"\n', encoding="utf-8")
+    raw = read_raw(p)
+    raw.data["calendar"].append({"name": "Home", "url": "https://c"})
+    save(p, raw.data, raw.digest)
+    text = p.read_text(encoding="utf-8")
+    assert text.count("[[calendar]]\n") == 2 and "calendar = [" not in text
+    assert text.index("[display]") < text.index("[[calendar]]") < text.index("[tasks]")
+    assert read_raw(p).data == raw.data
+
+
+@pytest.mark.parametrize("data", [
+    {},
+    {"top": 1, "calendar": []},
+    {"calendar": [{"name": "A", "url": "x"}], "display": {"language": "pt-BR"}},
+    {"weird key": [{"a": 1}], "nested": [{"a": {"b": 1}}], "x": {"y": {"z": [1, 2]}}},
+])
+def test_dumps_round_trips(data):
+    assert config.tomllib.loads(config_edit.dumps(data)) == data
+
+
+@posix_only
+def test_write_private_flushes_the_folder(tmp_path, monkeypatch):
+    from inkdoor import files
+    synced = []
+    real_fsync = os.fsync
+
+    def spy(fd):
+        synced.append(stat.S_ISDIR(os.fstat(fd).st_mode))
+        real_fsync(fd)
+    monkeypatch.setattr(files.os, "fsync", spy)
+    write_private(tmp_path / "secret", b"data")
+    assert synced == [False, True]                       # the file, then its folder
+
+
+def test_write_private_survives_a_folder_that_cannot_be_flushed(tmp_path, monkeypatch):
+    from inkdoor import files
+    real_fsync = os.fsync
+
+    def fsync(fd):
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError("not supported")
+        real_fsync(fd)
+    monkeypatch.setattr(files.os, "fsync", fsync)
+    write_private(tmp_path / "secret", b"data")
+    assert (tmp_path / "secret").read_bytes() == b"data"

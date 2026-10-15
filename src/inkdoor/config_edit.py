@@ -72,7 +72,37 @@ def save(path, data: dict, expected_digest) -> str:
     """Validates and writes ``data``; the previous file becomes the backup. Returns the new digest."""
     _refuse_link(os.fspath(path))
     check(data)
-    return _replace(path, tomli_w.dumps(data).encode("utf-8"), expected_digest)
+    return _replace(path, dumps(data).encode("utf-8"), expected_digest)
+
+
+_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _key(key: str) -> str:
+    return key if _BARE_KEY.fullmatch(key) else tomli_w.dumps({"k": key})[4:].strip()
+
+
+def _is_table_list(value) -> bool:
+    """A non-empty list of flat tables, which can be written as [[name]] blocks."""
+    return (isinstance(value, list) and bool(value) and all(
+        isinstance(item, dict) and not any(isinstance(v, (dict, list)) for v in item.values())
+        for item in value))
+
+
+def dumps(data: dict) -> str:
+    """TOML in the data's own order, with lists of tables written as [[name]] blocks.
+
+    tomli_w writes short lists of tables inline, above every [section]; people who edit the file
+    by hand after a save expect the [[calendar]] blocks of config.example.toml.
+    """
+    top = {k: v for k, v in data.items() if not isinstance(v, dict) and not _is_table_list(v)}
+    parts = [tomli_w.dumps(top)] if top else []
+    for key, value in data.items():
+        if isinstance(value, dict):
+            parts.append(tomli_w.dumps({key: value}))
+        elif _is_table_list(value):
+            parts += [f"[[{_key(key)}]]\n" + tomli_w.dumps(item) for item in value]
+    return "\n".join(part.rstrip("\n") + "\n" for part in parts)
 
 
 def restore_backup(path, expected_digest) -> str:

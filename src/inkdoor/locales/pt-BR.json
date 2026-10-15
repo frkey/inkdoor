@@ -198,8 +198,8 @@
     "section": "[{section}] está no formato errado. Compare com o config.example.toml.",
     "admin_enabled": "[admin] enabled precisa ser true ou false (veio {value}).",
     "allowed_hosts": "[admin] allowed_hosts precisa ser uma lista de nomes de host, como [\"door.example\"].",
-    "unreadable": "Não consegui ler {path} ({error}).",
-    "permission": "Não consegui ler {path}: o arquivo precisa pertencer ao usuário inkdoor (chown inkdoor)"
+    "unreadable": "não consegui ler {path} ({error}).",
+    "permission": "não consegui ler {path}: o arquivo precisa pertencer ao usuário inkdoor (chown inkdoor)."
   },
   "admin": {
     "title": "Admin do inkdoor",
