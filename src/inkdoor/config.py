@@ -101,6 +101,12 @@ def _is_int(value, low, high) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
 
 
+def _has_port(host: str) -> bool:
+    if host.startswith("["):                     # [IPv6] or [IPv6]:port
+        return "]:" in host
+    return host.count(":") == 1                  # an unbracketed IPv6 address has several
+
+
 def validate(cfg: dict) -> dict:
     display, server = cfg["display"], cfg["server"]
     try:
@@ -124,6 +130,10 @@ def validate(cfg: dict) -> dict:
     hosts = admin["allowed_hosts"]
     if not (isinstance(hosts, list) and all(isinstance(h, str) and h.strip() for h in hosts)):
         raise ConfigInvalid("allowed_hosts")
+    for host in hosts:
+        # the Host check compares names without a port, in ASCII: such entries would never match
+        if not host.isascii() or _has_port(host.strip()):
+            raise ConfigInvalid("allowed_host", host=host)
     names = set()
     for i, calendar in enumerate(cfg["calendar"], start=1):
         name = calendar.get("name")

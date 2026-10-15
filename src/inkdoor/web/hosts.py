@@ -17,6 +17,10 @@ _LABEL = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
 _PORT = re.compile(r"[0-9]{1,5}")
 
 
+def _valid_port(port: str) -> bool:
+    return bool(_PORT.fullmatch(port)) and 1 <= int(port) <= 65535
+
+
 def _valid_hostname(name: str) -> bool:
     if not name or len(name) > 253:
         return False
@@ -26,10 +30,11 @@ def _valid_hostname(name: str) -> bool:
 def host_name(header: str | None) -> str | None:
     """Return the normalized host of a Host header, or None when it is missing or malformed.
 
-    Lowercases, drops the port and one trailing dot, and unwraps bracketed IPv6. The result is
-    either an IP literal or a syntactically valid hostname.
+    Lowercases, drops the port (1-65535) and one trailing dot, and unwraps bracketed IPv6. The
+    result is either an IP literal or a syntactically valid hostname.
     """
-    if not header or any(c.isspace() for c in header):
+    # ASCII first: lowercasing some non-ASCII letters (the Kelvin sign, for one) gives ASCII ones
+    if not header or not header.isascii() or any(c.isspace() for c in header):
         return None
     text = header.lower()
     if text.startswith("["):
@@ -37,7 +42,7 @@ def host_name(header: str | None) -> str | None:
         if end == -1:
             return None
         inner, rest = text[1:end], text[end + 1:]
-        if rest and not (rest.startswith(":") and _PORT.fullmatch(rest[1:])):
+        if rest and not (rest.startswith(":") and _valid_port(rest[1:])):
             return None
         if "%" in inner:
             return None
@@ -48,7 +53,7 @@ def host_name(header: str | None) -> str | None:
     if text.count(":") > 1:
         return None  # IPv6 must be bracketed
     host, sep, port = text.partition(":")
-    if sep and not _PORT.fullmatch(port):
+    if sep and not _valid_port(port):
         return None
     if host.endswith("."):
         host = host[:-1]
@@ -75,6 +80,6 @@ def host_allowed(header: str | None, extra: list[str]) -> bool:
     if any(name.endswith(suffix) for suffix in SUFFIXES):
         return True
     for entry in extra:
-        if isinstance(entry, str) and entry.strip().lower().rstrip(".") == name:
+        if isinstance(entry, str) and entry.isascii() and entry.strip().lower().rstrip(".") == name:
             return True
     return False
