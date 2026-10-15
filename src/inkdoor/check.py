@@ -61,10 +61,10 @@ def _check_file(path: str, t: Translator) -> tuple[bool, str]:
     return True, t("check.ok", kb=len(content) // 1024 or 1)
 
 
-def run(cfg: dict) -> bool:
+def run(cfg: dict, now: dt.datetime | None = None) -> bool:
     t = translator_for(cfg)
     tz = ZoneInfo(cfg["display"]["timezone"])
-    now = dt.datetime.now(tz)
+    now = now or dt.datetime.now(tz)
     start = dt.datetime.combine(now.date(), dt.time.min, tz)
     end = start + dt.timedelta(days=14)
     all_ok = True
