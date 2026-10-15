@@ -11,7 +11,7 @@
 #     --bridge NAME            network bridge (default: vmbr0)
 #     --storage NAME           storage for the container disk (default: local-lvm)
 #     --template-storage NAME  storage for the Debian template (default: local)
-#     --disk GB                (default: 2)
+#     --disk GB                (default: 4)
 #     --memory MB              (default: 512)
 #     --ref BRANCH_OR_TAG      inkdoor version to install (default: master)
 #
@@ -30,7 +30,7 @@ CT_HOSTNAME="inkdoor"
 BRIDGE="vmbr0"
 STORAGE="local-lvm"
 TEMPLATE_STORAGE="local"
-DISK=2
+DISK=4
 MEMORY=512
 BAD_OPTION=""
 

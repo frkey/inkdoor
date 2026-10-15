@@ -24,7 +24,7 @@ Either way you get the same layout:
 ## Proxmox VE
 
 `deploy/proxmox/create-lxc.sh` runs on the Proxmox host. It downloads the newest Debian
-template, creates an unprivileged container (1 core, 512 MB of RAM, 2 GB of disk, started at
+template, creates an unprivileged container (1 core, 512 MB of RAM, 4 GB of disk, started at
 boot) and installs inkdoor in it.
 
 1. Open a shell on the Proxmox host: in the web UI, select the node and click **Shell**
@@ -72,7 +72,7 @@ boot) and installs inkdoor in it.
 | `--bridge NAME` | `vmbr0` | |
 | `--storage NAME` | `local-lvm` | where the container's disk goes |
 | `--template-storage NAME` | `local` | where the Debian template is stored |
-| `--disk GB` | `2` | can be grown later with `pct resize <id> rootfs +1G` |
+| `--disk GB` | `4` | can be grown later with `pct resize <id> rootfs +1G` |
 | `--memory MB` | `512` | |
 | `--ref BRANCH_OR_TAG` | `master` | inkdoor version to install |
 

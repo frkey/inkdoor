@@ -24,7 +24,7 @@ Nos dois casos, o resultado é o mesmo:
 ## Proxmox VE
 
 O `deploy/proxmox/create-lxc.sh` roda no host do Proxmox. Ele baixa o template mais novo do
-Debian, cria um container sem privilégios (1 core, 512 MB de RAM, 2 GB de disco, ligado no
+Debian, cria um container sem privilégios (1 core, 512 MB de RAM, 4 GB de disco, ligado no
 boot) e instala o inkdoor nele.
 
 1. Abra um terminal no host do Proxmox: na interface web, selecione o nó e clique em
@@ -71,7 +71,7 @@ boot) e instala o inkdoor nele.
 | `--bridge NOME` | `vmbr0` | |
 | `--storage NOME` | `local-lvm` | onde fica o disco do container |
 | `--template-storage NOME` | `local` | onde fica o template do Debian |
-| `--disk GB` | `2` | dá para aumentar depois com `pct resize <id> rootfs +1G` |
+| `--disk GB` | `4` | dá para aumentar depois com `pct resize <id> rootfs +1G` |
 | `--memory MB` | `512` | |
 | `--ref BRANCH_OU_TAG` | `master` | versão do inkdoor a instalar |
 
