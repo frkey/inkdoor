@@ -120,7 +120,15 @@
     "preview": "Preview: {path}",
     "serving": "Serving at http://{address}:{port}/kindle.png  (Ctrl+C to stop)",
     "this_computer_ip": "<this-computer-ip>",
-    "rendered": "[{time}] screen rendered ({events} events, {tasks} tasks)",
+    "rendered": "[{time}] screen rendered ({events}, {tasks})",
+    "rendered_events": {
+      "one": "{n} event",
+      "other": "{n} events"
+    },
+    "rendered_tasks": {
+      "one": "{n} task",
+      "other": "{n} tasks"
+    },
     "rendered_errors": " — unreachable: {sources}",
     "error": "Error: {error}",
     "config_invalid": "Invalid config: {message}",

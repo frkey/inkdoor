@@ -380,3 +380,20 @@ def test_refresh_minutes_is_read_again_before_every_wait(state, monkeypatch):
     state.cfg["server"]["refresh_minutes"] = 7
     server.render_loop(state, SourceCache(), stop)
     assert waits == [7 * 60, 2 * 60]
+
+
+@pytest.mark.parametrize("language, n, expected", [
+    ("en-US", 0, "(0 events, 0 tasks)"), ("en-US", 1, "(1 event, 1 task)"),
+    ("en-US", 2, "(2 events, 2 tasks)"),
+    ("pt-BR", 0, "(0 compromissos, 0 tarefas)"), ("pt-BR", 1, "(1 compromisso, 1 tarefa)"),
+    ("pt-BR", 2, "(2 compromissos, 2 tarefas)"),
+])
+def test_render_log_line_uses_plurals(cfg, tmp_path, monkeypatch, capsys, language, n, expected):
+    from inkdoor.sources import Snapshot
+    cfg["display"]["language"] = language
+    monkeypatch.setattr(server, "collect", lambda cfg, cache=None: Snapshot(
+        at("10:00"), ["event"] * n, [], ["task"] * n))
+    monkeypatch.setattr(server, "compose", lambda snap, cfg, url: (None, "word", "headline"))
+    monkeypatch.setattr(server, "save", lambda img, path: None)
+    server.render_once(cfg, str(tmp_path))
+    assert expected in capsys.readouterr().out
