@@ -58,7 +58,8 @@
     "setup_admin": "Open {url} to add your calendars",
     "setup_file": "Add your calendar links to config.toml",
     "host_headline": "address not allowed",
-    "host_detail": "Use the IP address, or add {host} to allowed_hosts in the [admin] section of config.toml"
+    "host_detail": "Use the IP address, or add {host} to allowed_hosts in the [admin] section of config.toml",
+    "host_detail_generic": "Use the IP address, or add this name to allowed_hosts in the [admin] section of config.toml"
   },
   "section": {
     "today": "Today",
@@ -178,7 +179,7 @@
     "fix_errors": "Fix the items marked with ✖ and run the check again.",
     "read_failed": "could not read the events ({error})"
   },
-  "date_short": "{month:02d}/{day:02d}",
+  "date_short": "{month_name} {day}",
   "config_error": {
     "syntax": "config.toml has a syntax error: {error}",
     "timezone": "unknown timezone '{value}'. Use a name like America/New_York.",
@@ -226,6 +227,10 @@
     "login_expired": "This form expired. Please try again.",
     "bad_host": "This address is not allowed. Open the admin by the server's IP address, or add this name to allowed_hosts in the [admin] section of config.toml.",
     "log_host_rejected": "Refused the Kindle image for a host that is not allowed: {host}",
+    "log_host_rejected_more": {
+      "one": "Refused the Kindle image for {n} more host that is not allowed in the last minute (not logged one by one)",
+      "other": "Refused the Kindle image for {n} more hosts that are not allowed in the last minute (not logged one by one)"
+    },
     "log_error": "Request failed: {error}",
     "home_title": "Door",
     "last_update": "Last update: {date}, {time}",

@@ -210,6 +210,47 @@ def test_kindle_host_cache_is_bounded(app, rendered):
     assert len(app.extensions["inkdoor"]["host_images"]) <= web.HOST_IMAGE_CACHE
 
 
+def test_rejected_host_renders_are_rate_limited(app, rendered, clock, monkeypatch):
+    from inkdoor import web
+    renders = []
+    real = web.render_host_rejected
+
+    def counting(cfg, host):
+        renders.append(host)
+        return real(cfg, host)
+    monkeypatch.setattr(web, "render_host_rejected", counting)
+    c = client(app)
+    images = [get(c, "/kindle.png", headers={"Host": f"evil{i}.com"}).data for i in range(6)]
+    assert renders == ["evil0.com", "evil1.com", None]       # two per second, then one generic
+    assert images[2] == images[3] == images[5] != images[0]
+    assert all(Image.open(io.BytesIO(png)).size == (1072, 1448) for png in images)
+    clock.advance(1)
+    get(c, "/kindle.png", headers={"Host": "evil6.com"})
+    assert renders[-1] == "evil6.com"                         # a new second, a new render
+    assert get(c, "/kindle.png", headers={"Host": "evil0.com"}).data == images[0]   # still cached
+
+
+def test_rejected_host_log_lines_are_rate_limited(app, rendered, clock, caplog):
+    c = client(app)
+    with caplog.at_level(logging.WARNING):
+        for i in range(5):
+            get(c, "/kindle.png", headers={"Host": f"evil{i}.com"})
+        assert caplog.text.count(EN("admin.log_host_rejected", host="evil0.com")) == 1
+        assert "evil1.com" not in caplog.text and "evil4.com" not in caplog.text
+        clock.advance(60)
+        get(c, "/kindle.png", headers={"Host": "late.example"})
+    assert EN("admin.log_host_rejected_more", n=4) in caplog.text
+    assert EN("admin.log_host_rejected", host="late.example") in caplog.text
+
+
+def test_the_kindles_own_host_keeps_its_image_during_a_flood(app, rendered, clock):
+    c = client(app)
+    kindle = get(c, "/kindle.png", headers={"Host": "door.example"}).data
+    for i in range(10):
+        get(c, "/kindle.png", headers={"Host": f"evil{i}.com"})
+    assert get(c, "/kindle.png", headers={"Host": "door.example"}).data == kindle
+
+
 def test_admin_bad_host_is_400_text(app):
     c = logged_in(app)
     r = get(c, "/", headers={"Host": "evil.com"})
