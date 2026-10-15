@@ -56,7 +56,8 @@ start by itself after a restart.
 - **Power**: the display keeps Wi-Fi on and does not use deep sleep, so keep the Kindle on a
   charger. A thin USB cable fits through most door frames.
 - **Fixed IP**: reserve an IP for your computer on the router; otherwise the address changes
-  and the display stops updating.
+  and the display stops updating. A home server avoids this and never sleeps
+  ([docs/server.md](server.md)).
 - **Single instance**: tapping "start display" twice does not start two loops.
 - **No connection**: after 3 failures in a row, "cannot reach the computer" appears in the
   corner of the screen. The history is in `inkdoor/log.txt`.

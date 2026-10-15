@@ -56,7 +56,7 @@ não inicia sozinho depois de reiniciar.
 - **Energia**: o painel mantém o Wi-Fi ligado e não usa hibernação, então o ideal é deixar o
   Kindle no carregador. Um cabo USB fino passa bem pelo batente da porta.
 - **IP fixo**: reserve um IP para o computador no roteador, senão o endereço muda e o painel
-  para de atualizar.
+  para de atualizar. Um servidor de casa evita isso e nunca dorme ([server.md](server.md)).
 - **Uma instância só**: tocar duas vezes em "start display" não inicia dois painéis.
 - **Sem conexão**: depois de 3 falhas seguidas, aparece "sem conexao com o PC" no canto da tela.
   O histórico fica em `inkdoor/log.txt`.
