@@ -51,7 +51,9 @@ def _render_snapshot(cfg: dict, path: str, cache: SourceCache | None,
     snap = collect(cfg, cache=cache)
     img, word, headline = compose(snap, cfg, admin_url)
     save(img, path)
-    line = t("cli.rendered", time=t.time(snap.now), events=len(snap.today), tasks=len(snap.tasks))
+    line = t("cli.rendered", time=t.time(snap.now),
+             events=t("cli.rendered_events", n=len(snap.today)),
+             tasks=t("cli.rendered_tasks", n=len(snap.tasks)))
     if snap.errors:  # "Name: ErrorType" only, never a link
         line += t("cli.rendered_errors", sources="; ".join(snap.errors))
     _log(line)
