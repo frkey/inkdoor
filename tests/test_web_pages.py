@@ -1170,3 +1170,75 @@ def test_first_setup_banner_does_not_start_polling(logged, state):
     script = open(os.path.join(os.path.dirname(pages.__file__), "static", "admin.js"),
                   encoding="utf-8").read()
     assert ".notice" not in script                                       # notices never start it
+
+
+# --- password change atomicity ----------------------------------------------------------------
+
+def test_two_password_changes_at_once_cannot_both_win(app, state, monkeypatch):
+    first, second = Admin(app, state), Admin(app, state)
+    lock = app.extensions["inkdoor"]["password_lock"]
+    main, second_waits, results = threading.current_thread(), threading.Event(), {}
+
+    class SpyLock:  # tells the test when the second change is waiting for the first
+        def __enter__(self):
+            if threading.current_thread() is not main:
+                second_waits.set()
+            lock.acquire()
+
+        def __exit__(self, *exc_info):
+            lock.release()
+
+    app.extensions["inkdoor"]["password_lock"] = SpyLock()
+    real_set = auth.set_password
+
+    def set_password(path, password):
+        if password == "first-new-password":  # the first change, inside its step
+            worker = threading.Thread(target=lambda: results.update(second=change_password(
+                second, current=PASSWORD, new="second-new-password")))
+            worker.start()
+            assert second_waits.wait(10)
+            results["worker"] = worker
+        real_set(path, password)
+
+    monkeypatch.setattr(auth, "set_password", set_password)
+    r = change_password(first, current=PASSWORD, new="first-new-password")
+    results["worker"].join(10)
+    assert r.status_code == 303 and results["second"].status_code == 401
+    assert auth.verify_password("first-new-password", password_hash(state))
+    assert first.get("/").status_code == 200 and second.get("/").status_code == 302
+
+
+def test_a_409_login_is_neither_a_success_nor_a_failure(app, state, monkeypatch):
+    owner = Admin(app, state)
+    attacker = client(app)
+    limiter = app.extensions["inkdoor"]["limiter"]
+    ip = "192.168.0.66"
+    for _ in range(3):
+        limiter.failed(ip)
+    token = login_token(attacker)
+    real = auth.verify_password
+
+    def racing(password, encoded):  # the owner changes the password while scrypt runs
+        ok = real(password, encoded)
+        monkeypatch.setattr(auth, "verify_password", real)
+        assert change_password(owner, current=PASSWORD, new="a-brand-new-password") \
+            .status_code == 303
+        return ok
+
+    monkeypatch.setattr(auth, "verify_password", racing)
+    app.test_clock.advance(1)
+    r = attacker.post("/login", base_url=BASE, data={"csrf": token, "password": PASSWORD},
+                      environ_base={"REMOTE_ADDR": ip})
+    assert r.status_code == 409
+    assert limiter._failures[ip][0] == 3                  # the backoff was not reset
+
+
+def test_a_successful_login_still_resets_the_backoff(app):
+    limiter = app.extensions["inkdoor"]["limiter"]
+    c = client(app)
+    token = login_token(c)
+    for _ in range(3):
+        limiter.failed("127.0.0.1")
+    app.test_clock.advance(1)
+    r = c.post("/login", base_url=BASE, data={"csrf": token, "password": PASSWORD})
+    assert r.status_code == 302 and "127.0.0.1" not in limiter._failures

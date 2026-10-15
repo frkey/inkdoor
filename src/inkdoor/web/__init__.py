@@ -113,7 +113,9 @@ def check_password(limiter: auth.LoginLimiter, password, encoded: str) -> tuple[
     """Checks a password under the login limit: (ok, wait). ``wait`` > 0 means it was not checked.
 
     The attempt is reserved before scrypt runs (once per attempt: ``retry_after`` takes the global
-    slot) and its outcome is always recorded, even if checking raises.
+    slot). A failure is always recorded, even if checking raises; a success is not: the caller
+    calls ``limiter.succeeded`` once the login or change really went through, so a password that
+    matched a hash replaced meanwhile (a 409) never resets the IP's backoff.
     """
     ip = request.remote_addr or ""
     wait = limiter.retry_after(ip)
@@ -124,7 +126,8 @@ def check_password(limiter: auth.LoginLimiter, password, encoded: str) -> tuple[
         ok = (isinstance(password, str) and len(password) <= MAX_PASSWORD_LENGTH
               and auth.verify_password(password, encoded))
     finally:
-        (limiter.succeeded if ok else limiter.failed)(ip)
+        if not ok:
+            limiter.failed(ip)
     return ok, 0.0
 
 
@@ -206,8 +209,11 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     host_renders = _Budget(HOST_RENDERS_PER_SECOND, 1.0, monotonic)
     host_logs = _Budget(HOST_LOGS_PER_MINUTE, 60.0, monotonic)
     host_lock = threading.Lock()
+    # a password change compares the session generation, writes the file, logs everyone out and
+    # makes this browser's new session as one step, so two changes cannot both win
+    password_lock = threading.Lock()
     app.extensions["inkdoor"] = {"sessions": sessions, "limiter": limiter, "watcher": watcher,
-                                 "host_images": host_images}
+                                 "host_images": host_images, "password_lock": password_lock}
 
     def t() -> Translator:
         if "t" not in g:
@@ -394,7 +400,8 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
             sessions.drop(current.sid)  # this browser gets a fresh id
         session = sessions.create(expected_generation=generation)
         if session is None:  # the password changed meanwhile: the checked one may be the old one
-            return login_page(409, t()("admin.login_expired"), next_)
+            return login_page(409, t()("admin.login_expired"), next_)  # neither success nor failure
+        limiter.succeeded(request.remote_addr or "")
         response = redirect(next_)
         response.set_cookie(SESSION_COOKIE, session.sid, max_age=SESSION_LIFETIME, path="/",
                             httponly=True, samesite="Strict")

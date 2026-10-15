@@ -634,21 +634,24 @@ def blueprint(state: ServerState) -> Blueprint:
                                 status=429)
         if not ok:
             return account_page({"current": t()("admin.wrong_current_password")})
-        if inkdoor["watcher"].changed():  # changed while scrypt ran, e.g. `inkdoor password`
+        with inkdoor["password_lock"]:  # compare, write, log out and log in again as one step
+            if inkdoor["watcher"].changed():  # changed while scrypt ran, e.g. `inkdoor password`
+                sessions.drop_all()
+            if sessions.generation != generation:  # everyone, this browser too, was logged out
+                abort(401)  # e.g. another browser changed the password first
+            try:
+                auth.set_password(password_file, new)
+            except OSError as ex:
+                return account_page(form_error=t()("admin.error_password_write",
+                                                   error=type(ex).__name__), status=500)
+            # every browser is logged out; this one gets a fresh session. The watcher is told
+            # about the new file first, or the next request would see the change and drop that
+            # session too; drop_all also ends the generation, so a login still checking the old
+            # password gets none
+            inkdoor["watcher"].changed()
             sessions.drop_all()
-        if sessions.generation != generation:  # everyone, this browser too, was logged out
-            abort(401)
-        try:
-            auth.set_password(password_file, new)
-        except OSError as ex:
-            return account_page(form_error=t()("admin.error_password_write",
-                                               error=type(ex).__name__), status=500)
-        # every browser is logged out; this one gets a fresh session. The watcher is told about
-        # the new file first, or the next request would see the change and drop that session too;
-        # drop_all also ends the generation, so a login still checking the old password gets none
-        inkdoor["watcher"].changed()
-        sessions.drop_all()
-        session = sessions.create()
+            session = sessions.create()
+        limiter.succeeded(request.remote_addr or "")
         g.session = session  # the page below carries the new session's CSRF token
         if generate:  # shown in this response only: never in a redirect, notice or log
             response = account_page(generated=new)
