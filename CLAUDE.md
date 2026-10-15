@@ -14,6 +14,8 @@ Guidance for Claude (and other contributors) working on this repository.
   - Kindle shell scripts: add a `MSG_*` variable to both branches of the `case "$LANGUAGE"`
     block in `kindle/inkdoor/common.sh`. Keep those strings ASCII; the Kindle's built-in
     screen font has no accents.
+  - Deploy scripts (`deploy/`): add a `MSG_*` variable to both branches of the script's
+    `case "$LANGUAGE"` block. These run in a terminal, so pt-BR strings use accents.
 - **en-US is the default and the reference locale.** Every key must exist in `en-US.json`.
 - **pt-BR is a first-class option and must stay in sync.** Whenever you add or change a key in
   `en-US.json`, update `pt-BR.json` in the same change. `tests/test_i18n.py` fails if the
@@ -35,6 +37,9 @@ inkdoor turns a jailbroken Kindle into a door sign that shows whether you are in
   TickTick subscription (`sources.py`), draws a 1072×1448 grayscale PNG (`render.py`) and
   serves it over HTTP (`server.py`).
 - `kindle/`: POSIX shell scripts that run on the Kindle and display the PNG.
+- `deploy/`: runs `inkdoor serve` as a systemd service. `install.sh` installs or updates it on
+  Debian/Ubuntu; `proxmox/create-lxc.sh` runs on a Proxmox VE host, creates an LXC container and
+  runs `install.sh` in it.
 
 ## Commands
 
@@ -44,6 +49,7 @@ pytest                                   # all tests
 inkdoor -o output demo 10:20 16:50       # render previews with fictional data
 inkdoor -o output --lang pt-BR demo 10:20
 cd kindle && shellcheck inkdoor/*.sh documents/*.sh
+shellcheck deploy/*.sh deploy/proxmox/*.sh
 ```
 
 After changing anything visual, render the demo in **both** languages at a few times
@@ -65,6 +71,10 @@ longer and are the usual cause of overflow.
 - The HTTP server only serves `/kindle.png`; never expose the output folder or anything else.
 - Kindle scripts must be POSIX `sh` (BusyBox), use LF line endings (`.gitattributes` enforces
   it), and pass ShellCheck with `kindle/.shellcheckrc`.
+- Deploy scripts are bash (Debian/Ubuntu and Proxmox hosts), must be idempotent (running
+  `install.sh` again is how users update) and must never overwrite `/etc/inkdoor/config.toml`.
+  Keep `inkdoor.service` sandboxed; if you add an option, check it still starts in an
+  unprivileged LXC container with nesting.
 - Fonts in `src/inkdoor/fonts/` are a Latin subset of Inter (SIL OFL 1.1). If you need a glyph
   outside that subset, re-subset from the upstream font and keep `OFL.txt`.
 

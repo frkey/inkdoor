@@ -62,6 +62,10 @@ Where to find each calendar link: [docs/calendar-sources.md](docs/calendar-sourc
 
 > `config.toml` is git-ignored: anyone with those links can read your calendars.
 
+`inkdoor serve` has to keep running for the door to update. To run it on an always-on machine
+(a Proxmox container in one command, or any Debian or Ubuntu box), see
+[docs/server.md](docs/server.md).
+
 ### 2. Kindle
 
 You need a jailbroken Kindle. Step by step: [docs/kindle.md](docs/kindle.md). In short:
@@ -127,6 +131,7 @@ src/inkdoor/
   demo.py        fictional data for previews
   fonts/         Inter (SIL OFL 1.1)
 kindle/          scriptlets and scripts that run on the Kindle
+deploy/          systemd service, Linux installer and Proxmox container script
 tests/           tests with fictional calendars
 ```
 

@@ -35,3 +35,5 @@ jobs:
       - name: ShellCheck
         working-directory: kindle
         run: shellcheck inkdoor/*.sh documents/*.sh
+      - name: ShellCheck (deploy)
+        run: shellcheck deploy/*.sh deploy/proxmox/*.sh

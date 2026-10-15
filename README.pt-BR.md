@@ -68,6 +68,10 @@ Onde encontrar o link de cada agenda: [docs/pt-BR/calendar-sources.md](docs/pt-B
 
 > O `config.toml` fica fora do Git: quem tem esses links consegue ler suas agendas.
 
+O `inkdoor serve` precisa ficar rodando para a porta atualizar. Para deixá-lo numa máquina
+sempre ligada (um container no Proxmox com um comando, ou qualquer máquina Debian ou Ubuntu),
+veja [docs/pt-BR/server.md](docs/pt-BR/server.md).
+
 ### 2. Kindle
 
 Precisa de um Kindle com jailbreak. Passo a passo: [docs/pt-BR/kindle.md](docs/pt-BR/kindle.md).
