@@ -4,6 +4,7 @@
     inkdoor render           render once (output/kindle.png)
     inkdoor check            test every calendar link
     inkdoor demo [HH:MM...]  render previews with fictional data
+    inkdoor password         create a new admin password next to config.toml and print it
 """
 from __future__ import annotations
 
@@ -40,7 +41,34 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     commands.add_parser("check", parents=[common], help=t("cli.help.check"))
     demo = commands.add_parser("demo", parents=[common], help=t("cli.help.demo"))
     demo.add_argument("hours", nargs="*", default=["16:50"], help=t("cli.help.hours"))
+    commands.add_parser("password", parents=[common], help=t("cli.help.password"))
     return parser
+
+
+def _config_language(config_path: str | None, language: str | None) -> str | None:
+    """The language from --lang, else from the config when it can be read."""
+    try:
+        return config.load(config_path, language)["display"]["language"]
+    except (config.ConfigMissing, config.ConfigInvalid):
+        return language
+
+
+def _new_password(config_path: str, language: str | None) -> int:
+    from .web.auth import generate_password, password_path, set_password
+    t = Translator(_config_language(config_path, language))
+    path = password_path(config_path)
+    folder = os.path.dirname(path)
+    if not os.path.isdir(folder):
+        print(t("cli.password_no_folder", folder=folder), file=sys.stderr)
+        return 1
+    password = generate_password()
+    try:
+        set_password(path, password)
+    except OSError as ex:
+        print(t("cli.password_write_failed", path=path, error=type(ex).__name__), file=sys.stderr)
+        return 1
+    print(t("cli.password_new", password=password, path=path))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
                 save(render(demo_snapshot(cfg, hour), cfg), path)
                 print(t("cli.preview", path=path))
             return 0
+
+        if args.command == "password":
+            return _new_password(config.resolve_path(config_path), language)
 
         if args.command == "check":
             from .check import run

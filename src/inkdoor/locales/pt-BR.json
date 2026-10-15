@@ -123,6 +123,9 @@
     "config_invalid": "Config inválido: {message}",
     "kept_last_config": "Config inválido, continuo usando o último válido: {message}",
     "port_in_use": "A porta {port} já está em uso. Mude [server] port no config.toml ou feche o outro programa.",
+    "password_new": "Nova senha do admin: {password}  (salva em {path}; as outras sessões são desconectadas)",
+    "password_no_folder": "A pasta '{folder}' não existe. Crie a pasta ou use --config com o caminho do config.toml.",
+    "password_write_failed": "Não consegui salvar a senha em '{path}' ({error}). Rode o comando com o usuário que roda o inkdoor.",
     "help": {
       "config": "caminho do config.toml (padrão: ./config.toml)",
       "output": "pasta onde as imagens são gravadas (padrão: ./output)",
@@ -131,7 +134,8 @@
       "render": "gera a tela uma vez",
       "check": "testa os links das agendas",
       "demo": "gera prévias com dados fictícios",
-      "hours": "uma ou mais horas, ex.: 10:20 15:20"
+      "hours": "uma ou mais horas, ex.: 10:20 15:20",
+      "password": "cria uma nova senha do admin e mostra na tela"
     }
   },
   "check": {

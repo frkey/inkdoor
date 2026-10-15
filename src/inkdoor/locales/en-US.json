@@ -123,6 +123,9 @@
     "config_invalid": "Invalid config: {message}",
     "kept_last_config": "Invalid config, still using the last valid one: {message}",
     "port_in_use": "Port {port} is already in use. Change [server] port in config.toml or stop the other program.",
+    "password_new": "New admin password: {password}  (saved in {path}; other sessions are logged out)",
+    "password_no_folder": "The folder '{folder}' does not exist. Create it or pass --config with the path to config.toml.",
+    "password_write_failed": "Could not save the password in '{path}' ({error}). Run the command as the user that runs inkdoor.",
     "help": {
       "config": "path to config.toml (default: ./config.toml)",
       "output": "folder where images are written (default: ./output)",
@@ -131,7 +134,8 @@
       "render": "render the screen once",
       "check": "test the calendar links",
       "demo": "render previews with fictional data",
-      "hours": "one or more times, e.g. 10:20 15:20"
+      "hours": "one or more times, e.g. 10:20 15:20",
+      "password": "create a new admin password and print it"
     }
   },
   "check": {
