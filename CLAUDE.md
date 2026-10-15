@@ -144,8 +144,8 @@ available alongside these.
 
 - **Review until clean, before opening a pull request.** Once the work is committed and the tests
   pass, run `git fetch` and `/code-review high origin/master...HEAD` (always name the range:
-  without one the skill compares with the pushed branch and can review nothing). Handle its findings (see "Handle every
-  finding"), commit, and run another round on the fix commits only
+  without one the skill compares with the pushed branch and can review nothing). Handle its
+  findings (see "Handle every finding"), commit, and run another round on the fix commits only
   (`/code-review high <last-reviewed-commit>..HEAD`): the fixes are new code that the previous
   round did not see. Repeat until a round is clean.
 - **A round is clean** when it reports no new real defect: nothing about correctness, security,
