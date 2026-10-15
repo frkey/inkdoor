@@ -188,3 +188,25 @@ def test_current_event_box_has_even_padding_and_round_corners(language):
     assert above >= 12 and below >= 12 and abs(above - below) <= 2
     assert img.getpixel((r.M - 20, top)) == 255             # the corner is rounded
     assert grays(img) <= KINDLE_GRAYS
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("link", ["PASTE_YOUR_LINK_HERE", "", None])
+def test_legend_leaves_out_calendars_without_a_link(monkeypatch, language, link):
+    from PIL import ImageDraw
+    cfg = demo_config(language)
+    names = [c["name"] for c in cfg["calendar"]]
+    if link is None:
+        del cfg["calendar"][1]["url"]
+    else:
+        cfg["calendar"][1]["url"] = link
+    drawn = []
+    real = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, *args, **kwargs):
+        drawn.append(text)
+        return real(self, xy, text, *args, **kwargs)
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    render(demo_snapshot(cfg, "21:10"), cfg)                  # after hours: tomorrow's list
+    assert names[0] in drawn and names[2] in drawn            # the legend draws each name alone
+    assert names[1] not in drawn

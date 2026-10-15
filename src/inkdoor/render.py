@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .config import is_configured
 from .i18n import Translator
 from .sources import Event, Snapshot
 
@@ -370,8 +371,9 @@ def draw_footer(d, snap: Snapshot, cfg, t: Translator, showing_tomorrow: bool):
     y = H - 96
     d.line((M, y, W - M, y), fill=BLACK, width=3)
 
-    # calendar legend (right side): at most half the width, otherwise it is left out
-    calendars = cfg.get("calendar", [])
+    # calendar legend (right side): at most half the width, otherwise it is left out. Only
+    # calendars with a link: one without is never read, so it has nothing on the screen.
+    calendars = [c for c in cfg.get("calendar", []) if is_configured(c.get("url"))]
     f = font("Medium", 24)
     legend_width = sum(d.textlength(c["name"], font=f) + 54 for c in calendars)
     x = W - M

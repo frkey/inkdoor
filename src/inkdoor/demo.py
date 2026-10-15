@@ -64,7 +64,9 @@ def demo_config(language: str | None = None) -> dict:
     language = normalize(language)
     content = CONTENT.get(language, CONTENT["en-US"])
     names = content["calendars"]
-    calendars = [{"name": n, "style": s, "busy": True} for n, s in zip(names, STYLES)]
+    # fictional links: never fetched, but a calendar needs one to count as set up
+    calendars = [{"name": n, "style": s, "busy": True,
+                  "url": f"https://calendar.example/demo/{s}.ics"} for n, s in zip(names, STYLES)]
     calendars[2]["status_label"] = content["personal_label"]
     return with_defaults({"display": {"language": language}, "calendar": calendars})
 
