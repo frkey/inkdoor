@@ -1,0 +1,35 @@
+"""Writes files that hold secrets: owner-only (mode 600) and atomic."""
+from __future__ import annotations
+
+import os
+
+# Windows opens files in text mode unless told otherwise, which would turn \n into \r\n.
+_FLAGS = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
+
+
+def _remove(path: str) -> None:
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+
+
+def write_private(path: str | os.PathLike, data: bytes) -> None:
+    """Replaces ``path`` with ``data`` atomically. The file is mode 600 whatever the umask.
+
+    The bytes go to ``path + ".tmp"`` first (created exclusively, so it never inherits the mode
+    of an old file), are flushed to disk and then renamed over ``path``.
+    """
+    path = os.fspath(path)
+    tmp = path + ".tmp"
+    _remove(tmp)  # left behind by a crash; O_EXCL would refuse it
+    try:
+        fd = os.open(tmp, _FLAGS, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        _remove(tmp)
+        raise

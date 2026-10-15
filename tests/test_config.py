@@ -26,11 +26,21 @@ def test_defaults_and_language_override(tmp_path):
     ('[[calendar]]\nurl = "x"\n', "calendar_name"),
     ('[[calendar]]\nname = "A"\n[[calendar]]\nname = "A"\n', "calendar_duplicate"),
     ('[[calendar]]\nname = "A"\nstyle = "dotted"\n', "style"),
+    ('[admin]\nenabled = "yes"\n', "admin_enabled"),
+    ('[admin]\nallowed_hosts = "door.example"\n', "allowed_hosts"),
+    ('admin = true\n', "section"),
 ])
 def test_invalid_values_are_explained(tmp_path, text, key):
     with pytest.raises(config.ConfigInvalid) as err:
         config.load(write(tmp_path, text))
     assert err.value.key == key
+
+
+def test_admin_is_off_by_default(tmp_path):
+    cfg = config.load(write(tmp_path, ""))
+    assert cfg["admin"] == {"enabled": False, "allowed_hosts": []}
+    cfg = config.load(write(tmp_path, '[admin]\nenabled = true\nallowed_hosts = ["door.example"]\n'))
+    assert cfg["admin"] == {"enabled": True, "allowed_hosts": ["door.example"]}
 
 
 def test_every_config_error_is_translated():

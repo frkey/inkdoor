@@ -1,6 +1,7 @@
 """Loads config.toml, fills in defaults and validates it."""
 from __future__ import annotations
 
+import copy
 import os
 import sys
 from zoneinfo import ZoneInfo
@@ -23,6 +24,8 @@ DISPLAY_DEFAULTS = {
     "min_gap_minutes": 30,
 }
 SERVER_DEFAULTS = {"port": 8000, "refresh_minutes": 5}
+ADMIN_DEFAULTS = {"enabled": False, "allowed_hosts": []}
+TABLE_SECTIONS = ("display", "server", "tasks", "admin")
 
 
 class ConfigMissing(Exception):
@@ -40,13 +43,54 @@ class ConfigInvalid(Exception):
         self.details = details
 
 
+def resolve_path(path: str | None = None) -> str:
+    """The config file to use: the given path, else $INKDOOR_CONFIG, else ./config.toml."""
+    return os.fspath(path) if path else os.environ.get("INKDOOR_CONFIG") or DEFAULT_PATH
+
+
+def read_bytes(path) -> bytes:
+    """Reads the file, turning OS errors into ConfigMissing / ConfigInvalid."""
+    path = os.fspath(path)
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise ConfigMissing(path) from None
+    except PermissionError:
+        raise ConfigInvalid("permission", path=path) from None
+    except OSError as ex:
+        raise ConfigInvalid("unreadable", path=path, error=type(ex).__name__) from None
+
+
+def check_sections(data: dict) -> dict:
+    """Makes sure every section has the shape ``with_defaults`` expects."""
+    for section in TABLE_SECTIONS:
+        if section in data and not isinstance(data[section], dict):
+            raise ConfigInvalid("section", section=section)
+    if not isinstance(data.get("calendar", []), list) or not all(
+            isinstance(c, dict) for c in data.get("calendar", [])):
+        raise ConfigInvalid("section", section="calendar")
+    return data
+
+
+def read_toml(path) -> tuple[dict, bytes]:
+    """Reads and parses the file as it is, without defaults. Returns the data and the raw bytes."""
+    raw = read_bytes(path)
+    try:
+        data = tomllib.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise ConfigInvalid("encoding") from None
+    except tomllib.TOMLDecodeError as ex:
+        raise ConfigInvalid("syntax", error=str(ex)) from None
+    return check_sections(data), raw
+
+
 def with_defaults(cfg: dict) -> dict:
-    cfg.setdefault("display", {})
-    cfg.setdefault("server", {})
-    for key, value in DISPLAY_DEFAULTS.items():
-        cfg["display"].setdefault(key, value)
-    for key, value in SERVER_DEFAULTS.items():
-        cfg["server"].setdefault(key, value)
+    for section, defaults in (("display", DISPLAY_DEFAULTS), ("server", SERVER_DEFAULTS),
+                              ("admin", ADMIN_DEFAULTS)):
+        cfg.setdefault(section, {})
+        for key, value in defaults.items():
+            cfg[section].setdefault(key, copy.deepcopy(value))
     cfg.setdefault("calendar", [])
     if "tasks" in cfg:
         cfg["tasks"].setdefault("name", "TickTick")
@@ -74,6 +118,12 @@ def validate(cfg: dict) -> dict:
         raise ConfigInvalid("refresh", value=server["refresh_minutes"])
     if not _is_int(server["port"], 1, 65535):
         raise ConfigInvalid("port", value=server["port"])
+    admin = cfg["admin"]
+    if not isinstance(admin["enabled"], bool):
+        raise ConfigInvalid("admin_enabled", value=admin["enabled"])
+    hosts = admin["allowed_hosts"]
+    if not (isinstance(hosts, list) and all(isinstance(h, str) and h.strip() for h in hosts)):
+        raise ConfigInvalid("allowed_hosts")
     names = set()
     for i, calendar in enumerate(cfg["calendar"], start=1):
         name = calendar.get("name")
@@ -89,23 +139,7 @@ def validate(cfg: dict) -> dict:
 
 def load(path: str | None = None, language: str | None = None) -> dict:
     """Reads and validates the config. ``language`` (from --lang) wins over the file."""
-    path = path or os.environ.get("INKDOOR_CONFIG") or DEFAULT_PATH
-    if not os.path.exists(path):
-        raise ConfigMissing(path)
-    with open(path, "rb") as f:
-        raw = f.read()
-    try:
-        data = tomllib.loads(raw.decode("utf-8"))
-    except UnicodeDecodeError:
-        raise ConfigInvalid("encoding") from None
-    except tomllib.TOMLDecodeError as ex:
-        raise ConfigInvalid("syntax", error=str(ex)) from None
-    for section in ("display", "server", "tasks"):
-        if section in data and not isinstance(data[section], dict):
-            raise ConfigInvalid("section", section=section)
-    if not isinstance(data.get("calendar", []), list) or not all(
-            isinstance(c, dict) for c in data.get("calendar", [])):
-        raise ConfigInvalid("section", section="calendar")
+    data, _ = read_toml(resolve_path(path))
     cfg = with_defaults(data)
     language = language or os.environ.get("INKDOOR_LANG")
     if language:

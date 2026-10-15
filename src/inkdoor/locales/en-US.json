@@ -172,6 +172,10 @@
     "calendar_duplicate": "two calendars are named '{name}'; names must be unique.",
     "style": "calendar '{name}': style must be solid, striped or outline (got {value}).",
     "encoding": "config.toml is not UTF-8. Save it again as UTF-8 (in Notepad: File → Save as → Encoding: UTF-8).",
-    "section": "[{section}] has the wrong shape. Compare it with config.example.toml."
+    "section": "[{section}] has the wrong shape. Compare it with config.example.toml.",
+    "admin_enabled": "[admin] enabled must be true or false (got {value}).",
+    "allowed_hosts": "[admin] allowed_hosts must be a list of host names, like [\"door.example\"].",
+    "unreadable": "Cannot read {path} ({error}).",
+    "permission": "Cannot read {path}: the file must belong to the inkdoor user (chown inkdoor)"
   }
 }

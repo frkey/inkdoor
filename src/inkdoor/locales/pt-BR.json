@@ -172,6 +172,10 @@
     "calendar_duplicate": "duas agendas se chamam '{name}'; os nomes precisam ser diferentes.",
     "style": "agenda '{name}': style precisa ser solid, striped ou outline (veio {value}).",
     "encoding": "o config.toml não está em UTF-8. Salve de novo como UTF-8 (no Bloco de Notas: Arquivo → Salvar como → Codificação: UTF-8).",
-    "section": "[{section}] está no formato errado. Compare com o config.example.toml."
+    "section": "[{section}] está no formato errado. Compare com o config.example.toml.",
+    "admin_enabled": "[admin] enabled precisa ser true ou false (veio {value}).",
+    "allowed_hosts": "[admin] allowed_hosts precisa ser uma lista de nomes de host, como [\"door.example\"].",
+    "unreadable": "Não consegui ler {path} ({error}).",
+    "permission": "Não consegui ler {path}: o arquivo precisa pertencer ao usuário inkdoor (chown inkdoor)"
   }
 }
