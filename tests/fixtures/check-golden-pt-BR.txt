@@ -8,12 +8,12 @@
 
 ■ Company
   ✔ agenda acessível (1 KB)
-  ✔ 1 compromissos nos próximos 14 dias
+  ✔ 1 compromisso nos próximos 14 dias
      14/10    13:30  Roadmap review
 
 ■ Personal
   ✔ agenda acessível (1 KB)
-  ✔ 1 compromissos nos próximos 14 dias
+  ✔ 1 compromisso nos próximos 14 dias
      14/10    18:00  Gym
 
 ■ TickTick

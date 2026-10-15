@@ -344,3 +344,22 @@ def test_gitignore_covers_secrets():
     out = subprocess.run(["git", "check-ignore", "config.toml.bak", "config.toml.tmp", "admin-password"],
                          capture_output=True, text=True, cwd=REPO_ROOT)
     assert out.stdout.split() == ["config.toml.bak", "config.toml.tmp", "admin-password"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symbolic links need privileges on Windows")
+def test_save_and_restore_refuse_a_symlinked_config(tmp_path):
+    """Replacing config.toml atomically would turn the link into a regular file."""
+    real = tmp_path / "elsewhere" / "inkdoor.toml"
+    real.parent.mkdir()
+    real.write_text('[display]\nlanguage = "en-US"\n')
+    link = tmp_path / "config.toml"
+    link.symlink_to(real)
+    (tmp_path / "config.toml.bak").write_text('[display]\nlanguage = "pt-BR"\n')
+    raw = read_raw(link)
+    with pytest.raises(config_edit.ConfigIsLink):
+        save(link, {"display": {"language": "pt-BR"}}, raw.digest)
+    with pytest.raises(config_edit.ConfigIsLink):
+        restore_backup(link, raw.digest)
+    assert link.is_symlink() and os.readlink(link) == str(real)
+    assert real.read_text() == '[display]\nlanguage = "en-US"\n'
+    assert (tmp_path / "config.toml.bak").read_text() == '[display]\nlanguage = "pt-BR"\n'

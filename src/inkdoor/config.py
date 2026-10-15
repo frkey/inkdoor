@@ -134,6 +134,16 @@ def validate(cfg: dict) -> dict:
         names.add(name)
         if calendar.get("style", "solid") not in STYLES:
             raise ConfigInvalid("style", name=name, value=calendar.get("style"))
+        # hand edits: the wrong type would crash the admin pages. No value in these errors, since
+        # a misplaced link must never be repeated back
+        if not isinstance(calendar.get("url", ""), str):
+            raise ConfigInvalid("calendar_url", name=name)
+        if not isinstance(calendar.get("busy", True), bool):
+            raise ConfigInvalid("calendar_busy", name=name)
+        if not isinstance(calendar.get("status_label", ""), str):
+            raise ConfigInvalid("calendar_label", name=name)
+    if not isinstance(cfg.get("tasks", {}).get("url", ""), str):
+        raise ConfigInvalid("tasks_url")
     return cfg
 
 
@@ -147,6 +157,6 @@ def load(path: str | None = None, language: str | None = None) -> dict:
     return validate(cfg)
 
 
-def is_configured(url: str | None) -> bool:
-    """True once the user replaced the example placeholder with a real link."""
-    return bool(url) and not url.startswith(PLACEHOLDER_PREFIX)
+def is_configured(url) -> bool:
+    """True once the user replaced the example placeholder with a real link (a non-empty string)."""
+    return isinstance(url, str) and bool(url) and not url.startswith(PLACEHOLDER_PREFIX)

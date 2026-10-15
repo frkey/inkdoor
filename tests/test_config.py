@@ -62,3 +62,37 @@ def test_non_utf8_and_wrong_shapes_are_explained(tmp_path):
         with pytest.raises(config.ConfigInvalid) as err:
             config.load(str(path))
         assert err.value.key == "section"
+
+
+@pytest.mark.parametrize("text, key", [
+    ('[[calendar]]\nname = "A"\nurl = 5\n', "calendar_url"),
+    ('[[calendar]]\nname = "A"\nurl = ["https://calendar.example/secret.ics"]\n', "calendar_url"),
+    ('[[calendar]]\nname = "A"\nbusy = "yes"\n', "calendar_busy"),
+    ('[[calendar]]\nname = "A"\nbusy = 1\n', "calendar_busy"),
+    ('[[calendar]]\nname = "A"\nstatus_label = 3\n', "calendar_label"),
+    ('[tasks]\nurl = 5\n', "tasks_url"),
+    ('[tasks]\nurl = { link = "https://tasks.example/secret.ics" }\n', "tasks_url"),
+])
+def test_hand_edited_value_types_are_explained(tmp_path, text, key):
+    with pytest.raises(config.ConfigInvalid) as err:
+        config.load(write(tmp_path, text))
+    assert err.value.key == key
+    assert "secret" not in repr(err.value.details)       # a link is never repeated back
+
+
+def test_well_typed_calendar_and_tasks_load(tmp_path):
+    cfg = config.load(write(tmp_path, '[[calendar]]\nname = "A"\nurl = "https://calendar.example/a.ics"\n'
+                                      'busy = false\nstatus_label = "Out"\n\n'
+                                      '[[calendar]]\nname = "B"\n\n'
+                                      '[tasks]\nurl = "https://tasks.example/t.ics"\n'))
+    assert cfg["calendar"][0]["busy"] is False and "url" not in cfg["calendar"][1]
+
+
+@pytest.mark.parametrize("value", [None, "", 5, ["x"], {"a": 1}, True])
+def test_is_configured_is_false_for_anything_but_a_real_link(value):
+    assert config.is_configured(value) is False
+
+
+def test_is_configured_needs_a_non_placeholder_string():
+    assert config.is_configured("https://calendar.example/a.ics")
+    assert not config.is_configured(config.PLACEHOLDER_PREFIX + "YOUR_LINK")

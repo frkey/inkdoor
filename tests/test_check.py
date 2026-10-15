@@ -198,3 +198,16 @@ def test_check_prints_each_source_before_the_next_is_checked(cfg, capsys, monkey
         if index:
             previous = seen[index - 1][0]
             assert f"\u25a0 {previous}\n  \u2714" in visible          # previous source's result is out too
+
+
+@pytest.mark.parametrize("language, key, one, other", [
+    ("en-US", "check.events_found", "1 event in the next 14 days", "12 events in the next 14 days"),
+    ("pt-BR", "check.events_found", "1 compromisso nos próximos 14 dias",
+     "12 compromissos nos próximos 14 dias"),
+    ("en-US", "check.tasks_found", "1 task due today or overdue", "12 tasks due today or overdue"),
+    ("pt-BR", "check.tasks_found", "1 tarefa para hoje ou atrasada",
+     "12 tarefas para hoje ou atrasadas"),
+])
+def test_counts_use_plurals(language, key, one, other):
+    t = Translator(language)
+    assert t(key, n=1) == one and t(key, n=12) == other

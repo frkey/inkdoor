@@ -214,19 +214,25 @@ def test_expired_sessions_do_not_accumulate():
 
 def test_sessions_are_thread_safe():
     sessions = Sessions()
-    created = []
+    created, failures = [], []
 
     def work():
-        for _ in range(200):
-            s = sessions.create()
-            created.append(s)
-            assert sessions.get(s.sid) is s
+        # an assert here would only print a warning: collect problems for the main thread
+        try:
+            for _ in range(200):
+                s = sessions.create()
+                created.append(s)
+                if sessions.get(s.sid) is not s:
+                    failures.append(f"session {len(created)} not found")
+        except Exception as ex:
+            failures.append(repr(ex))
 
     threads = [threading.Thread(target=work) for _ in range(8)]
     for th in threads:
         th.start()
     for th in threads:
         th.join()
+    assert failures == []
     assert len(sessions) == 1600 == len({s.sid for s in created})
 
 

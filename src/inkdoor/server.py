@@ -210,6 +210,9 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
     from .web import auth, create_app  # only serve needs the web stack, not render or demo
 
     path = config.resolve_path(config_path)
+    # INKDOOR_LANG overrides the file just like --lang (config.load applies it on every reload),
+    # so the admin must show the language as locked in both cases
+    language = language or os.environ.get("INKDOOR_LANG") or None
     cfg, problem, using_defaults = _startup_config(path, language)
     t = translator_for(cfg)
     port = cfg["server"]["port"]

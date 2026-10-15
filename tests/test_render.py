@@ -95,3 +95,25 @@ def test_setup_and_host_screens_use_kindle_grays(cfg):
     for img in [render_setup(cfg, "http://192.168.100.200:65535"), render_setup(cfg, None),
                 render_host_rejected(cfg, "door.example.com")]:
         assert img.size == (1072, 1448) and grays(img) <= KINDLE_GRAYS
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_host_screen_points_to_allowed_hosts_in_the_config_file(language):
+    """The admin has no allowed-hosts field, and this screen shows even with the admin off."""
+    detail = Translator(language)("status.host_detail", host="door.example.com")
+    assert "allowed_hosts" in detail and "config.toml" in detail and "door.example.com" in detail
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_host_screen_fits_a_60_character_host(language):
+    from PIL import Image, ImageDraw
+
+    from inkdoor.render import M, _wrap, font
+    host = "a" * 20 + ".very-long-subdomain." + "b" * 14 + ".example"
+    assert len(host) == 63
+    detail = Translator(language)("status.host_detail", host=host[:60])
+    d = ImageDraw.Draw(Image.new("L", (W, H)))
+    f = font("Medium", 36)
+    lines = _wrap(d, detail, f, W - 2 * M)
+    assert len(lines) <= 8                       # _render_notice draws at most 8 lines
+    assert all(d.textlength(line, font=f) <= W - 2 * M for line in lines)

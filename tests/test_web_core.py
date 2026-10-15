@@ -52,7 +52,7 @@ def state(tmp_path):
 
 
 def make_app(state, clock):
-    app = create_app(state, clock=clock)
+    app = create_app(state, clock=clock, monotonic=clock)
     app.testing = True
     app.test_clock = clock  # lets logged_in() step past the one-login-per-second pace
     return app
@@ -631,3 +631,31 @@ def test_request_render_throttles_manual_requests(tmp_path):
 def test_server_state_repr_hides_the_config(tmp_path):
     state = make_state(tmp_path, calendar=[{"name": "W", "url": "https://calendar.example/SECRET"}])
     assert "SECRET" not in repr(state)
+
+
+def test_login_limit_ignores_wall_clock_steps(state):
+    """Sessions follow the wall clock, the login limit a monotonic one: setting the system clock
+    back must not lock everyone out."""
+    wall, mono = FakeClock(), FakeClock()
+    app = create_app(state, clock=wall, monotonic=mono)
+    app.testing = True
+    c = client(app)
+    assert login(c, password="wrong-password").status_code == 401
+    wall.advance(-3600)                       # e.g. NTP corrects a clock that ran an hour ahead
+    mono.advance(1)
+    assert app.extensions["inkdoor"]["limiter"].retry_after("10.0.0.9") == 0
+    mono.advance(1)
+    assert login(c).status_code == 302
+
+
+def test_default_clocks(state):
+    import time
+    app = create_app(state)
+    assert app.extensions["inkdoor"]["limiter"]._clock is time.monotonic
+    assert app.extensions["inkdoor"]["sessions"]._clock is time.time
+
+
+def test_state_has_no_unused_write_lock():
+    """Config writes are serialized inside config_edit (its own lock), not by the state."""
+    import dataclasses
+    assert "write_lock" not in {f.name for f in dataclasses.fields(ServerState)}

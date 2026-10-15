@@ -1,6 +1,7 @@
 """Admin pages for calendars and tasks: forms, link masking, link tests and secrecy."""
 import datetime as dt
 import logging
+import os
 import re
 import threading
 
@@ -954,7 +955,6 @@ def test_first_setup_banner_while_nothing_has_a_link(logged, state):
 
 
 def test_deleted_file_is_broken_and_offers_the_backup(logged, state):
-    import os
     add(logged, name="Work", url="https://calendar.example/work.ics")
     add(logged, name="Home", url="https://calendar.example/home.ics")
     os.remove(state.config_path)
@@ -1044,3 +1044,28 @@ def test_links_never_leave_the_server_on_home_screen_and_account(logged, state, 
     everything += caplog.text + "".join(capsys.readouterr())
     for i in range(len(CANARY) - 7):
         assert CANARY[i:i + 8] not in everything
+
+
+def test_home_explains_a_hand_edited_link_that_is_not_text(logged, state):
+    write_config(state, '[[calendar]]\nname = "Work"\nurl = 5\n')
+    r = logged.get("/")
+    assert r.status_code == 200
+    assert str(escape(EN("config_error.calendar_url", name="Work"))) in body(r)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")
+def test_a_symlinked_config_is_never_replaced(logged, state, tmp_path):
+    import pathlib
+    real = tmp_path / "elsewhere.toml"
+    real.write_text('[display]\nlanguage = "en-US"\n')
+    link = pathlib.Path(state.config_path)
+    link.symlink_to(real)
+    r = logged.post("/screen", data=screen_form(logged, timezone="Europe/Lisbon"))
+    assert r.status_code == 200 and str(escape(EN("admin.error_link"))) in body(r)
+    assert link.is_symlink() and real.read_text() == '[display]\nlanguage = "en-US"\n'
+
+    (tmp_path / "config.toml.bak").write_text('[display]\nlanguage = "pt-BR"\n')
+    r = logged.post("/restore", data={"csrf": logged.c.csrf, "digest": logged.digest()})
+    assert r.status_code == 303
+    assert str(escape(EN("admin.error_link"))) in body(logged.get("/"))
+    assert link.is_symlink() and real.read_text() == '[display]\nlanguage = "en-US"\n'

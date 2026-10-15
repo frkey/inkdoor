@@ -29,6 +29,16 @@ class ConfigChanged(Exception):
     """The file changed since it was read (a hand edit or another browser tab)."""
 
 
+class ConfigIsLink(Exception):
+    """config.toml is a symbolic link. Writes replace the file atomically, which would turn the
+    link into a regular file, so the admin refuses and the file must be edited by hand."""
+
+
+def _refuse_link(path: str) -> None:
+    if os.path.islink(path):
+        raise ConfigIsLink()
+
+
 @dataclass
 class RawConfig:
     data: dict
@@ -60,6 +70,7 @@ def check(data: dict) -> dict:
 
 def save(path, data: dict, expected_digest) -> str:
     """Validates and writes ``data``; the previous file becomes the backup. Returns the new digest."""
+    _refuse_link(os.fspath(path))
     check(data)
     return _replace(path, tomli_w.dumps(data).encode("utf-8"), expected_digest)
 
@@ -67,6 +78,7 @@ def save(path, data: dict, expected_digest) -> str:
 def restore_backup(path, expected_digest) -> str:
     """Puts the backup back. The file it replaces becomes the new backup, so this can be undone."""
     backup = os.fspath(path) + BACKUP_SUFFIX
+    _refuse_link(os.fspath(path))
     with _LOCK:
         try:
             data, raw = config.read_toml(backup)
@@ -90,6 +102,7 @@ def _replace(path, new: bytes, expected_digest) -> str:
     if not _is_digest(expected_digest):  # it comes from a browser form; never crash on it
         raise ConfigChanged()
     with _LOCK:
+        _refuse_link(path)
         try:
             old = config.read_bytes(path)
         except config.ConfigMissing:

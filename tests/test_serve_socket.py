@@ -7,9 +7,10 @@ import threading
 import time
 
 import pytest
+from conftest import FAKE_LAN_ADDRESS
 from PIL import Image
 
-from inkdoor import server
+from inkdoor import net, server
 from inkdoor.i18n import Translator
 
 EN = Translator("en-US")
@@ -57,24 +58,55 @@ def raw_request(port: int, path: str, version: str = "HTTP/1.1") -> tuple[int, b
 
 @pytest.fixture(scope="module")
 def running(tmp_path_factory):
+    """A real ``serve`` on 127.0.0.1 only, stopped when the module ends."""
+    import waitress
     folder = tmp_path_factory.mktemp("serve")
     port = free_port()
     config_path = folder / "config.toml"
     config_path.write_text(f'[display]\nlanguage = "en-US"\n\n[server]\nport = {port}\n\n'
                            "[admin]\nenabled = true\n")
     out = folder / "out"
-    old = os.environ.pop("INKDOOR_LANG", None)
-    thread = threading.Thread(target=server.serve, args=(str(config_path), str(out), None),
-                              daemon=True)
-    thread.start()
-    wait_for_port(port)
-    deadline = time.monotonic() + 10
-    while request(port, "/kindle.png", f"127.0.0.1:{port}")[0] != 200:   # first render
-        assert time.monotonic() < deadline, "no image rendered"
-        time.sleep(0.05)
-    yield port, out
-    if old is not None:
-        os.environ["INKDOOR_LANG"] = old
+    servers, started, stopping = [], threading.Event(), threading.Event()
+    real_create_server = waitress.create_server
+
+    def loopback_server(app, **kwargs):
+        httpd = real_create_server(app, **{**kwargs, "host": "127.0.0.1"})
+        servers.append(httpd)
+        return httpd
+
+    def run_until_stopped(httpd):  # what httpd.run() does, but it can be told to stop
+        started.set()
+        while not stopping.is_set():
+            httpd.asyncore.loop(timeout=0.05, map=httpd._map, count=1)
+        httpd.task_dispatcher.shutdown()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("INKDOOR_LANG", raising=False)
+        mp.setattr(net, "lan_address", lambda: FAKE_LAN_ADDRESS)  # for the render thread
+        # only while serve starts: the other tests in this module need the real ones
+        with pytest.MonkeyPatch.context() as startup:
+            startup.setattr(waitress, "create_server", loopback_server)
+            startup.setattr(server, "_run", run_until_stopped)
+            thread = threading.Thread(target=server.serve,
+                                      args=(str(config_path), str(out), None), daemon=True)
+            thread.start()
+            assert started.wait(10), "serve did not start"
+        try:
+            wait_for_port(port)
+            deadline = time.monotonic() + 10
+            while request(port, "/kindle.png", f"127.0.0.1:{port}")[0] != 200:   # first render
+                assert time.monotonic() < deadline, "no image rendered"
+                time.sleep(0.05)
+            yield port, out, servers[0]
+        finally:
+            stopping.set()             # serve() returns and closes the socket and the render loop
+            thread.join(10)
+            for other in threading.enumerate():
+                if other.name == "inkdoor-render":
+                    other.join(10)
+    assert not thread.is_alive()
+    with pytest.raises(OSError):                 # the socket is closed, nothing listens anymore
+        socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
 
 
 def is_png(body: bytes) -> bool:
@@ -83,7 +115,7 @@ def is_png(body: bytes) -> bool:
 
 @pytest.mark.parametrize("host", ["[::1]:{port}", "inkdoor.lan.", "[fe80::1]", "localhost:{port}"])
 def test_allowed_hosts(running, host):
-    port, out = running
+    port, out, _ = running
     host = host.format(port=port)
     status, headers, body = request(port, "/kindle.png", host)
     assert status == 200 and headers["Content-Type"] == "image/png"
@@ -95,7 +127,7 @@ def test_allowed_hosts(running, host):
 @pytest.mark.parametrize("host", ["evil.com", "evil.com.", "inkdoor.lan.evil.com",
                                   "[fe80::1%25en0]"])
 def test_rejected_hosts(running, host):
-    port, out = running
+    port, out, _ = running
     status, headers, body = request(port, "/", host)
     assert status == 400 and headers["Content-Type"].startswith("text/plain")
     assert body.decode("utf-8").strip() == EN("admin.bad_host")
@@ -104,9 +136,14 @@ def test_rejected_hosts(running, host):
     assert body != (out / "kindle.png").read_bytes()               # the error image, not the door
 
 
+def test_the_test_server_listens_on_loopback_only(running):
+    _, _, httpd = running
+    assert httpd.socket.getsockname()[0] == "127.0.0.1"
+
+
 @pytest.mark.parametrize("version", ["HTTP/1.0", "HTTP/1.1"])
 def test_missing_host(running, version):
-    port, out = running
+    port, out, _ = running
     status, body = raw_request(port, "/", version)
     assert status == 400
     status, body = raw_request(port, "/kindle.png", version)
@@ -114,7 +151,7 @@ def test_missing_host(running, version):
 
 
 def test_unknown_paths_are_404(running):
-    port, _ = running
+    port, _, _ = running
     for path in ("/config.toml", "/out/kindle.png", "/kindle.png/", "/../config.toml"):
         assert request(port, path, f"127.0.0.1:{port}")[0] == 404
 
@@ -220,3 +257,31 @@ def test_a_good_backup_decides_the_admin(tmp_path, monkeypatch, no_bind):
     state = started_state(monkeypatch, config_path, tmp_path / "out")
     assert state.config_problem == "broken" and not state.using_defaults
     assert state.admin_enabled is False
+
+
+def test_inkdoor_lang_locks_the_language_like_lang(tmp_path, monkeypatch, no_bind):
+    """INKDOOR_LANG is an override like --lang: the Screen page must show the field locked."""
+    monkeypatch.setenv("INKDOOR_LANG", "pt-BR")
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('[display]\nlanguage = "en-US"\n')
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.language == "pt-BR"
+
+
+def test_lang_wins_over_inkdoor_lang(tmp_path, monkeypatch, no_bind):
+    monkeypatch.setenv("INKDOOR_LANG", "pt-BR")
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('[display]\nlanguage = "pt-BR"\n')
+    seen = []
+    monkeypatch.setattr(server, "_run", lambda httpd: None)
+    monkeypatch.setattr(server, "render_loop", lambda state, *args: seen.append(state))
+    server.serve(str(config_path), str(tmp_path / "out"), "en-US")
+    assert seen[0].language == "en-US"
+
+
+def test_no_language_override_leaves_the_field_editable(tmp_path, monkeypatch, no_bind):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('[display]\nlanguage = "pt-BR"\n')
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.language is None

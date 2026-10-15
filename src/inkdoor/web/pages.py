@@ -184,6 +184,8 @@ def blueprint(state: ServerState) -> Blueprint:
             config_edit.save(state.config_path, data, raw.digest)
         except config_edit.ConfigChanged:
             return changed(target), None
+        except config_edit.ConfigIsLink:
+            return None, t()("admin.error_link")
         except config.ConfigInvalid as ex:
             return None, t()("admin.error_config", message=describe(ex))
         except OSError as ex:
@@ -520,6 +522,9 @@ def blueprint(state: ServerState) -> Blueprint:
             config_edit.restore_backup(state.config_path, request.form.get("digest"))
         except config_edit.ConfigChanged:
             return changed("/")
+        except config_edit.ConfigIsLink:
+            add_notice(g.session, t()("admin.error_link"))
+            return redirect("/", 303)
         except config.ConfigInvalid as ex:
             add_notice(g.session, t()("admin.restore_failed", message=describe(ex)))
             return redirect("/", 303)

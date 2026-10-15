@@ -58,7 +58,7 @@
     "setup_admin": "Open {url} to add your calendars",
     "setup_file": "Add your calendar links to config.toml",
     "host_headline": "address not allowed",
-    "host_detail": "Add {host} to the allowed addresses in the admin, or use the IP address"
+    "host_detail": "Use the IP address, or add {host} to allowed_hosts in the [admin] section of config.toml"
   },
   "section": {
     "today": "Today",
@@ -158,10 +158,16 @@
     "invalid": "the calendar is malformed",
     "ok": "calendar reachable ({kb} KB)",
     "no_events": "no events in the next 14 days. If the calendar is not empty,\n     make sure you published the right one.",
-    "events_found": "{n} events in the next 14 days",
+    "events_found": {
+      "one": "{n} event in the next 14 days",
+      "other": "{n} events in the next 14 days"
+    },
     "busy_only": "the link only shows 'Busy', without meeting titles.\n     Publish it again with 'Can view all details'.\n     If that option is missing, your organization limits publishing: the door status\n     still works, but the list will only say 'Busy'.",
     "timezone": "many events in the middle of the night: the time zone may be wrong.\n     Check that the times above match your calendar app.",
-    "tasks_found": "{n} tasks due today or overdue",
+    "tasks_found": {
+      "one": "{n} task due today or overdue",
+      "other": "{n} tasks due today or overdue"
+    },
     "overdue_prefix": "[overdue] ",
     "all_good": "All good! Run: inkdoor serve",
     "fix_errors": "Fix the items marked with ✖ and run the check again.",
@@ -179,6 +185,10 @@
     "calendar_name": "calendar #{index} needs a name.",
     "calendar_duplicate": "two calendars are named '{name}'; names must be unique.",
     "style": "calendar '{name}': style must be solid, striped or outline (got {value}).",
+    "calendar_url": "calendar '{name}': url must be a link in quotes, like \"https://...\".",
+    "calendar_busy": "calendar '{name}': busy must be true or false.",
+    "calendar_label": "calendar '{name}': status_label must be text in quotes, like \"Out\".",
+    "tasks_url": "[tasks] url must be a link in quotes, like \"https://...\".",
     "encoding": "config.toml is not UTF-8. Save it again as UTF-8 (in Notepad: File → Save as → Encoding: UTF-8).",
     "section": "[{section}] has the wrong shape. Compare it with config.example.toml.",
     "admin_enabled": "[admin] enabled must be true or false (got {value}).",
@@ -272,6 +282,7 @@
     "config_invalid": "config.toml has a problem, and saving is refused until it is fixed: {message}",
     "error_config": "Nothing was saved because config.toml has a problem: {message}",
     "error_write": "Could not write config.toml ({error}).",
+    "error_link": "config.toml is a symbolic link, so the admin cannot change it: saving would replace the link with a plain file. Edit the file it points to by hand.",
     "error_name_required": "Enter a name.",
     "error_too_long": {
       "one": "Use at most {n} character.",

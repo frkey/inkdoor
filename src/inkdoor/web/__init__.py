@@ -158,14 +158,16 @@ class _App(Flask):
         self.logger.error("%s", exc_info[0].__name__ if exc_info[0] else "Exception")
 
 
-def create_app(state: ServerState, *, clock=time.time) -> Flask:
+def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic) -> Flask:
+    """The app. ``clock`` (wall time) dates sessions; ``monotonic`` paces logins, so setting the
+    system clock back can never lock everyone out of the admin."""
     app = _App(__name__, static_folder=None, template_folder="templates")
     app.config.update(
         MAX_CONTENT_LENGTH=MAX_REQUEST_BYTES,
         PROVIDE_AUTOMATIC_OPTIONS=False,  # Flask 3.1+; the guard refuses OPTIONS on any version
     )
     sessions = auth.Sessions(clock, lifetime=SESSION_LIFETIME)
-    limiter = auth.LoginLimiter(clock)
+    limiter = auth.LoginLimiter(monotonic)
     password_file = auth.password_path(state.config_path)
     watcher = auth.PasswordWatcher(password_file)
     watcher.changed()  # record the file as it is now, so the first change is noticed

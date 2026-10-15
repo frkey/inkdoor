@@ -284,7 +284,7 @@ def lan_address() -> str | None:
         pass
     try:
         infos = socket.getaddrinfo(socket.gethostname(), None)
-    except OSError:
+    except (OSError, UnicodeError):  # UnicodeError: a host name IDNA cannot encode
         return None
     for *_, sockaddr in infos:
         if _is_private_ipv4(sockaddr[0]):

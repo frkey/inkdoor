@@ -116,6 +116,9 @@ config writes. `SourceCache` gets its own lock.
   the error as a banner and keeps the forms enabled, so the problem can be fixed from the admin; a
   save is refused unless the result validates. `PermissionError` gets its own message that says to
   `chown inkdoor` the file. If `config.toml.bak` loads, offer "Restore previous version".
+- **Symlinked file**: if `config.toml` is a symbolic link, saves and "Restore previous version" are
+  refused with a translated message to edit the file by hand, since the atomic replace would turn
+  the link into a regular file. The installer leaves such a link alone and says the same.
 - **Missing file**: the first admin save creates it (raw dict starting from nothing, not from the
   example, so no placeholders).
 - **`.gitignore`**: add `config.toml.*` and `admin-password` (the Mac checkout case).
@@ -172,8 +175,9 @@ config writes. `SourceCache` gets its own lock.
    A trailing dot is ignored. Missing Host is rejected.
    - Admin routes with a disallowed Host: 400 with a short text page that says to open the admin
      by IP and add the name under allowed hosts.
-   - `/kindle.png` with a disallowed Host: **200 with a rendered error image** ("Address <host> is
-     not allowed; add it in the admin"). A 4xx would make the Kindle keep its old image, possibly
+   - `/kindle.png` with a disallowed Host: **200 with a rendered error image** ("address not
+     allowed": use the IP address, or add <host> to `allowed_hosts` in the `[admin]` section of
+     `config.toml`; the admin has no field for it, and the image shows even with the admin off). A 4xx would make the Kindle keep its old image, possibly
      "Free". The error image carries no schedule data, so it is safe to serve to anyone. The
      rejected name is logged once.
    - The guard applies whether or not the admin is enabled.

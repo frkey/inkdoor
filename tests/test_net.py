@@ -472,6 +472,7 @@ def host_addresses(monkeypatch, *ips):
     monkeypatch.setattr(net.socket, "getaddrinfo", fake_getaddrinfo)
 
 
+@pytest.mark.real_lan_address
 def test_lan_address_prefers_private(monkeypatch):
     fake_socket(monkeypatch, own_ip="192.168.1.20")
     host_addresses(monkeypatch, "10.0.0.7")
@@ -481,6 +482,7 @@ def test_lan_address_prefers_private(monkeypatch):
     assert sock.closed
 
 
+@pytest.mark.real_lan_address
 def test_lan_address_falls_back_to_host_addresses(monkeypatch):
     fake_socket(monkeypatch, own_ip="203.0.113.5")          # default route is not private
     host_addresses(monkeypatch, "127.0.1.1", "fe80::1", "203.0.113.5", "172.16.4.2")
@@ -488,6 +490,7 @@ def test_lan_address_falls_back_to_host_addresses(monkeypatch):
     assert FakeSocket.instances[0].closed
 
 
+@pytest.mark.real_lan_address
 def test_lan_address_none_without_private_address(monkeypatch):
     fake_socket(monkeypatch, fail=True)
     host_addresses(monkeypatch, "127.0.0.1", "::1")
@@ -495,11 +498,30 @@ def test_lan_address_none_without_private_address(monkeypatch):
     assert FakeSocket.instances[0].closed
 
 
+@pytest.mark.real_lan_address
 def test_lan_address_survives_resolver_errors(monkeypatch):
     fake_socket(monkeypatch, fail=True)
     def no_such_host(*args, **kwargs):
         raise socket.gaierror(8, "nodename nor servname provided")
     monkeypatch.setattr(net.socket, "getaddrinfo", no_such_host)
+    assert lan_address() is None
+
+
+def test_tests_never_resolve_this_machine():
+    """conftest replaces net.lan_address, so no test looks up the real host name."""
+    from conftest import FAKE_LAN_ADDRESS
+
+    from inkdoor.config import with_defaults
+    assert net.lan_address() == FAKE_LAN_ADDRESS
+    assert net.admin_url(with_defaults({})) == f"http://{FAKE_LAN_ADDRESS}:8000"
+
+
+@pytest.mark.real_lan_address
+def test_lan_address_survives_an_odd_host_name(monkeypatch):
+    fake_socket(monkeypatch, fail=True)
+    def bad_label(*args, **kwargs):  # e.g. a host name with an empty or too long IDNA label
+        raise UnicodeError("encoding with 'idna' codec failed (UnicodeError: label empty or too long)")
+    monkeypatch.setattr(net.socket, "getaddrinfo", bad_label)
     assert lan_address() is None
 
 

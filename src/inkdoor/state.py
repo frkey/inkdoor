@@ -24,7 +24,7 @@ class ServerState:
     """What the render thread and the request threads share.
 
     Only the render thread renders: the admin asks for a render with ``request_render``, which
-    sets ``render_event``. ``write_lock`` serializes config writes.
+    sets ``render_event``. (Config writes are serialized by ``config_edit``.)
     """
     MANUAL_INTERVAL: ClassVar[float] = 30.0
 
@@ -36,7 +36,6 @@ class ServerState:
     admin_enabled: bool = False
     clock: Callable[[], float] = field(default=time.monotonic, repr=False)
     render_event: threading.Event = field(default_factory=threading.Event, repr=False)
-    write_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     last_render: RenderInfo | None = None
     # True while no config (neither the file nor its .bak) has ever loaded and ``cfg`` holds
     # only the defaults: the door then shows the setup or error screen instead of a status.

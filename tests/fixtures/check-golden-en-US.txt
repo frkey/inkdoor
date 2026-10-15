@@ -8,12 +8,12 @@
 
 ■ Company
   ✔ calendar reachable (1 KB)
-  ✔ 1 events in the next 14 days
+  ✔ 1 event in the next 14 days
      10/14  1:30 PM  Roadmap review
 
 ■ Personal
   ✔ calendar reachable (1 KB)
-  ✔ 1 events in the next 14 days
+  ✔ 1 event in the next 14 days
      10/14  6:00 PM  Gym
 
 ■ TickTick

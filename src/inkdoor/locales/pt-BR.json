@@ -58,7 +58,7 @@
     "setup_admin": "Abra {url} para adicionar suas agendas",
     "setup_file": "Adicione os links das suas agendas no config.toml",
     "host_headline": "endereço não permitido",
-    "host_detail": "Adicione {host} aos endereços permitidos no painel de administração, ou use o endereço IP"
+    "host_detail": "Use o endereço IP ou adicione {host} em allowed_hosts, na seção [admin] do config.toml"
   },
   "section": {
     "today": "Hoje",
@@ -158,10 +158,16 @@
     "invalid": "a agenda veio com formato inválido",
     "ok": "agenda acessível ({kb} KB)",
     "no_events": "nenhum compromisso nos próximos 14 dias. Se a agenda não está vazia,\n     confira se publicou o calendário certo.",
-    "events_found": "{n} compromissos nos próximos 14 dias",
+    "events_found": {
+      "one": "{n} compromisso nos próximos 14 dias",
+      "other": "{n} compromissos nos próximos 14 dias"
+    },
     "busy_only": "o link só mostra 'Ocupado', sem os títulos das reuniões.\n     Publique de novo com a permissão 'Pode ver todos os detalhes'.\n     Se essa opção não existir, a empresa limita a publicação: o status da\n     porta funciona, mas a lista vai mostrar só 'Ocupado'.",
     "timezone": "muitos compromissos de madrugada: talvez o fuso esteja errado.\n     Confira se os horários acima batem com o seu aplicativo de agenda.",
-    "tasks_found": "{n} tarefas para hoje ou atrasadas",
+    "tasks_found": {
+      "one": "{n} tarefa para hoje ou atrasada",
+      "other": "{n} tarefas para hoje ou atrasadas"
+    },
     "overdue_prefix": "[atrasada] ",
     "all_good": "Tudo certo! Pode rodar: inkdoor serve",
     "fix_errors": "Corrija os itens marcados com ✖ e rode o teste de novo.",
@@ -179,6 +185,10 @@
     "calendar_name": "a agenda nº {index} precisa de um name.",
     "calendar_duplicate": "duas agendas se chamam '{name}'; os nomes precisam ser diferentes.",
     "style": "agenda '{name}': style precisa ser solid, striped ou outline (veio {value}).",
+    "calendar_url": "agenda '{name}': url precisa ser um link entre aspas, como \"https://...\".",
+    "calendar_busy": "agenda '{name}': busy precisa ser true ou false.",
+    "calendar_label": "agenda '{name}': status_label precisa ser um texto entre aspas, como \"Fora\".",
+    "tasks_url": "[tasks] url precisa ser um link entre aspas, como \"https://...\".",
     "encoding": "o config.toml não está em UTF-8. Salve de novo como UTF-8 (no Bloco de Notas: Arquivo → Salvar como → Codificação: UTF-8).",
     "section": "[{section}] está no formato errado. Compare com o config.example.toml.",
     "admin_enabled": "[admin] enabled precisa ser true ou false (veio {value}).",
@@ -272,6 +282,7 @@
     "config_invalid": "O config.toml tem um problema, e nada será salvo até ele ser corrigido: {message}",
     "error_config": "Nada foi salvo porque o config.toml tem um problema: {message}",
     "error_write": "Não foi possível gravar o config.toml ({error}).",
+    "error_link": "O config.toml é um link simbólico, então o admin não pode alterá-lo: salvar trocaria o link por um arquivo comum. Edite à mão o arquivo para onde ele aponta.",
     "error_name_required": "Digite um nome.",
     "error_too_long": {
       "one": "Use no máximo {n} caractere.",
