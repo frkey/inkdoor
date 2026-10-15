@@ -30,6 +30,18 @@ def _ics(tmp_path, name, events):
     return str(path)
 
 
+def _all_day_ics(tmp_path, name, events):
+    """Writes a calendar of all-day events. events: [(summary, day as YYYYMMDD)]."""
+    body = "".join(
+        f"BEGIN:VEVENT\r\nUID:{i}@test\r\nDTSTART;VALUE=DATE:{day}\r\n"
+        f"SUMMARY:{summary}\r\nEND:VEVENT\r\n"
+        for i, (summary, day) in enumerate(events))
+    path = tmp_path / name
+    path.write_text("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//inkdoor//tests//EN\r\n"
+                    + body + "END:VCALENDAR\r\n", encoding="utf-8")
+    return str(path)
+
+
 def failing_config(cfg, tmp_path):
     """Every failure and warning path of `inkdoor check`, with path-independent output."""
     cfg["calendar"] = [
@@ -41,6 +53,8 @@ def failing_config(cfg, tmp_path):
         {"name": "Night", "url": _ics(tmp_path, "night.ics", [
             ("Standup", "20261014T020000"), ("Review", "20261014T030000"),
             ("Planning", "20261015T140000")])},
+        {"name": "Holidays", "url": _all_day_ics(tmp_path, "holidays.ics", [
+            ("Public holiday", "20261015"), ("Another holiday", "20261020")])},
     ]
     cfg["tasks"]["url"] = str(tmp_path / "missing-tasks.ics")
     return cfg
@@ -146,6 +160,26 @@ def test_check_calendar_warns_but_stays_ok(cfg, tmp_path):
     assert ("warn", t("check.busy_only")) in report.lines
 
 
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_check_calendar_reports_all_day_only_calendars(cfg, tmp_path, language):
+    cfg["display"]["language"] = language
+    t = Translator(language)
+    holidays = _all_day_ics(tmp_path, "holidays.ics", [("Public holiday", "20261015")])
+    report = check_calendar({"name": "Holidays", "url": holidays}, cfg, at("09:00"))
+    assert report.ok is True
+    assert report.lines == [("ok", t("check.ok", kb=1)), ("ok", t("check.all_day_found", n=1))]
+    assert ("warn", t("check.no_events")) not in report.lines
+
+
+def test_check_calendar_counts_timed_and_all_day_events_apart(cfg):
+    t = Translator("en-US")
+    personal = next(c for c in cfg["calendar"] if c["name"] == "Personal")
+    report = check_calendar(personal, cfg, at("09:00"))
+    assert report.lines == [("ok", t("check.ok", kb=1)), ("ok", t("check.events_found", n=1)),
+                            ("ok", t("check.all_day_found", n=1))]
+    assert [title for _, title in report.upcoming] == ["Gym"]
+
+
 def test_check_calendar_fails_without_leaking_details(cfg, monkeypatch):
     def broken(*args, **kwargs):
         raise ValueError("https://cal.example/secret.ics")
@@ -205,6 +239,10 @@ def test_check_prints_each_source_before_the_next_is_checked(cfg, capsys, monkey
     ("pt-BR", "check.events_found", "1 compromisso nos próximos 14 dias",
      "12 compromissos nos próximos 14 dias"),
     ("en-US", "check.tasks_found", "1 task due today or overdue", "12 tasks due today or overdue"),
+    ("en-US", "check.all_day_found", "1 all-day event in the next 14 days",
+     "12 all-day events in the next 14 days"),
+    ("pt-BR", "check.all_day_found", "1 compromisso de dia inteiro nos próximos 14 dias",
+     "12 compromissos de dia inteiro nos próximos 14 dias"),
     ("pt-BR", "check.tasks_found", "1 tarefa para hoje ou atrasada",
      "12 tarefas para hoje ou atrasadas"),
 ])

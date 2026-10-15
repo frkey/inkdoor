@@ -80,15 +80,22 @@ def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
         report.ok = False
         return report
     try:
-        events = [e for e in read_calendar(calendar, start, end, tz) if not e.all_day]
+        found = read_calendar(calendar, start, end, tz)
     except Exception as ex:
         report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
         report.ok = False
         return report
-    if not events:
+    events = [e for e in found if not e.all_day]
+    all_day = len(found) - len(events)
+    if not found:
         report.lines.append(("warn", t("check.no_events")))
         return report
-    report.lines.append(("ok", t("check.events_found", n=len(events))))
+    if events:
+        report.lines.append(("ok", t("check.events_found", n=len(events))))
+    if all_day:
+        report.lines.append(("ok", t("check.all_day_found", n=all_day)))
+    if not events:
+        return report
     titles = {e.title.strip().lower() for e in events}
     if titles and titles <= FREE_BUSY_TITLES:
         report.lines.append(("warn", t("check.busy_only")))
