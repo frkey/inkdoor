@@ -748,3 +748,12 @@ input[readonly] {
     margin-bottom: 6px;
   }
 }
+
+/* Home: the Kindle files download, above the address to copy by hand */
+.kindle-download {
+  margin: 0 0 24px;
+}
+
+.kindle-download .help {
+  margin: 8px 0 0;
+}

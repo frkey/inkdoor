@@ -326,6 +326,8 @@
     "kindle_title": "Kindle",
     "kindle_url_label": "Image address",
     "kindle_url_help": "Put this address in URL in config.sh on the Kindle.",
+    "kindle_download": "Download the Kindle files",
+    "kindle_download_help": "A .zip with the scripts, this address and the language already filled in. Unzip it, copy the inkdoor folder to the root of the Kindle and the two files in scriptlets into its documents folder.",
     "kindle_url_unknown": "Could not find this computer's network address. On the Kindle, use its IP address followed by :{port}/kindle.png.",
     "copy": "Copy",
     "copied": "Copied",
@@ -391,5 +393,8 @@
     "session_title": "This browser",
     "session_help": "Log out when you are done on a shared computer.",
     "config_problem_detail": "Details: {message}"
+  },
+  "kindle_zip": {
+    "readme": "inkdoor for the Kindle\n======================\n\nThe image address is already set in inkdoor/config.sh:\n  {url}\n\n1. Connect the Kindle to the computer with a USB cable.\n2. Copy the \"inkdoor\" folder to the root of the Kindle, next to its \"documents\" folder.\n3. Copy the two files in \"scriptlets\" into the Kindle's \"documents\" folder.\n   Copy the files, not the folder: replacing \"documents\" would remove your books.\n4. Eject the Kindle. In its library, open \"inkdoor - test connection\",\n   then \"inkdoor - start display\".\n\nTo go back to the normal Kindle, restart it (hold the power button).\nMore help: {docs}\n"
   }
 }

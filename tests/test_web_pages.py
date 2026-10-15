@@ -1280,3 +1280,80 @@ def test_the_test_slot_is_released_when_a_check_crashes(logged, monkeypatch):
     assert pages.TESTS.acquire(blocking=False) and pages.TESTS.acquire(blocking=False)
     pages.TESTS.release()
     pages.TESTS.release()
+
+
+# --- Kindle files ----------------------------------------------------------------------------
+
+KINDLE_URL = "http://192.168.0.50:3667/kindle.png"          # the fake LAN address from conftest
+
+
+def kindle_zip(response):
+    import io
+    import zipfile
+    return zipfile.ZipFile(io.BytesIO(response.data))
+
+
+def test_kindle_zip_has_the_scripts_with_this_server_filled_in(logged):
+    from inkdoor import kindle_files
+    page = body(logged.get("/"))
+    assert 'href="/kindle-files.zip"' in page and EN("admin.kindle_download") in page
+    r = logged.get("/kindle-files.zip")
+    assert r.status_code == 200 and r.mimetype == "application/zip"
+    assert r.headers["Content-Disposition"] == 'attachment; filename="inkdoor-kindle.zip"'
+    assert r.headers["Cache-Control"] == "no-store"
+    archive = kindle_zip(r)
+    assert sorted(archive.namelist()) == [
+        "README.txt", "inkdoor/common.sh", "inkdoor/config.sh", "inkdoor/loop.sh",
+        "scriptlets/inkdoor-start.sh", "scriptlets/inkdoor-test.sh"]
+    folder = kindle_files.find_dir()
+    for name in ("inkdoor/common.sh", "inkdoor/loop.sh"):
+        assert archive.read(name) == (folder / name).read_bytes()
+    assert archive.read("scriptlets/inkdoor-start.sh") == (folder / "documents/inkdoor-start.sh").read_bytes()
+    config_sh = archive.read("inkdoor/config.sh").decode("utf-8")
+    assert f'\nURL="{KINDLE_URL}"\n' in config_sh and '\nLANGUAGE="en-US"\n' in config_sh
+    assert "\r" not in config_sh and "INTERVAL=300" in config_sh   # the rest is the template
+    readme = archive.read("README.txt").decode("utf-8")
+    assert KINDLE_URL in readme and "docs/kindle.md" in readme
+    assert all(archive.getinfo(n).external_attr >> 16 == 0o100755 for n in archive.namelist()
+               if n.endswith(".sh"))
+
+
+def test_kindle_zip_follows_the_admin_language(tmp_path):
+    state = make_state(tmp_path, display={"language": "pt-BR"})
+    logged = Admin(make_app(state, FakeClock()), state)
+    pt = Translator("pt-BR")
+    assert pt("admin.kindle_download") in body(logged.get("/"))
+    archive = kindle_zip(logged.get("/kindle-files.zip"))
+    assert '\nLANGUAGE="pt-BR"\n' in archive.read("inkdoor/config.sh").decode("utf-8")
+    readme = archive.read("README.txt").decode("utf-8")
+    assert "Copie a pasta" in readme and "docs/pt-BR/kindle.md" in readme
+
+
+def test_kindle_zip_needs_a_login(app):
+    assert client(app).get("/kindle-files.zip", base_url=BASE).status_code == 302
+
+
+@pytest.mark.parametrize("missing", ["address", "scripts"])
+def test_no_kindle_zip_without_an_address_or_the_scripts(logged, monkeypatch, missing):
+    from inkdoor import kindle_files
+    if missing == "address":
+        monkeypatch.setattr(net, "lan_address", lambda: None)
+    else:
+        monkeypatch.setattr(kindle_files, "find_dir", lambda: None)
+    assert "/kindle-files.zip" not in body(logged.get("/"))
+    assert logged.get("/kindle-files.zip").status_code == 404
+
+
+@pytest.mark.parametrize("url", ['http://x"; rm -rf /; "', "http://x/$(id)", "http://x/`id`",
+                                 "https://x/kindle.png", "http://x\\y"])
+def test_config_sh_refuses_an_unsafe_address(url):
+    from inkdoor import kindle_files
+    with pytest.raises(ValueError):
+        kindle_files.config_sh('URL="old"\nLANGUAGE="en-US"\n', url, "en-US")
+
+
+def test_config_sh_only_changes_url_and_language():
+    from inkdoor import kindle_files
+    template = '# URL="not this"\nURL="old"\nINTERVAL=300\nLANGUAGE="en-US"\n'
+    assert kindle_files.config_sh(template, KINDLE_URL, "pt-BR") == (
+        f'# URL="not this"\nURL="{KINDLE_URL}"\nINTERVAL=300\nLANGUAGE="pt-BR"\n')

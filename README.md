@@ -148,10 +148,10 @@ paste each ICS link and press **Test link**. **Home** shows the door exactly as 
 
 ### 3. Put it on the Kindle
 
-1. Copy `kindle/inkdoor/` to the root of the Kindle and `kindle/documents/*.sh` to its
-   `documents/` folder.
-2. In `inkdoor/config.sh`, set `URL` to the address shown on the admin's home page, for example
-   `URL="http://192.168.1.50:3667/kindle.png"`.
+1. On the admin's **Home** page, press **Download the Kindle files**: a `.zip` with your
+   server's address and your language already set.
+2. Unzip it. Copy the `inkdoor` folder to the root of the Kindle and the two files in
+   `scriptlets` into its `documents` folder.
 3. In the Kindle's library, open **inkdoor - test connection**, then **inkdoor - start display**.
 
 Step by step, with tips on power and Wi-Fi: [docs/kindle.md](docs/kindle.md).

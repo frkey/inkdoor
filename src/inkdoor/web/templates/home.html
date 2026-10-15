@@ -39,6 +39,12 @@
     <section class="card">
       <h2>{{ t("admin.kindle_title") }}</h2>
       {% if kindle_url %}
+      {% if kindle_zip %}
+      <div class="kindle-download">
+        <a class="button" href="/kindle-files.zip" download>{{ t("admin.kindle_download") }}</a>
+        <p class="help">{{ t("admin.kindle_download_help") }}</p>
+      </div>
+      {% endif %}
       {{ m.copy_field("kindle-url", t("admin.kindle_url_label"), kindle_url,
                       help=t("admin.kindle_url_help")) }}
       {% else %}

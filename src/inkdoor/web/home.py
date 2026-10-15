@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 
-from flask import Blueprint, g, jsonify, redirect, render_template, request
+from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request
 
-from .. import config, config_edit, net
+from .. import config, config_edit, kindle_files, net
 from ..config import is_configured
 from ..state import IMAGE_NAME
 from . import add_notice
@@ -22,6 +22,11 @@ def _nothing_configured(data: dict) -> bool:
 
 def register(bp: Blueprint, ed: Editor) -> None:
     state, t = ed.state, ed.t
+
+    def kindle_url() -> str | None:
+        """The image address for other devices on the network, as Home shows it."""
+        base = net.admin_url(state.cfg)
+        return base + "/kindle.png" if base else None
 
     def preview_token(last) -> int | None:
         """The ``t`` of the preview's address: the last render time, so a new render shows."""
@@ -47,19 +52,35 @@ def register(bp: Blueprint, ed: Editor) -> None:
         # restore or a first save would otherwise still show the old banner
         missing = raw is not None and not raw.exists
         broken = bool(problem or warning) or (missing and state.config_problem == "broken")
-        base = net.admin_url(state.cfg)
+        url = kindle_url()
         return render_template(
             "home.html", active="home", last=last, updated=updated_text(last),
             preview=preview_token(last), at=last.at.isoformat() if last is not None else "",
             # watch for the new screen after a save or "Update now", while a render is pending,
             # or while none happened yet
             poll=watch_render or state.render_event.is_set() or last is None,
-            kindle_url=base + "/kindle.png" if base else None,
+            kindle_url=url,
+            # the zip needs the address it writes into config.sh, and the scripts beside the code
+            kindle_zip=url is not None and kindle_files.find_dir() is not None,
             port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
             using_defaults=state.using_defaults,
             # the door's own rule for its setup screen; a missing file is a first setup too
             first_setup=not broken and raw is not None and _nothing_configured(raw.data),
             restore=ed.restore_offer(raw, problem, warning))
+
+    @bp.get("/kindle-files.zip")
+    def kindle_zip():
+        """The Kindle's scripts, with config.sh already pointing at this server."""
+        url, folder = kindle_url(), kindle_files.find_dir()
+        if url is None or folder is None:
+            abort(404)
+        docs = "docs/pt-BR/kindle.md" if t().language.startswith("pt") else "docs/kindle.md"
+        readme = t()("kindle_zip.readme", url=url,
+                     docs=f"https://github.com/frkey/inkdoor/blob/master/{docs}")
+        response = make_response(kindle_files.build_zip(folder, url, t().language, readme))
+        response.mimetype = "application/zip"
+        response.headers["Content-Disposition"] = 'attachment; filename="inkdoor-kindle.zip"'
+        return response
 
     @bp.get("/status.json")
     def status():

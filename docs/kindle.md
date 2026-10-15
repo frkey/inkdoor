@@ -16,7 +16,21 @@ Before you start, put the Kindle in **airplane mode** so it does not update its 
 
 ## 2. Install
 
-With the Kindle connected over USB:
+### The easy way: download the files from the admin
+
+On the admin's **Home** page, press **Download the Kindle files**. The `.zip` already has your
+server's address and your language in `inkdoor/config.sh`. With the Kindle connected over USB:
+
+1. Unzip it.
+2. Copy the `inkdoor` folder to the root of the Kindle, next to its `documents` folder.
+3. Copy the two files in `scriptlets` into the Kindle's `documents` folder. Copy the files, not
+   the folder: replacing `documents` would remove your books.
+
+The `README.txt` inside the zip has the same steps.
+
+### By hand
+
+From a copy of this repository, with the Kindle connected over USB:
 
 ```
 Kindle/
