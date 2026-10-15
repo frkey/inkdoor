@@ -91,6 +91,55 @@ longer and are the usual cause of overflow.
 - Fonts in `src/inkdoor/fonts/` are a Latin subset of Inter (SIL OFL 1.1). If you need a glyph
   outside that subset, re-subset from the upstream font and keep `OFL.txt`.
 
+## Issues and labels
+
+Work is tracked in GitHub issues on `frkey/inkdoor` (use `gh issue ...`).
+
+- **Open an issue** for every bug, follow-up, deferred review finding or idea that is not done in
+  the current change. Never leave follow-ups only in a chat, a PR comment or a local note.
+- **Before opening one**, search open and closed issues (`gh issue list --search ...`) and comment
+  on an existing issue instead of creating a duplicate.
+- **Write issues in English**, like everything else in the repo. Title: short and imperative
+  ("Show all-day events in inkdoor check"). Body: context, current vs expected behavior (steps to
+  reproduce for bugs), acceptance criteria, and the files or modules involved.
+- **Privacy applies to issues too**: they are public. Never paste calendar links, `config.toml`
+  content, passwords, names, emails or meeting titles; use fictional data and redact logs.
+- **Labels**: every issue gets exactly one `type:`, exactly one `priority:` and at least one
+  `area:` label. Add a `status:` label only when it applies, and remove it when it no longer does.
+  Do not use GitHub's default `bug`, `enhancement` or `documentation` labels; use the `type:` ones.
+- **Link the work**: branches and PRs reference the issue, and the PR description closes it
+  ("Fixes #12"). One issue per independent piece of work; split issues that mix unrelated changes.
+- **Creating or editing labels changes the public repository**: ask the maintainer before running
+  `gh label create`/`gh label edit`. If a label from the table is missing, ask before creating it
+  instead of picking another one.
+
+| Label | Color | Use for |
+|---|---|---|
+| `type: bug` | `d73a4a` | Something that is wrong or broken |
+| `type: feature` | `1d76db` | New capability for users |
+| `type: improvement` | `a2eeef` | Better behavior of something that already works |
+| `type: docs` | `0075ca` | Documentation only (both languages) |
+| `type: chore` | `cfd3d7` | Maintenance, refactoring, tests, CI, dependencies |
+| `type: security` | `b60205` | Vulnerabilities and hardening (no exploit details in public) |
+| `priority: critical` | `b60205` | Door shows wrong status, secrets leak, or the service is down; fix now |
+| `priority: high` | `d93f0b` | Breaks a main flow or affects most users; next in line |
+| `priority: medium` | `fbca04` | Real problem with a workaround; plan it |
+| `priority: low` | `0e8a16` | Polish, nice to have |
+| `area: server` | `5319e7` | `serve`, render loop, Waitress, `/kindle.png` |
+| `area: admin` | `5319e7` | Web admin pages, login, sessions |
+| `area: sources` | `5319e7` | Calendar and task fetching (`sources.py`, `net.py`, `check.py`) |
+| `area: render` | `5319e7` | Screen layout and drawing (`render.py`) |
+| `area: kindle` | `5319e7` | Scripts that run on the Kindle (`kindle/`) |
+| `area: deploy` | `5319e7` | `deploy/`, systemd, Proxmox |
+| `area: i18n` | `5319e7` | Translations and locale formatting |
+| `area: docs` | `5319e7` | README and `docs/` |
+| `status: blocked` | `000000` | Waiting on something outside the issue (say what in a comment) |
+| `status: needs info` | `d876e3` | Cannot proceed without more details |
+| `status: needs hardware` | `c5def5` | Must be verified on a real Kindle or Proxmox host |
+
+GitHub's `good first issue`, `help wanted`, `duplicate`, `wontfix` and `question` labels stay
+available alongside these.
+
 ## Privacy
 
 This is a public repository.
