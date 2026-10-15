@@ -143,8 +143,8 @@ available alongside these.
 ## Pull requests
 
 - **Review until clean, before opening a pull request.** Once the work is committed and the tests
-  pass, run `/code-review high master...HEAD` (always name the range: without one the skill
-  compares with the pushed branch and can review nothing). Handle its findings (see "Handle every
+  pass, run `git fetch` and `/code-review high origin/master...HEAD` (always name the range:
+  without one the skill compares with the pushed branch and can review nothing). Handle its findings (see "Handle every
   finding"), commit, and run another round on the fix commits only
   (`/code-review high <last-reviewed-commit>..HEAD`): the fixes are new code that the previous
   round did not see. Repeat until a round is clean.
@@ -153,8 +153,8 @@ available alongside these.
   the loop going; record them as not applicable or defer them to an issue.
 - **Same loop before every later push** to an open PR: review the new commits (from the last
   reviewed commit to `HEAD`) until a round is clean, then push. If `master` was merged into the
-  branch since the last round, review `master...HEAD` instead, so the round covers the merge
-  result without re-reviewing `master`'s own commits.
+  branch since the last round, review `origin/master...HEAD` instead (after `git fetch`), so the
+  round covers the merge result without re-reviewing `master`'s own commits.
 - **Stop and ask**: if the fourth round of the same loop still finds a new real defect, stop and
   ask the maintainer; it usually means the approach needs rethinking, not another patch.
 - **Handle every finding**: fix it; or explain in the PR description why it does not apply; or, if
