@@ -145,7 +145,7 @@ Continue from step 5 of the Proxmox steps above.
 To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the new version from the same
 repository and branch (`--ref`) as before, and restarts the service. It never overwrites your
 config or your admin password; on an install from before the admin existed, it turns the admin
-on once and prints its first password.
+on once and prints its first password. Without `--lang`, its messages use the `language` set in your config.
 
 Options: `--lang en-US|pt-BR`, `--timezone Area/City` (for a new config), `--ref BRANCH_OR_TAG`.
 
