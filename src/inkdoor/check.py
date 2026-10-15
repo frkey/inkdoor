@@ -97,7 +97,7 @@ def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     if not events:
         return report
     titles = {e.title.strip().lower() for e in events}
-    if titles and titles <= FREE_BUSY_TITLES:
+    if titles <= FREE_BUSY_TITLES:
         report.lines.append(("warn", t("check.busy_only")))
     report.upcoming = [(e.start, e.title or t("untitled")) for e in events if e.end > now][:3]
     report.upcoming_at = len(report.lines)

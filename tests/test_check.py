@@ -17,29 +17,28 @@ def test_check_output_matches_golden(cfg, capsys, language):
     assert capsys.readouterr().out == expected
 
 
-def _ics(tmp_path, name, events):
-    """Writes a tiny calendar. events: [(summary, start as YYYYMMDDTHHMMSS local to the display zone)]."""
-    body = "".join(
-        f"BEGIN:VEVENT\r\nUID:{i}@test\r\nDTSTART;TZID=America/Sao_Paulo:{start}\r\n"
-        f"DTEND;TZID=America/Sao_Paulo:{start[:9]}{int(start[9:11]) + 1:02d}{start[11:]}\r\n"
-        f"SUMMARY:{summary}\r\nEND:VEVENT\r\n"
-        for i, (summary, start) in enumerate(events))
+def _write_ics(tmp_path, name, body):
     path = tmp_path / name
     path.write_text("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//inkdoor//tests//EN\r\n"
                     + body + "END:VCALENDAR\r\n", encoding="utf-8")
     return str(path)
+
+
+def _ics(tmp_path, name, events):
+    """Writes a tiny calendar. events: [(summary, start as YYYYMMDDTHHMMSS local to the display zone)]."""
+    return _write_ics(tmp_path, name, "".join(
+        f"BEGIN:VEVENT\r\nUID:{i}@test\r\nDTSTART;TZID=America/Sao_Paulo:{start}\r\n"
+        f"DTEND;TZID=America/Sao_Paulo:{start[:9]}{int(start[9:11]) + 1:02d}{start[11:]}\r\n"
+        f"SUMMARY:{summary}\r\nEND:VEVENT\r\n"
+        for i, (summary, start) in enumerate(events)))
 
 
 def _all_day_ics(tmp_path, name, events):
     """Writes a calendar of all-day events. events: [(summary, day as YYYYMMDD)]."""
-    body = "".join(
+    return _write_ics(tmp_path, name, "".join(
         f"BEGIN:VEVENT\r\nUID:{i}@test\r\nDTSTART;VALUE=DATE:{day}\r\n"
         f"SUMMARY:{summary}\r\nEND:VEVENT\r\n"
-        for i, (summary, day) in enumerate(events))
-    path = tmp_path / name
-    path.write_text("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//inkdoor//tests//EN\r\n"
-                    + body + "END:VCALENDAR\r\n", encoding="utf-8")
-    return str(path)
+        for i, (summary, day) in enumerate(events)))
 
 
 def failing_config(cfg, tmp_path):
