@@ -177,3 +177,24 @@ def test_check_tasks_reports_a_failing_link(cfg, tmp_path):
     report = check_tasks(tasks, cfg, at("09:00"))
     assert (report.ok, report.upcoming) == (False, [])
     assert report.lines == [("fail", Translator("en-US")("check.unreachable"))]
+
+
+def test_check_prints_each_source_before_the_next_is_checked(cfg, capsys, monkeypatch):
+    printed, seen = [], []
+
+    def spy(real):
+        def wrapper(source, *args):
+            printed.append(capsys.readouterr().out)          # what the user can see right now
+            seen.append((source["name"], "".join(printed)))
+            return real(source, *args)
+        return wrapper
+    monkeypatch.setattr(check, "check_calendar", spy(check.check_calendar))
+    monkeypatch.setattr(check, "check_tasks", spy(check.check_tasks))
+    assert run(cfg, now=at("09:00")) is True
+    assert "All good" in "".join(printed) + capsys.readouterr().out
+    assert [name for name, _ in seen] == ["Work", "Company", "Personal", "TickTick"]
+    for index, (name, visible) in enumerate(seen):
+        assert visible.endswith(f"\n\u25a0 {name}\n"), name         # header is out before its check starts
+        if index:
+            previous = seen[index - 1][0]
+            assert f"\u25a0 {previous}\n  \u2714" in visible          # previous source's result is out too

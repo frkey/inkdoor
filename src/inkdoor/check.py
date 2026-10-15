@@ -129,8 +129,12 @@ def _print_upcoming(report: SourceReport, t: Translator) -> None:
             print(f"     {t.date_short(start)} {t.time(start):>8}  {title}")
 
 
+def _print_header(name: str) -> None:
+    # flush: a slow link must show which source is being tested, even when output is piped
+    print(f"\n■ {name}", flush=True)
+
+
 def _print_report(report: SourceReport, t: Translator) -> None:
-    print(f"\n■ {report.name}")
     upcoming_at = len(report.lines) if report.upcoming_at is None else report.upcoming_at
     for index, (level, message) in enumerate(report.lines):
         if index == upcoming_at:
@@ -138,17 +142,23 @@ def _print_report(report: SourceReport, t: Translator) -> None:
         print(PREFIXES[level], message)
     if upcoming_at >= len(report.lines):
         _print_upcoming(report, t)
+    print(end="", flush=True)
 
 
 def run(cfg: dict, now: dt.datetime | None = None) -> bool:
     t = translator_for(cfg)
     tz = ZoneInfo(cfg["display"]["timezone"])
     now = now or dt.datetime.now(tz)
-    reports = [check_calendar(calendar, cfg, now) for calendar in cfg.get("calendar", [])]
+    reports = []
+    # Header before the (possibly slow) check, report as soon as it is built
+    for calendar in cfg.get("calendar", []):
+        _print_header(calendar["name"])
+        reports.append(check_calendar(calendar, cfg, now))
+        _print_report(reports[-1], t)
     if cfg.get("tasks"):
+        _print_header(cfg["tasks"]["name"])
         reports.append(check_tasks(cfg["tasks"], cfg, now))
-    for report in reports:
-        _print_report(report, t)
+        _print_report(reports[-1], t)
     all_ok = all(report.ok for report in reports)
     print("\n" + (t("check.all_good") if all_ok else t("check.fix_errors")))
     return all_ok
