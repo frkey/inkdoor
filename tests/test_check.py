@@ -17,6 +17,58 @@ def test_check_output_matches_golden(cfg, capsys, language):
     assert capsys.readouterr().out == expected
 
 
+def _ics(tmp_path, name, events):
+    """Writes a tiny calendar. events: [(summary, start as YYYYMMDDTHHMMSS local to the display zone)]."""
+    body = "".join(
+        f"BEGIN:VEVENT\r\nUID:{i}@test\r\nDTSTART;TZID=America/Sao_Paulo:{start}\r\n"
+        f"DTEND;TZID=America/Sao_Paulo:{start[:9]}{int(start[9:11]) + 1:02d}{start[11:]}\r\n"
+        f"SUMMARY:{summary}\r\nEND:VEVENT\r\n"
+        for i, (summary, start) in enumerate(events))
+    path = tmp_path / name
+    path.write_text("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//inkdoor//tests//EN\r\n"
+                    + body + "END:VCALENDAR\r\n", encoding="utf-8")
+    return str(path)
+
+
+def failing_config(cfg, tmp_path):
+    """Every failure and warning path of `inkdoor check`, with path-independent output."""
+    cfg["calendar"] = [
+        {"name": "Placeholder", "url": "PASTE_YOUR_LINK_HERE"},
+        {"name": "Unreachable", "url": str(tmp_path / "missing.ics")},
+        {"name": "Empty", "url": _ics(tmp_path, "empty.ics", [])},
+        {"name": "Busy only", "url": _ics(tmp_path, "busy.ics", [
+            ("Busy", "20261014T100000"), ("Tentative", "20261015T100000")])},
+        {"name": "Night", "url": _ics(tmp_path, "night.ics", [
+            ("Standup", "20261014T020000"), ("Review", "20261014T030000"),
+            ("Planning", "20261015T140000")])},
+    ]
+    cfg["tasks"]["url"] = str(tmp_path / "missing-tasks.ics")
+    return cfg
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_check_failures_and_warnings_match_golden(cfg, tmp_path, capsys, language):
+    cfg = failing_config(cfg, tmp_path)
+    cfg["display"]["language"] = language
+    assert run(cfg, now=at("09:00")) is False
+    expected = open(os.path.join(FIXTURES, f"check-failures-golden-{language}.txt"), encoding="utf-8").read()
+    assert capsys.readouterr().out == expected
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_check_reports_unreadable_sources(cfg, capsys, monkeypatch, language):
+    def broken(*args, **kwargs):
+        raise ValueError("secret detail")
+    monkeypatch.setattr(check, "read_calendar", broken)
+    monkeypatch.setattr(check, "read_tasks", broken)
+    cfg["display"]["language"] = language
+    assert run(cfg, now=at("09:00")) is False
+    out = capsys.readouterr().out
+    t = Translator(language)
+    assert out.count(t("check.read_failed", error="ValueError")) == 4
+    assert "secret detail" not in out
+
+
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])
 @pytest.mark.parametrize("error, key, kwargs", [
     (FetchError("http", 401), "check.denied", {"status": 401}),
