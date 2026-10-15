@@ -483,6 +483,22 @@ def test_netrc_credentials_are_never_sent(tmp_path, monkeypatch):
     assert requests.utils.get_netrc_auth("https://cal.example/x.ics") is not None   # it was there
 
 
+
+def test_user_info_in_the_link_is_still_sent(monkeypatch):
+    resolve_to(monkeypatch, "203.0.113.10")
+    sent = []
+
+    def fake_send(self, request, **kwargs):
+        sent.append(request)
+        response = make_response(200, b"BEGIN:VCALENDAR")
+        response.request = request
+        return response
+    monkeypatch.setattr(requests.Session, "send", fake_send)
+    fetch("https://someone:not-a-real-secret@cal.example/dav/x.ics")
+    assert sent[0].headers["Authorization"] == requests.auth._basic_auth_str(
+        "someone", "not-a-real-secret")
+
+
 # ------------------------------------------------------------ local files and webcal
 
 def test_local_file_and_webcal(tmp_path, monkeypatch):

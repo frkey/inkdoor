@@ -105,7 +105,7 @@ def _fetch(url: str, max_bytes: int, deadline: float, max_redirects: int) -> byt
         adapter = _WatchedAdapter(watchdog)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
-        session.auth = _no_auth                   # an auth of our own: requests skips .netrc
+        session.auth = _link_auth                 # an auth of our own: requests skips .netrc
         try:
             return _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
         except FetchError:
@@ -133,7 +133,12 @@ def _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
     raise FetchError("redirects")
 
 
-def _no_auth(request):
+def _link_auth(request):
+    """Basic auth from the link's own user info (https://user:pass@host/...), as requests does
+    when no auth is set; setting one is what keeps it from reading a .netrc file instead."""
+    user, password = requests.utils.get_auth_from_url(request.url)
+    if user or password:
+        return requests.auth.HTTPBasicAuth(user, password)(request)
     return request
 
 
