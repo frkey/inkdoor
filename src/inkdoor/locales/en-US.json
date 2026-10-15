@@ -51,7 +51,14 @@
     "unknown_headline": "calendar unavailable",
     "unknown_detail": "Could not read: {sources}",
     "error_headline": "display error",
-    "error_detail": "Check the computer running inkdoor serve"
+    "error_detail": "Check the computer running inkdoor serve",
+    "no_busy_detail": "No calendar is set to mark you busy",
+    "setup": "Setup",
+    "setup_headline": "inkdoor is almost ready",
+    "setup_admin": "Open {url} to add your calendars",
+    "setup_file": "Add your calendar links to config.toml",
+    "host_headline": "address not allowed",
+    "host_detail": "Add {host} to the allowed addresses in the admin, or use the IP address"
   },
   "section": {
     "today": "Today",

@@ -51,7 +51,14 @@
     "unknown_headline": "agenda indisponível",
     "unknown_detail": "Não consegui ler: {sources}",
     "error_headline": "erro no painel",
-    "error_detail": "Confira o computador que roda o inkdoor serve"
+    "error_detail": "Confira o computador que roda o inkdoor serve",
+    "no_busy_detail": "Nenhuma agenda marca você como ocupado",
+    "setup": "Configuração",
+    "setup_headline": "o inkdoor está quase pronto",
+    "setup_admin": "Abra {url} para adicionar suas agendas",
+    "setup_file": "Adicione os links das suas agendas no config.toml",
+    "host_headline": "endereço não permitido",
+    "host_detail": "Adicione {host} aos endereços permitidos no painel de administração, ou use o endereço IP"
   },
   "section": {
     "today": "Hoje",

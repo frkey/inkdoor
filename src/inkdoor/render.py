@@ -73,6 +73,11 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
         return Status(True, t("status.unknown"), t("status.unknown_headline"),
                       t("status.unknown_detail", sources=", ".join(snap.unknown)))
 
+    if snap.configured == "no_busy" and not current:
+        # calendars exist but none marks the owner busy: "Free" would be a guess
+        return Status(True, t("status.unknown"), t("status.unknown_headline"),
+                      t("status.no_busy_detail"))
+
     if current:
         main = min(current, key=lambda e: e.end)
         until = end_of_block(max(e.end for e in current))
@@ -450,6 +455,35 @@ def render_error(cfg: dict | None, message: str) -> Image.Image:
         d.text((M, y), line, font=f, fill=DARK)
         y += 40
     return img.point(lambda v: min(255, round(v / 17) * 17))
+
+
+def _render_notice(st: Status) -> Image.Image:
+    """Status box plus the detail line wrapped below it, so long text and URLs stay readable."""
+    img = Image.new("L", (W, H), WHITE)
+    d = ImageDraw.Draw(img)
+    detail, st.detail = st.detail, ""
+    y = draw_status(d, st, 130) + 60
+    f = font("Medium", 36)
+    for line in _wrap(d, detail, f, W - 2 * M)[:8]:
+        d.text((M, y), line, font=f, fill=DARK)
+        y += 52
+    return img.point(lambda v: min(255, round(v / 17) * 17))
+
+
+def render_setup(cfg: dict | None, admin_url: str | None) -> Image.Image:
+    """Screen shown while no calendar or task link is configured yet."""
+    t = translator_for(cfg or {})
+    detail = (t("status.setup_admin", url=admin_url) if admin_url is not None
+              else t("status.setup_file"))
+    return _render_notice(Status(True, t("status.setup"), t("status.setup_headline"), detail))
+
+
+def render_host_rejected(cfg: dict | None, host: str) -> Image.Image:
+    """Screen shown when the Kindle reached the server through a host name that is not allowed."""
+    t = translator_for(cfg or {})
+    st = Status(True, t("status.unknown"), t("status.host_headline"),
+                t("status.host_detail", host=host[:60]))
+    return _render_notice(st)
 
 
 def _wrap(d, text: str, f, width: int) -> list[str]:
