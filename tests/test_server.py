@@ -207,16 +207,58 @@ def test_cycle_logs_config_errors_without_their_content(state, capsys):
         f.write(f'[[calendar]]\nname = "Work"\nurl = "https://calendar.example/{CANARY}\n')
     server.run_cycle(state, SourceCache())
     out = capsys.readouterr()
-    assert "syntax" in out.out
+    assert EN("config_error.syntax", error="") in out.out              # the translated message
     assert CANARY not in out.out + out.err
 
 
-def test_render_info_lists_failing_sources_without_links(tmp_path, cfg, capsys):
+def test_cycle_explains_config_problems_in_the_log(state, capsys):
+    with open(state.config_path, "w") as f:
+        f.write("[server]\nrefresh_minutes = 0\n")
+    server.run_cycle(state, SourceCache())
+    reason = EN("config_error.refresh", value=0)
+    assert EN("cli.kept_last_config", message=reason) in capsys.readouterr().out
+
+    os.remove(state.config_path)
+    server.run_cycle(state, SourceCache())
+    reason = EN("cli.config_missing", path=state.config_path)
+    assert EN("cli.kept_last_config", message=reason) in capsys.readouterr().out
+
+
+def test_defaults_log_explains_the_missing_file(tmp_path, capsys):
+    cfg, problem = server.load_for_serve(str(tmp_path / "config.toml"), None)
+    st = make_state(tmp_path, cfg, problem, using_defaults=True)
+    server.run_cycle(st, SourceCache())
+    reason = EN("cli.config_missing", path=st.config_path)
+    assert EN("cli.config_defaults", message=reason) in capsys.readouterr().out
+
+
+def test_other_reload_errors_are_logged_by_type_only(state, monkeypatch, capsys):
+    def boom(*args, **kwargs):
+        raise ValueError(f"weird https://calendar.example/{CANARY}")
+
+    monkeypatch.setattr(server.config, "load", boom)
+    server.run_cycle(state, SourceCache())
+    out = capsys.readouterr()
+    assert EN("cli.kept_last_config", message="ValueError") in out.out
+    assert CANARY not in out.out + out.err
+
+
+def test_render_info_lists_failing_sources_without_links(tmp_path, cfg, capsys, monkeypatch):
+    from inkdoor import sources
+    from inkdoor.net import FetchError
+    real_fetch = sources.fetch
+
+    def fake_fetch(url):
+        if CANARY in url:
+            raise FetchError("unreachable")
+        return real_fetch(url)
+
+    monkeypatch.setattr(sources, "fetch", fake_fetch)
     cfg["calendar"].append({"name": "Gone", "busy": False,
                             "url": f"https://calendar.example/{CANARY}.ics"})
     st = make_state(tmp_path, cfg)
     server.run_cycle(st, SourceCache())
-    assert any(e.startswith("Gone: ") for e in st.last_render.errors)
+    assert st.last_render.errors == ["Gone: FetchError"]
     assert CANARY not in repr(st.last_render)
     out = capsys.readouterr()
     assert CANARY not in out.out + out.err
@@ -264,3 +306,51 @@ def test_render_once_shows_setup_when_nothing_is_configured(tmp_path):
     cfg = with_defaults({})
     path = server.render_once(cfg, str(tmp_path / "out"))
     assert pixels(path) == pixels(render_setup(cfg, None))
+
+
+class BrokenStdout:
+    def write(self, text):
+        raise BrokenPipeError(32, "Broken pipe")
+
+    def flush(self):
+        raise BrokenPipeError(32, "Broken pipe")
+
+
+def test_render_loop_keeps_cycling_when_logging_fails(tmp_path, monkeypatch):
+    import sys
+    st = make_state(tmp_path, with_defaults({}))      # nothing configured, no file: no fetches
+    real_cycle = server.run_cycle
+    calls = []
+    stop = threading.Event()
+
+    def counting_cycle(state, cache):
+        calls.append(1)
+        state.render_event.set()
+        if len(calls) == 3:
+            stop.set()
+        real_cycle(state, cache)
+
+    monkeypatch.setattr(server, "run_cycle", counting_cycle)
+    monkeypatch.setattr(sys, "stdout", BrokenStdout())
+    t = threading.Thread(target=server.render_loop, args=(st, SourceCache(), stop), daemon=True)
+    t.start()
+    t.join(5)
+    monkeypatch.undo()
+    assert len(calls) == 3 and not t.is_alive()
+    # a failing log line is not a failing render: the door shows setup, not the error screen
+    assert pixels(image_path(st)) == pixels(render_setup(st.cfg, None))
+    assert st.last_render.word == EN("status.setup")
+
+
+def test_last_render_is_the_error_even_when_the_error_screen_cannot_be_saved(state, monkeypatch):
+    from inkdoor.state import RenderInfo
+    state.last_render = RenderInfo(at("10:00"), EN("status.free"), "until 3:00 PM", [])
+
+    def no_disk(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(server, "save", no_disk)
+    with pytest.raises(OSError):
+        server.run_cycle(state, SourceCache())
+    assert state.last_render.word == EN("status.unknown")
+    assert state.last_render.headline == EN("status.error_headline")

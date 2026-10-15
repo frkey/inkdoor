@@ -92,7 +92,8 @@ def test_allowed_hosts(running, host):
     assert status == 302 and headers["Location"].endswith("/login?next=%2F")
 
 
-@pytest.mark.parametrize("host", ["evil.com", "evil.com.", "inkdoor.lan.evil.com", "[fe80::1%25en0]"])
+@pytest.mark.parametrize("host", ["evil.com", "evil.com.", "inkdoor.lan.evil.com",
+                                  "[fe80::1%25en0]"])
 def test_rejected_hosts(running, host):
     port, out = running
     status, headers, body = request(port, "/", host)
@@ -158,3 +159,64 @@ def test_serve_does_not_warn_with_a_password_or_without_the_admin(tmp_path, monk
     server.serve(str(config_path), str(tmp_path / "out"), None)
     out = capsys.readouterr().out
     assert EN("cli.no_password") not in out and "test-pass-not-real-1" not in out
+
+
+class FakeServer:
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def no_bind(monkeypatch):
+    """serve without a socket: the defaults would bind port 8000."""
+    import waitress
+    monkeypatch.setattr(waitress, "create_server", lambda app, **kwargs: FakeServer())
+
+
+def started_state(monkeypatch, config_path, out):
+    """Runs serve without blocking and returns the state it built."""
+    seen = []
+    monkeypatch.setattr(server, "_run", lambda httpd: None)
+    monkeypatch.setattr(server, "render_loop", lambda state, *args: seen.append(state))
+    server.serve(str(config_path), str(out), None)
+    return seen[0]
+
+
+def test_broken_config_keeps_the_admin_when_a_password_exists(tmp_path, monkeypatch, no_bind):
+    from inkdoor.web import auth
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[server\n")                                   # broken, no .bak
+    auth.set_password(auth.password_path(str(config_path)), "test-pass-not-real-1")
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.config_problem == "broken" and state.using_defaults
+    assert state.admin_enabled is True
+
+
+def test_broken_config_without_a_password_keeps_the_admin_off(tmp_path, monkeypatch, no_bind):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[server\n")
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.config_problem == "broken" and state.admin_enabled is False
+
+
+def test_missing_config_keeps_the_admin_off_even_with_a_password(tmp_path, monkeypatch,
+                                                                  no_bind):
+    from inkdoor.web import auth
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    config_path = tmp_path / "config.toml"
+    auth.set_password(auth.password_path(str(config_path)), "test-pass-not-real-1")
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.config_problem == "missing" and state.admin_enabled is False
+
+
+def test_a_good_backup_decides_the_admin(tmp_path, monkeypatch, no_bind):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[server\n")
+    (tmp_path / "config.toml.bak").write_text("[server]\nport = 8001\n")   # admin off
+    (tmp_path / "admin-password").write_text("irrelevant")
+    state = started_state(monkeypatch, config_path, tmp_path / "out")
+    assert state.config_problem == "broken" and not state.using_defaults
+    assert state.admin_enabled is False

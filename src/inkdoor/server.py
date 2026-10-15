@@ -54,7 +54,7 @@ def _render_snapshot(cfg: dict, path: str, cache: SourceCache | None,
     line = t("cli.rendered", time=t.time(snap.now), events=len(snap.today), tasks=len(snap.tasks))
     if snap.errors:  # "Name: ErrorType" only, never a link
         line += t("cli.rendered_errors", sources="; ".join(snap.errors))
-    print(line)
+    _log(line)
     return RenderInfo(snap.now, word, headline, list(snap.errors))
 
 
@@ -103,9 +103,30 @@ def _now(cfg: dict) -> dt.datetime:
         return dt.datetime.now().astimezone()
 
 
-def _reason(ex: Exception) -> str:
-    """What went wrong with the config, without any of its content."""
-    return ex.key if isinstance(ex, config.ConfigInvalid) else type(ex).__name__
+def _log(message: str) -> None:
+    """Prints a log line. A broken stdout (e.g. BrokenPipeError) must never stop the render loop."""
+    try:
+        print(message, flush=True)
+    except Exception:
+        pass
+
+
+def _log_error(cfg: dict, ex: Exception) -> None:
+    """Logs only the type of an unexpected error: messages can carry local paths or links."""
+    try:
+        _log(translator_for(cfg)("cli.error", error=ex.__class__.__name__))
+    except Exception:
+        pass
+
+
+def _describe(ex: Exception, t) -> str:
+    """Translated explanation of a config problem. ConfigInvalid details never hold link values;
+    any other exception is reduced to its type."""
+    if isinstance(ex, config.ConfigInvalid):
+        return t(f"config_error.{ex.key}", **ex.details)
+    if isinstance(ex, config.ConfigMissing):
+        return t("cli.config_missing", path=ex.path)
+    return ex.__class__.__name__
 
 
 def _reload(state: ServerState) -> None:
@@ -115,9 +136,12 @@ def _reload(state: ServerState) -> None:
     except Exception as ex:  # keep running on the last valid config (or the defaults)
         missing = isinstance(ex, config.ConfigMissing)
         state.config_problem = "missing" if missing and state.using_defaults else "broken"
-        t = translator_for(state.cfg)
-        key = "cli.config_defaults" if state.using_defaults else "cli.kept_last_config"
-        print(t(key, message=_reason(ex)))
+        try:
+            t = translator_for(state.cfg)
+            key = "cli.config_defaults" if state.using_defaults else "cli.kept_last_config"
+            _log(t(key, message=_describe(ex, t)))
+        except Exception:
+            _log_error(state.cfg, ex)
         return
     state.cfg = cfg
     state.config_problem = None
@@ -144,9 +168,12 @@ def run_cycle(state: ServerState, cache: SourceCache) -> None:
         # never leave an old status on the door: show an error screen instead. Only the error
         # type is printed or drawn: messages can carry local paths or links
         name = ex.__class__.__name__
-        print(t("cli.error", error=name))
+        _log_error(cfg, ex)
+        # recorded before the save, which can fail too: the admin must not keep showing "Free"
+        state.last_render = RenderInfo(_now(cfg), t("status.unknown"),
+                                       t("status.error_headline"), [])
         save(render_error(cfg, name), path)
-        info = RenderInfo(_now(cfg), t("status.unknown"), t("status.error_headline"), [])
+        return
     state.last_render = info
 
 
@@ -160,8 +187,15 @@ def render_loop(state: ServerState, cache: SourceCache, stop: threading.Event) -
         try:
             run_cycle(state, cache)
         except Exception as ex:  # e.g. the output folder is not writable: try again later
-            print(translator_for(state.cfg)("cli.error", error=ex.__class__.__name__))
-        state.render_event.wait(state.cfg["server"]["refresh_minutes"] * 60)
+            _log_error(state.cfg, ex)
+        state.render_event.wait(_refresh_seconds(state))
+
+
+def _refresh_seconds(state: ServerState) -> float:
+    try:
+        return state.cfg["server"]["refresh_minutes"] * 60
+    except Exception:
+        return config.SERVER_DEFAULTS["refresh_minutes"] * 60
 
 
 # ---------------------------------------------------------------- serve
@@ -179,7 +213,12 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
     cfg, problem, using_defaults = _startup_config(path, language)
     t = translator_for(cfg)
     port = cfg["server"]["port"]
-    state = ServerState(path, output_dir, language, cfg, problem, cfg["admin"]["enabled"],
+    admin_enabled = cfg["admin"]["enabled"]
+    if using_defaults and problem == "broken":
+        # neither the file nor its .bak loads: keep the admin (and "Restore previous version")
+        # reachable on installs that have an admin password; a missing file keeps it off
+        admin_enabled = os.path.exists(auth.password_path(path))
+    state = ServerState(path, output_dir, language, cfg, problem, admin_enabled,
                         using_defaults=using_defaults)
     app = create_app(state)
     try:
