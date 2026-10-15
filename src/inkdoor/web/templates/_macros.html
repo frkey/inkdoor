@@ -1,0 +1,69 @@
+{# Shared pieces of the admin forms. Import with: {% import "_macros.html" as m with context %} #}
+
+{% macro form_fields(digest) -%}
+{{ csrf_field() }}
+<input type="hidden" name="digest" value="{{ digest }}">
+{%- endmacro %}
+
+{% macro field_error(name, errors) -%}
+{% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro text_field(name, label, value, errors, help=None, maxlength=None, required=False,
+                    placeholder=None, type="text", inputmode=None, min=None, max=None) -%}
+<div class="field">
+  <label for="{{ name }}">{{ label }}</label>
+  <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
+         {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+         {%- if required %} required{% endif %}
+         {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+         {%- if inputmode %} inputmode="{{ inputmode }}"{% endif %}
+         {%- if min is not none %} min="{{ min }}"{% endif %}
+         {%- if max is not none %} max="{{ max }}"{% endif %}
+         {%- if errors.get(name) %} aria-invalid="true"{% endif %}
+         {%- if help or errors.get(name) %} aria-describedby="
+         {%- if help %}{{ name }}-help{% endif %}{% if help and errors.get(name) %} {% endif %}
+         {%- if errors.get(name) %}{{ name }}-error{% endif %}"{% endif %}>
+  {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
+  {{ field_error(name, errors) }}
+</div>
+{%- endmacro %}
+
+{% macro link_field(errors, link, required, help, repaste) -%}
+<div class="field">
+  <label for="url">{{ t("admin.field_link") }}</label>
+  <input id="url" name="url" type="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+         inputmode="url"
+         {%- if link %} placeholder="{{ link }}"{% endif %}
+         {%- if required %} required{% endif %}
+         {%- if errors.get("url") %} aria-invalid="true" aria-describedby="url-help url-error"
+         {%- else %} aria-describedby="url-help"{% endif %}>
+  <p class="help" id="url-help">{{ help }}</p>
+  {{ field_error("url", errors) }}
+  {% if repaste %}<p class="field-error">{{ t("admin.error_link_repaste") }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro action(path, digest, label, class=None, confirm=None, name=None, value=None) -%}
+<form method="post" action="{{ path }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+  {{ form_fields(digest) }}
+  {% if name %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
+  <button type="submit"{% if class %} class="{{ class }}"{% endif %}>{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro test_form(path, digest, target) -%}
+<form method="post" action="{{ path }}" data-test-target="{{ target }}"
+      data-error="{{ t('admin.test_failed') }}">
+  {{ form_fields(digest) }}
+  <button type="submit" data-busy-label="{{ t('admin.testing') }}">{{ t("admin.test") }}</button>
+</form>
+{%- endmacro %}
+
+{% macro config_banners(problem, warning) -%}
+{% if problem %}
+<p class="alert" role="alert">{{ t("admin.config_unreadable", message=problem) }}</p>
+{% elif warning %}
+<p class="alert" role="alert">{{ t("admin.config_invalid", message=warning) }}</p>
+{% endif %}
+{%- endmacro %}

@@ -473,10 +473,17 @@ def test_404_page_is_translated(app):
 
 def test_pages_have_no_inline_scripts_or_styles(app, rendered):
     s = logged_in(app)
-    for page in [get(client(app), "/login"), get(s, "/"), get(client(app), "/nope")]:
+    pages = [get(client(app), "/login"), get(s, "/"), get(client(app), "/nope"),
+             get(s, "/calendars"), get(s, "/calendars/new"), get(s, "/tasks")]
+    for page in pages:
         html = page.get_data(as_text=True)
-        assert "<script" not in html and "style=" not in html and "<style" not in html
-        assert "http://" not in html and "https://" not in html  # no external resources
+        scripts = re.findall(r"<script\b[^>]*>.*?</script>", html, re.S)
+        assert scripts == ['<script src="/static/admin.js" defer></script>']
+        assert html.count("<script") == 1
+        assert "style=" not in html and "<style" not in html
+        assert not re.search(r"<[^>]*\son[a-z]+=", html, re.I)  # no inline handlers
+        # no external resources
+        assert not re.search(r"""(src|href|action)=["']?(https?:)?//""", html, re.I)
 
 
 def test_home_shows_status_and_preview(app, state, rendered):

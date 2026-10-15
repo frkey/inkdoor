@@ -232,8 +232,9 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
             token = session.csrf if session is not None else ""
             return Markup(f'<input type="hidden" name="csrf" value="{escape(token)}">')
 
+        # notices are taken only when a full page calls notices(), never by a fragment
         return {"t": t(), "csrf_field": csrf_field, "logged_in": session is not None,
-                "notices": pop_notices(session)}
+                "notices": lambda: pop_notices(session)}
 
     # --- errors -------------------------------------------------------------------------------
 
@@ -349,4 +350,6 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
             updated = t()("admin.last_update", date=t().date_short(last.at), time=t().time(last.at))
         return page("home.html", last=last, updated=updated, preview=preview)
 
+    from .pages import blueprint  # here: pages imports helpers from this module
+    app.register_blueprint(blueprint(state))
     return app
