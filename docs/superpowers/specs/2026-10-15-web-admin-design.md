@@ -111,8 +111,10 @@ config writes. `SourceCache` gets its own lock.
 - **Concurrent edits**: each form carries the SHA-256 of the file as it was read. On save, if the
   file changed meanwhile (a hand edit or another tab), the save is refused with a "changed
   elsewhere, reload" message.
-- **Unreadable or broken file** (`OSError`, bad encoding, syntax or validation error): pages show
-  the translated error and disable the forms. `PermissionError` gets its own message that says to
+- **Unreadable or broken file** (`OSError`, bad encoding or syntax error): pages show the translated
+  error and disable the forms. A file that parses but fails validation (e.g. a duplicate name) shows
+  the error as a banner and keeps the forms enabled, so the problem can be fixed from the admin; a
+  save is refused unless the result validates. `PermissionError` gets its own message that says to
   `chown inkdoor` the file. If `config.toml.bak` loads, offer "Restore previous version".
 - **Missing file**: the first admin save creates it (raw dict starting from nothing, not from the
   example, so no placeholders).
@@ -239,8 +241,8 @@ reloading, copy the Kindle URL, refresh the preview).
 2. **Home**: preview of the current screen (`<img src="/kindle.png?t=<last render>">`, no separate
    route), door status, last update time, failing sources, "Update now", the Kindle URL with a
    copy button, a banner in "first setup" or "broken file" mode.
-3. **Calendars**: one card per calendar (name, marker style drawn with CSS classes or SVG, busy
-   toggle, status label, masked link); test, edit, remove, move up/down; add calendar. "Test"
+3. **Calendars**: one card per calendar (name, marker style drawn with CSS classes or SVG, a busy
+   badge — the toggle is in the edit form —, status label, masked link); test, edit, remove, move up/down; add calendar. "Test"
    shows the result inline: reachable or not, events in the next 14 days, the next three, and the
    existing warnings (busy-only titles, likely wrong time zone).
 4. **Tasks**: TickTick link (masked), name, `overdue_days`, test.
