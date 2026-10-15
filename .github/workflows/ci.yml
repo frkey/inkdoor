@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - name: Render previews (both languages)
+        run: |
+          inkdoor -o output --lang en-US demo 10:20 15:20 16:50 21:10
+          inkdoor -o output --lang pt-BR demo 10:20 15:20 16:50 21:10
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.12'
+        with:
+          name: previews
+          path: output/*.png
+
+  kindle-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        working-directory: kindle
+        run: shellcheck inkdoor/*.sh documents/*.sh
