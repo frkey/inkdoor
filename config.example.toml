@@ -9,7 +9,7 @@ language = "en-US"          # "en-US" or "pt-BR"
 timezone = "America/New_York"
 # clock = "24h"             # "12h" or "24h"; defaults to the language's convention
 workday_start = 8           # before this hour the door shows "after hours"
-workday_end = 19            # after this hour the list switches to tomorrow
+workday_end = 19            # after this hour the list switches to tomorrow (0-24)
 workdays = [0, 1, 2, 3, 4]  # 0 = Monday ... 6 = Sunday
 min_gap_minutes = 30        # only show "free · 45 min" for gaps at least this long
 

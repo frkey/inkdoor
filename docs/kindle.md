@@ -57,5 +57,6 @@ start by itself after a restart.
   charger. A thin USB cable fits through most door frames.
 - **Fixed IP**: reserve an IP for your computer on the router; otherwise the address changes
   and the display stops updating.
+- **Single instance**: tapping "start display" twice does not start two loops.
 - **No connection**: after 3 failures in a row, "cannot reach the computer" appears in the
   corner of the screen. The history is in `inkdoor/log.txt`.

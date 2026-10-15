@@ -57,5 +57,6 @@ não inicia sozinho depois de reiniciar.
   Kindle no carregador. Um cabo USB fino passa bem pelo batente da porta.
 - **IP fixo**: reserve um IP para o computador no roteador, senão o endereço muda e o painel
   para de atualizar.
+- **Uma instância só**: tocar duas vezes em "start display" não inicia dois painéis.
 - **Sem conexão**: depois de 3 falhas seguidas, aparece "sem conexao com o PC" no canto da tela.
   O histórico fica em `inkdoor/log.txt`.

@@ -52,4 +52,6 @@ Tarefas concluídas são ignoradas.
 - Links de Teams, Zoom e Meet no campo de local não são mostrados.
 - Repetições do mesmo compromisso **dentro de uma agenda** são unificadas; agendas diferentes
   nunca se misturam.
-- Se uma agenda não puder ser lida, as outras continuam aparecendo e o rodapé avisa qual falhou.
+- Se uma agenda não puder ser lida, os últimos dados bons do dia são reaproveitados e o rodapé
+  avisa qual falhou. Se ainda não houver dado nenhum dela, a porta mostra "Bata antes" em vez
+  de "Livre".

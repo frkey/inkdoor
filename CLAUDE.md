@@ -20,7 +20,7 @@ Guidance for Claude (and other contributors) working on this repository.
   catalogs have different keys.
 - Write en-US text in US English: "canceled", "color", 12-hour clock with AM/PM, "Oct 14".
   Write pt-BR text in natural Brazilian Portuguese with the 24-hour clock ("14:30").
-- Format times, dates and durations through `Translator.time()`, `.time_short()`,
+- Format times, dates and durations through `Translator.time()`, `.date_short()`,
   `.date_header()` and `.duration()`, never with ad-hoc f-strings.
 - **User docs exist in both languages.** `README.md` (English) is mirrored by
   `README.pt-BR.md`, and each file in `docs/` has a translation in `docs/pt-BR/`. Update both
@@ -58,6 +58,11 @@ longer and are the usual cause of overflow.
   pixel to those levels; keep strokes at least 3 px wide so they survive e-ink.
 - Calendars are never merged with each other; only repeats inside one calendar are
   de-duplicated.
+- The door must never say "Free" without knowing. If a busy calendar cannot be read, the
+  server reuses that calendar's last good data for the day (`SourceCache`), and with no data
+  at all the status becomes "Knock first". If rendering fails, an error screen replaces the
+  old image.
+- The HTTP server only serves `/kindle.png`; never expose the output folder or anything else.
 - Kindle scripts must be POSIX `sh` (BusyBox), use LF line endings (`.gitattributes` enforces
   it), and pass ShellCheck with `kindle/.shellcheckrc`.
 - Fonts in `src/inkdoor/fonts/` are a Latin subset of Inter (SIL OFL 1.1). If you need a glyph

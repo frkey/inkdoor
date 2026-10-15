@@ -38,6 +38,8 @@ sua rede.
 - **Tarefas**: as de hoje e as atrasadas, com prioridade e horário.
 - **Depois do expediente**, a lista passa a mostrar o dia seguinte.
 - Cada agenda tem um marcador próprio (sólido, listrado, contorno), já que o e-ink não tem cor.
+- **Ele não chuta.** Se o link de uma agenda falhar, os últimos dados bons do dia são reaproveitados;
+  sem dado nenhum, a porta mostra `BATA ANTES` em vez de `LIVRE`.
 
 ## Começando
 

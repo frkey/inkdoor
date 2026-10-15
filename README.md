@@ -39,6 +39,8 @@ stays on your network.
 - **Tasks**: due today and overdue, with priority and time.
 - **After hours**, the list switches to tomorrow.
 - Each calendar has its own marker (solid, striped, outline), since e-ink has no color.
+- **It never guesses.** If a calendar link fails, the last good data from today is reused; with
+  no data at all the door says `KNOCK FIRST` instead of `FREE`.
 
 ## Getting started
 

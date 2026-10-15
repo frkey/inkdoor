@@ -51,4 +51,6 @@ Tasks due today and overdue ones (up to `overdue_days`) are shown. Completed tas
 - Teams, Zoom and Meet links in the location field are hidden.
 - Repeats of the same event **within one calendar** are merged; different calendars are never
   mixed.
-- If a calendar cannot be read, the others still show and the footer says which one failed.
+- If a calendar cannot be read, the last good data from today is reused and the footer says
+  which one failed. If there is no data for it yet, the door shows "Knock first" instead of
+  "Free".
