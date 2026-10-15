@@ -513,6 +513,71 @@ def test_admin_disabled_serves_only_kindle(app_disabled, tmp_path):
     assert post(c, "/logout").status_code == 404
     r = get(c, "/kindle.png", headers={"Host": "evil.com"})
     assert r.status_code == 200 and r.data != (tmp_path / "out" / "kindle.png").read_bytes()
+    # an admin that is off must not answer with the "open the admin by IP" text
+    for path in ["/", "/login", "/static/admin.css", "/nope"]:
+        r = get(c, path, headers={"Host": "evil.com"})
+        assert r.status_code == 404 and EN("admin.bad_host") not in r.get_data(as_text=True)
+
+
+def test_options_is_404_even_on_a_route_that_lists_it(tmp_path, clock):
+    app = make_app(make_state(tmp_path), clock)
+
+    @app.route("/with-options", methods=["GET", "OPTIONS"])
+    def with_options():
+        return "ok"
+
+    s = logged_in(app)
+    for c in (client(app), s):
+        for path in ["/with-options", "/kindle.png", "/login", "/static/admin.css", "/"]:
+            assert c.open(path, method="OPTIONS", base_url=BASE).status_code == 404, path
+
+
+def test_every_unsafe_method_needs_origin_and_token(tmp_path, clock):
+    app = make_app(make_state(tmp_path), clock)
+    target = tmp_path / "written"
+
+    @app.route("/change", methods=["PUT", "PATCH", "DELETE"])
+    def change():
+        target.write_text(request_method())
+        return "ok"
+
+    s = logged_in(app)
+    for method in ("PUT", "PATCH", "DELETE"):
+        send = lambda **kw: s.open("/change", method=method, base_url=BASE, **kw)
+        assert send().status_code == 403
+        assert send(data={"csrf": "wrong"}).status_code == 403
+        assert send(data={"csrf": s.csrf}, headers={"Origin": "http://evil.com"}).status_code == 403
+        assert not target.exists()
+        assert send(data={"csrf": s.csrf}).status_code == 200
+        assert target.read_text() == method
+        target.unlink()
+        assert client(app).open("/change", method=method, base_url=BASE).status_code == 401
+
+
+def request_method():
+    from flask import request
+    return request.method
+
+
+def test_failing_error_handler_still_logs_type_only(tmp_path, clock, caplog):
+    app = make_app(make_state(tmp_path), clock)
+    app.testing = False  # let Flask's last-resort handler run, as in production
+
+    @app.get("/explode")
+    def explode():
+        raise ValueError("FIRSTCANARY")
+
+    @app.errorhandler(ValueError)
+    def broken_handler(e):
+        raise RuntimeError("SECONDCANARY")
+
+    s = logged_in(app)
+    with caplog.at_level(logging.DEBUG):
+        r = get(s, "/explode")
+    assert r.status_code == 500
+    assert "RuntimeError" in caplog.text
+    for secret in ("FIRSTCANARY", "SECONDCANARY", "Traceback"):
+        assert secret not in caplog.text and secret not in r.get_data(as_text=True)
 
 
 def test_500_logs_type_only(tmp_path, clock, caplog):

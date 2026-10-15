@@ -2,14 +2,14 @@
 
 Every request goes through one guard (``_guard``), in this order:
 
-1. unknown path (or a known path with the wrong method) -> 404, never a redirect;
-2. Host allowlist (DNS rebinding): ``/kindle.png`` gets a 200 error image, anything else a 400;
-3. admin disabled -> only ``/kindle.png`` exists;
-4. public endpoints (``kindle``, ``login``, ``static``) pass; a POST to them must pass the Origin
-   check;
+1. unknown path, a known path with the wrong method, or OPTIONS -> 404, never a redirect;
+2. admin disabled -> only ``/kindle.png`` exists;
+3. Host allowlist (DNS rebinding): ``/kindle.png`` gets a 200 error image, anything else a 400;
+4. public endpoints (``kindle``, ``login``, ``static``) pass; any method other than GET/HEAD
+   must pass the Origin check;
 5. a changed password file logs everyone out;
-6. a session is required: GET redirects to the login page, anything else gets 401;
-7. POST: the Origin check and the session's CSRF token.
+6. a session is required: GET/HEAD redirect to the login page, anything else gets 401;
+7. any method other than GET/HEAD: the Origin check and the session's CSRF token.
 
 Session state lives on the server (``auth.Sessions``); Flask's signed-cookie session is never used
 and the app has no secret key.
@@ -39,6 +39,7 @@ from .hosts import host_allowed
 SESSION_COOKIE = "inkdoor_session"
 LOGIN_COOKIE = "inkdoor_login"
 SESSION_LIFETIME = 7 * 86400
+SAFE_METHODS = frozenset({"GET", "HEAD"})
 PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static"})
 HOST_IMAGE_CACHE = 16
 MAX_PASSWORD_LENGTH = 1024
@@ -124,11 +125,18 @@ def _same_token(given, expected: str) -> bool:
     return hmac.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
+class _App(Flask):
+    def log_exception(self, exc_info) -> None:
+        """Flask's last resort (an error handler or after_request raised): the type only, never
+        the message or traceback, which can carry calendar links."""
+        self.logger.error("%s", exc_info[0].__name__ if exc_info[0] else "Exception")
+
+
 def create_app(state: ServerState, *, clock=time.time) -> Flask:
-    app = Flask(__name__, static_folder=None, template_folder="templates")
+    app = _App(__name__, static_folder=None, template_folder="templates")
     app.config.update(
         MAX_CONTENT_LENGTH=MAX_REQUEST_BYTES,
-        PROVIDE_AUTOMATIC_OPTIONS=False,  # OPTIONS is not a method we answer
+        PROVIDE_AUTOMATIC_OPTIONS=False,  # Flask 3.1+; the guard refuses OPTIONS on any version
     )
     sessions = auth.Sessions(clock, lifetime=SESSION_LIFETIME)
     limiter = auth.LoginLimiter(clock)
@@ -177,8 +185,11 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
     @app.before_request
     def _guard():
         g.session = None
-        if request.url_rule is None:
+        # OPTIONS is never answered; checked here so it does not depend on the Flask version
+        if request.url_rule is None or request.method == "OPTIONS":
             abort(404)
+        if not state.admin_enabled and request.endpoint != "kindle":
+            abort(404)  # the admin is off: nothing but the Kindle image exists
         raw_host = request.headers.get("Host")  # raw: Werkzeug's request.host is normalized
         if not host_allowed(raw_host, _allowed_hosts(state)):
             if request.endpoint == "kindle":
@@ -186,21 +197,20 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
                                           headers={"Cache-Control": "no-store"})
             return app.response_class(t()("admin.bad_host") + "\n", status=400,
                                       mimetype="text/plain")
-        if not state.admin_enabled and request.endpoint != "kindle":
-            abort(404)
+        unsafe = request.method not in SAFE_METHODS
         if request.endpoint in PUBLIC_ENDPOINTS:
-            if request.method == "POST" and not origin_ok():
+            if unsafe and not origin_ok():
                 abort(403)
             return None
         if watcher.changed():
             sessions.drop_all()
         session = sessions.get(request.cookies.get(SESSION_COOKIE))
         if session is None:
-            if request.method in ("GET", "HEAD"):
+            if not unsafe:
                 return redirect("/login?" + urlencode({"next": request.path}))
             abort(401)
         g.session = session
-        if request.method == "POST":
+        if unsafe:
             if not origin_ok() or not _same_token(request.form.get("csrf"), session.csrf):
                 abort(403)
         return None
