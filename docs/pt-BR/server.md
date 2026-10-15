@@ -102,12 +102,24 @@ O que você salva no admin atualiza a porta na hora. Edições feitas na mão va
 próxima atualização da tela; só uma `port` nova ou uma mudança em `[admin] enabled` precisam de
 `systemctl restart inkdoor`.
 
-A porta padrão é a 3667 ("DOOR" no teclado do telefone); antes era a 8000. Configs criadas a
-partir do `config.example.toml` (pelo instalador ou na mão) têm `port = 8000`, então continuam
-nessa porta depois de atualizar, e o Kindle continua funcionando. **Se a sua seção `[server]` não
-tem a linha `port`**, o servidor passa para a 3667 ao atualizar: acrescente `port = 8000` em
-`[server]` antes, para manter a porta antiga. Para passar para a 3667 de propósito, mude `port` no
-`config.toml`, reinicie o serviço e atualize a `URL` no `inkdoor/config.sh` do Kindle.
+A porta padrão é a 3667 ("DOOR" no teclado do telefone); antes era a 8000. Para saber qual
+porta uma atualização vai usar, olhe a seção `[server]` do seu `config.toml`:
+
+- **`port = 8000` ou `port = 3667`**: nada muda; o servidor continua nessa porta. Configs criadas
+  a partir do `config.example.toml` antes da mudança têm `port = 8000`; instalações novas recebem
+  a 3667.
+- **Sem a linha `port`**: o servidor passa para a 3667 ao atualizar. Para manter a 8000,
+  acrescente `port = 8000` dentro da seção `[server]` que já existe, antes de atualizar. Se não
+  houver seção `[server]`, crie-a com a linha (uma linha no fim do arquivo ficaria na última
+  seção e seria ignorada):
+
+  ```toml
+  [server]
+  port = 8000
+  ```
+
+Para passar para a 3667 de propósito, mude `port` no `config.toml`, reinicie o serviço e atualize
+a `URL` no `inkdoor/config.sh` do Kindle.
 
 ### Criando o container na mão
 
