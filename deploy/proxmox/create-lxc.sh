@@ -77,13 +77,13 @@ case "$LANGUAGE" in
     MSG_CONFIG="Copiando %s para o container..."
     MSG_FAILED_AFTER_CREATE="
 O container %s foi criado, mas a instalação não terminou.
-  Tentar de novo:  pct exec %s -- bash /root/inkdoor-install.sh
+  Tentar de novo:  pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh%s
   Ou apagar:       pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Pronto! Container %s (%s).
   Abra o admin no navegador, com o endereço e a senha mostrados acima.
   Entrar no container:   pct enter %s
-  Atualizar o inkdoor:   pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
+  Atualizar o inkdoor:   pct exec %s -- env LC_ALL=C.UTF-8 bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="O IP veio do DHCP: reserve-o no roteador para o Kindle sempre achar o servidor."
     ;;
   *)
@@ -104,13 +104,13 @@ Pronto! Container %s (%s).
     MSG_CONFIG="Copying %s into the container..."
     MSG_FAILED_AFTER_CREATE="
 Container %s was created, but the installation did not finish.
-  Try again:     pct exec %s -- bash /root/inkdoor-install.sh
+  Try again:     pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh%s
   Or remove it:  pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Done! Container %s (%s).
   Open the admin in a browser, with the address and password printed above.
   Open a shell in it:   pct enter %s
-  Update inkdoor:       pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
+  Update inkdoor:       pct exec %s -- env LC_ALL=C.UTF-8 bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="The IP came from DHCP: reserve it on your router so the Kindle always finds the server."
     ;;
 esac
@@ -143,7 +143,8 @@ on_exit() {
   local status=$?
   rm -f "$INSTALLER"
   if [ "$status" -ne 0 ] && [ "$CREATED" -eq 1 ]; then
-    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "$CTID" "$CTID" >&2
+    # the retry runs under C.UTF-8 too, so it names the language this run chose
+    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "${LANGUAGE:+ --lang $LANGUAGE}" "$CTID" "$CTID" >&2
   fi
 }
 trap on_exit EXIT
@@ -223,7 +224,8 @@ pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1 || die "$MSG_NO_
 
 ARGS=()
 [ -z "$LANGUAGE" ] || ARGS+=(--lang "$LANGUAGE")
-pct exec "$CTID" -- env INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" \
+# pct exec passes on this host's locale, which the new container does not have: use one it has
+pct exec "$CTID" -- env LC_ALL=C.UTF-8 LANG=C.UTF-8 INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" \
   bash /root/inkdoor-install.sh "${ARGS[@]}"
 
 say "$MSG_DONE" "$CTID" "$CT_HOSTNAME" "$CTID" "$CTID"
