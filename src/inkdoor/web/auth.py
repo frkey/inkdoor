@@ -172,6 +172,9 @@ class Session:
     expires: float
     # one-shot messages for the next page ("saved", "changed elsewhere"); the list is mutable
     notices: list[str] = field(default_factory=list, repr=False, compare=False)
+    # one-shot flags, like notices: "watch_render" after a save or "Update now" asked for a
+    # render, so the next Home page watches for the new screen
+    flags: set[str] = field(default_factory=set, repr=False, compare=False)
 
 
 class Sessions:

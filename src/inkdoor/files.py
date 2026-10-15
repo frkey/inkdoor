@@ -21,7 +21,8 @@ def write_private(path: str | os.PathLike, data: bytes) -> None:
     """Replaces ``path`` with ``data`` atomically. The file is mode 600 whatever the umask.
 
     The bytes go to ``path + ".tmp"`` first (created exclusively, so it never inherits the mode
-    of an old file), are flushed to disk and then renamed over ``path``.
+    of an old file), are flushed to disk and then renamed over ``path``; the folder is flushed
+    too, so a power loss right after the save cannot undo the rename.
     """
     path = os.fspath(path)
     tmp = path + ".tmp"
@@ -37,3 +38,18 @@ def write_private(path: str | os.PathLike, data: bytes) -> None:
         except BaseException:
             _remove(tmp)
             raise
+        _sync_folder(path)
+
+
+def _sync_folder(path: str) -> None:
+    """Flushes the folder entry of ``path`` where the system allows it (not on Windows)."""
+    try:
+        fd = os.open(os.path.dirname(os.path.abspath(path)), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass  # some file systems cannot flush a folder; the file itself is already on disk
+    finally:
+        os.close(fd)

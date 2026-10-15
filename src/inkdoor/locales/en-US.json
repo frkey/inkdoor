@@ -201,8 +201,8 @@
     "admin_enabled": "[admin] enabled must be true or false (got {value}).",
     "allowed_hosts": "[admin] allowed_hosts must be a list of host names, like [\"door.example\"].",
     "allowed_host": "[admin] allowed_hosts: write \"{host}\" as a host name only, without the port and in ASCII (names with accents in punycode, starting with xn--).",
-    "unreadable": "Cannot read {path} ({error}).",
-    "permission": "Cannot read {path}: the file must belong to the inkdoor user (chown inkdoor)"
+    "unreadable": "cannot read {path} ({error}).",
+    "permission": "cannot read {path}: the file must belong to the inkdoor user (chown inkdoor)."
   },
   "admin": {
     "title": "inkdoor admin",
