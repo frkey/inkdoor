@@ -24,7 +24,8 @@
     line.className = "result-line result-fail";
     line.textContent = form.getAttribute("data-error") || "";
     box.appendChild(line);
-    target.replaceChildren(box);
+    target.textContent = "";  // not replaceChildren: missing in Safari before 14
+    target.appendChild(box);
   }
 
   function testInBackground(form) {
@@ -41,29 +42,49 @@
         button.textContent = button.getAttribute("data-busy-label") || label;
       }
       target.setAttribute("aria-busy", "true");
-      // the CSRF token and the digest travel in the form body, like a normal submit
-      fetch(form.action, {
-        method: "POST",
-        body: new FormData(form),
-        credentials: "same-origin",
-        headers: { "X-Requested-With": "inkdoor" }
-      }).then(function (response) {
-        return response.text().then(function (text) {
-          // only a result fragment is shown; an error page (e.g. an expired session) is not
-          if (response.headers.get(FRAGMENT_HEADER) === "1") {
-            target.innerHTML = text;
-          } else {
-            showError(target, form);
-          }
-        });
-      }).catch(function () {
-        showError(target, form);
-      }).then(function () {
+
+      function done() {
         target.removeAttribute("aria-busy");
         if (button) {
           button.disabled = false;
           button.textContent = label;
         }
+      }
+
+      function failed() {
+        try {
+          showError(target, form);
+        } catch (ignored) {
+          // the button must come back even if the message cannot be drawn
+        }
+      }
+
+      var request;
+      try {
+        // the CSRF token and the digest travel in the form body, like a normal submit
+        request = fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: { "X-Requested-With": "inkdoor" }
+        });
+      } catch (error) {
+        failed();
+        done();
+        return;
+      }
+      request.then(function (response) {
+        return response.text().then(function (text) {
+          // only a result fragment is shown; an error page (e.g. an expired session) is not
+          if (response.headers.get(FRAGMENT_HEADER) === "1") {
+            target.innerHTML = text;
+          } else {
+            failed();
+          }
+        });
+      }).then(done, function () {
+        failed();
+        done();
       });
     });
   }

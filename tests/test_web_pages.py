@@ -142,6 +142,45 @@ def test_clean_rejects_everything_but_web_links(value):
         links.clean(value)
 
 
+BAD_HOSTS = [
+    "https://cal.example\\SECRETTOKEN/a/b.ics", "https://cal.example;SECRETTOKEN/a/b.ics",
+    "https://cal.example:99999/a/b", "https://cal.example:0/a/b", "https://cal.example:/a/b",
+    "https://cal.example:8o/a/b", "https://cal_example.test/a/b", "https://-cal.example/a/b",
+    "https://cal..example/a/b", "https://kalénder.example/a/b", "https://[fe80::1%25en0]/a/b",
+    "https://[cal.example]/a/b", "https://fd00::1/a/b", "https://" + "a" * 64 + ".example/a",
+    "https://user@/a/b",
+]
+
+
+@pytest.mark.parametrize("url", BAD_HOSTS)
+def test_hosts_a_hostname_cannot_have_are_rejected_and_hidden(url):
+    with pytest.raises(ValueError):
+        links.clean(url)
+    assert links.mask(url) == "…"
+    assert not links.is_web(url)
+
+
+@pytest.mark.parametrize("url, masked", [
+    ("https://[FD00::1]:8443/dav/cal/x.ics", "[fd00::1]:8443/dav/…"),
+    ("https://[::1]/dav/cal/x.ics", "[::1]/dav/…"),
+    ("https://192.168.0.10:5232/radicale/user/cal/", "192.168.0.10:5232/radicale/…"),
+    ("https://Cal.Example:65535/a/b?k=1", "cal.example:65535/a/…"),
+    ("https://nas/a/b", "nas/a/…"),
+    ("https://xn--kalnder-cya.example/a/b", "xn--kalnder-cya.example/a/…"),
+    ("https://u:p@cal.example:1/a", "cal.example:1/…"),
+])
+def test_valid_hosts_and_ports_are_kept_in_the_mask(url, masked):
+    assert links.clean(url) == url
+    assert links.mask(url) == masked
+
+
+def test_bad_host_from_the_form_is_a_field_error(logged):
+    r = logged.post("/calendars/new",
+                    data=logged.form(name="A", url="https://cal.example\\x/a/b.ics"))
+    assert r.status_code == 200 and EN("admin.error_link_invalid") in body(r)
+    assert logged.raw() == {}
+
+
 # --- secrets ----------------------------------------------------------------------------------
 
 def test_links_never_leave_the_server(logged, state, caplog, capsys, monkeypatch):
