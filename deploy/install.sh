@@ -167,7 +167,8 @@ say "$MSG_PIP"
 id inkdoor >/dev/null 2>&1 ||
   useradd --system --user-group --home-dir "$STATE_DIR" --no-create-home --shell /usr/sbin/nologin inkdoor
 install -d -m 755 -o inkdoor -g inkdoor "$STATE_DIR"
-# The web admin saves the config, so the folder belongs to the inkdoor user
+# The web admin saves the config, so the folder belongs to the inkdoor user (also fixes an
+# existing folder)
 install -d -m 700 -o inkdoor -g inkdoor "$CONF_DIR"
 
 if [ -f "$CONF" ]; then
@@ -217,10 +218,8 @@ if [ "$ADMIN" = "none" ]; then
   say "$MSG_ADMIN_ENABLED" "$CONF"
 fi
 
-# Every run: the folder is inkdoor:inkdoor 700 and each file in it (config.toml, its backup,
-# admin-password) inkdoor:inkdoor 600. Older installs used root:inkdoor 750/640.
-chown inkdoor:inkdoor "$CONF_DIR"
-chmod 700 "$CONF_DIR"
+# Every run: each file in the folder (config.toml, its backup, admin-password) is
+# inkdoor:inkdoor 600, like the folder's 700 above. Older installs used root:inkdoor 750/640.
 find "$CONF_DIR" -type f -exec chown -h inkdoor:inkdoor {} +
 # chmod as the owner, so a file swapped for a symlink cannot point root's chmod elsewhere
 (cd / && runuser -u inkdoor -- find "$CONF_DIR" -type f -exec chmod 600 {} +)
