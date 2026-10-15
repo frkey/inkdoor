@@ -149,10 +149,10 @@ mostrar.
 
 ### 3. Coloque no Kindle
 
-1. Copie `kindle/inkdoor/` para a raiz do Kindle e `kindle/documents/*.sh` para a pasta
-   `documents/` dele.
-2. Em `inkdoor/config.sh`, coloque em `URL` o endereço que aparece na página inicial do admin,
-   por exemplo `URL="http://192.168.1.50:3667/kindle.png"`, e `LANGUAGE="pt-BR"`.
+1. Na página **Início** do admin, aperte **Baixar os arquivos do Kindle**: um `.zip` já com o
+   endereço do seu servidor e o seu idioma.
+2. Descompacte. Copie a pasta `inkdoor` para a raiz do Kindle e os dois arquivos de
+   `scriptlets` para a pasta `documents` dele.
 3. Na biblioteca do Kindle, abra **inkdoor - test connection** e depois **inkdoor - start
    display**.
 

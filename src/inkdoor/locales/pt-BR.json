@@ -326,6 +326,8 @@
     "kindle_title": "Kindle",
     "kindle_url_label": "Endereço da imagem",
     "kindle_url_help": "Coloque este endereço em URL no config.sh do Kindle.",
+    "kindle_download": "Baixar os arquivos do Kindle",
+    "kindle_download_help": "Um .zip com os scripts, já com este endereço e o idioma preenchidos. Descompacte, copie a pasta inkdoor para a raiz do Kindle e os dois arquivos de scriptlets para a pasta documents dele.",
     "kindle_url_unknown": "Não foi possível descobrir o endereço de rede deste computador. No Kindle, use o IP dele seguido de :{port}/kindle.png.",
     "copy": "Copiar",
     "copied": "Copiado",
@@ -391,5 +393,8 @@
     "session_title": "Este navegador",
     "session_help": "Saia quando terminar, se estiver num computador compartilhado.",
     "config_problem_detail": "Detalhes: {message}"
+  },
+  "kindle_zip": {
+    "readme": "inkdoor para o Kindle\n=====================\n\nO endereço da imagem já está em inkdoor/config.sh:\n  {url}\n\n1. Ligue o Kindle no computador com um cabo USB.\n2. Copie a pasta \"inkdoor\" para a raiz do Kindle, ao lado da pasta \"documents\".\n3. Copie os dois arquivos de \"scriptlets\" para a pasta \"documents\" do Kindle.\n   Copie os arquivos, não a pasta: substituir \"documents\" apagaria os seus livros.\n4. Ejete o Kindle. Na biblioteca, abra \"inkdoor - test connection\"\n   e depois \"inkdoor - start display\".\n\nPara voltar ao Kindle normal, reinicie o aparelho (segure o botão liga/desliga).\nMais ajuda: {docs}\n"
   }
 }
