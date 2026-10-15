@@ -64,7 +64,10 @@ Where to find each calendar link: [docs/calendar-sources.md](docs/calendar-sourc
 
 `inkdoor serve` has to keep running for the door to update. To run it on an always-on machine
 (a Proxmox container in one command, or any Debian or Ubuntu box), see
-[docs/server.md](docs/server.md).
+[docs/server.md](docs/server.md). There the installer turns on the **web admin**: you paste
+your calendar links, test them and watch a preview of the door in a browser, with no file to
+edit. On your own computer the admin is off unless you
+[turn it on](docs/server.md#on-a-laptop).
 
 ### 2. Kindle
 
@@ -98,12 +101,15 @@ content to `src/inkdoor/demo.py`. The tests fail if a catalog is missing any key
 | `inkdoor render` | Renders `output/kindle.png` once. |
 | `inkdoor check` | Tests each link: reachability, number of events, and whether titles come through or only "Busy". |
 | `inkdoor demo 10:20 16:50` | Renders previews with fictional data, no calendars needed. |
+| `inkdoor password` | Makes a new admin password, saves it next to `config.toml` and prints it once. Logs out every browser. |
+| `inkdoor url` | Prints the admin's address for other devices on the network, e.g. `http://192.168.1.50:8000`. |
 
 Global options: `--config path/config.toml`, `--output dir/`, `--lang en-US|pt-BR`.
 
 ## Configuration
 
-Everything lives in `config.toml`; see the comments in [`config.example.toml`](config.example.toml):
+Everything lives in `config.toml`, which the [admin](docs/server.md#admin) edits for you; see
+the comments in [`config.example.toml`](config.example.toml):
 
 - `[display]`: `language`, `timezone`, `clock`, `workday_start` / `workday_end`, `workdays`,
   `min_gap_minutes`
@@ -112,6 +118,8 @@ Everything lives in `config.toml`; see the comments in [`config.example.toml`](c
   (whether it changes the door status), `status_label` (the big word, e.g. `"Busy"` for personal
   events), `url`
 - `[tasks]`: TickTick subscription link and `overdue_days`
+- `[admin]`: `enabled` (the web admin, off by default; read at startup) and `allowed_hosts`
+  (extra names to open it by, see [docs/server.md](docs/server.md#opening-the-admin-by-name))
 
 ## Development
 
@@ -126,7 +134,10 @@ src/inkdoor/
   render.py      screen layout and drawing
   i18n.py        translation and time/date formatting
   locales/       en-US.json (reference) and pt-BR.json
-  server.py      periodic rendering and HTTP server
+  server.py      periodic rendering and the HTTP server (Waitress)
+  net.py         fetches links (size cap, deadline, no loopback) and finds the LAN address
+  web/           the web admin: login, Host allowlist, pages, templates
+  config_edit.py edits config.toml for the admin (atomic, private, with a backup)
   check.py       inkdoor check
   demo.py        fictional data for previews
   fonts/         Inter (SIL OFL 1.1)

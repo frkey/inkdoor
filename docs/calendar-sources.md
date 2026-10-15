@@ -2,8 +2,8 @@
 
 **English** · [Português (Brasil)](pt-BR/calendar-sources.md)
 
-inkdoor reads any calendar that has an ICS (iCalendar) link. Paste each link into
-`config.toml` and run `inkdoor check`.
+inkdoor reads any calendar that has an ICS (iCalendar) link. Paste each link into the
+[admin](server.md#admin) and press **Test link**, or into `config.toml` and run `inkdoor check`.
 
 > **These links are secret.** Anyone with the link can read the whole calendar, including
 > descriptions and meeting passcodes. Never publish your `config.toml`, and if a link leaks,

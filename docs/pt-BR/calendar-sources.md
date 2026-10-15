@@ -2,8 +2,9 @@
 
 [English](../calendar-sources.md) · **Português (Brasil)**
 
-O inkdoor lê qualquer agenda que tenha um link ICS (iCalendar). Cole cada link em
-`config.toml` e rode `inkdoor check` para conferir.
+O inkdoor lê qualquer agenda que tenha um link ICS (iCalendar). Cole cada link no
+[admin](server.md#admin) e aperte **Testar link**, ou cole em `config.toml` e rode
+`inkdoor check` para conferir.
 
 > **Esses links são secretos.** Quem tem o link consegue ler a agenda inteira, incluindo
 > descrições e códigos de acesso de reuniões. Não publique o `config.toml` e, se um link vazar,

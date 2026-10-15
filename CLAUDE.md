@@ -35,7 +35,13 @@ inkdoor turns a jailbroken Kindle into a door sign that shows whether you are in
 
 - `src/inkdoor/`: Python package that runs on a computer. It reads ICS calendars and a
   TickTick subscription (`sources.py`), draws a 1072×1448 grayscale PNG (`render.py`) and
-  serves it over HTTP (`server.py`).
+  serves it over HTTP with Waitress (`server.py`, render loop plus `serve()`). `net.py` fetches
+  links and finds the LAN address; `state.py` holds what the render loop and the admin share;
+  `files.py` writes private (mode 600) files atomically; `config_edit.py` edits `config.toml`
+  as it is on disk for the admin.
+- `src/inkdoor/web/`: the web admin (Flask, served on the same port as the image): routes and
+  guards (`__init__.py`), password and sessions (`auth.py`), Host allowlist (`hosts.py`), pages
+  and forms, Jinja templates and first-party static files.
 - `kindle/`: POSIX shell scripts that run on the Kindle and display the PNG.
 - `deploy/`: runs `inkdoor serve` as a systemd service. `install.sh` installs or updates it on
   Debian/Ubuntu; `proxmox/create-lxc.sh` runs on a Proxmox VE host, creates an LXC container and
@@ -68,11 +74,18 @@ longer and are the usual cause of overflow.
   server reuses that calendar's last good data for the day (`SourceCache`), and with no data
   at all the status becomes "Knock first". If rendering fails, an error screen replaces the
   old image.
-- The HTTP server only serves `/kindle.png`; never expose the output folder or anything else.
+- `/kindle.png` is public (so are the login page and the admin's bundled static files); every
+  other route requires the admin login, and unknown paths are 404. Never serve the output folder
+  or config files.
+- Fetch calendar and task links only through `inkdoor.net.fetch` (size cap, deadline, redirect
+  limit, no loopback or link-local). Links are secrets: never put them in a response, a log line
+  or an exception message.
 - Kindle scripts must be POSIX `sh` (BusyBox), use LF line endings (`.gitattributes` enforces
   it), and pass ShellCheck with `kindle/.shellcheckrc`.
 - Deploy scripts are bash (Debian/Ubuntu and Proxmox hosts), must be idempotent (running
-  `install.sh` again is how users update) and must never overwrite `/etc/inkdoor/config.toml`.
+  `install.sh` again is how users update) and must never overwrite `/etc/inkdoor/config.toml`
+  or `admin-password` (the one change allowed is adding `[admin] enabled = true` once).
+  `/etc/inkdoor` is `inkdoor:inkdoor` 700 and every file in it 600; the admin writes there.
   Keep `inkdoor.service` sandboxed; if you add an option, check it still starts in an
   unprivileged LXC container with nesting.
 - Fonts in `src/inkdoor/fonts/` are a Latin subset of Inter (SIL OFL 1.1). If you need a glyph
@@ -82,6 +95,7 @@ longer and are the usual cause of overflow.
 
 This is a public repository.
 
-- Never commit `config.toml`; it holds secret calendar links and is git-ignored.
+- Never commit `config.toml` (or its `.bak`/`.tmp` copies) or `admin-password`; they hold
+  secret calendar links and the admin password hash and are git-ignored.
 - Never put real calendar URLs, names, email addresses or meeting titles in code, tests, docs or
   screenshots. Use the fictional data in `demo.py` and `tests/fixtures/`.

@@ -11,15 +11,17 @@ de 1 GB de disco, já contando o sistema operacional.
 - **Qualquer máquina Debian ou Ubuntu** (uma VM, um mini PC, um Raspberry Pi com sistema
   64 bits): [use o instalador](#debian-ou-ubuntu).
 
-Nos dois casos, o resultado é o mesmo:
+Nos dois casos, o resultado é o mesmo, e você configura o inkdoor pelo navegador, no
+[admin](#admin):
 
 | Caminho | O que é |
 |---|---|
-| `/etc/inkdoor/config.toml` | sua config, legível só pelo root e pelo usuário `inkdoor` |
+| `/etc/inkdoor/config.toml` | sua config, acessível só pelo usuário `inkdoor` |
+| `/etc/inkdoor/admin-password` | a senha do admin, guardada como hash |
 | `/opt/inkdoor` | o código e o ambiente Python |
 | `/var/lib/inkdoor/kindle.png` | a tela gerada |
 | `inkdoor.service` | o serviço do systemd, que sobe no boot e reinicia se cair |
-| `/usr/local/bin/inkdoor` | roda o inkdoor com essa config: `inkdoor check`, `inkdoor render` |
+| `/usr/local/bin/inkdoor` | roda o inkdoor com essa config: `inkdoor password`, `inkdoor check` |
 
 ## Proxmox VE
 
@@ -44,19 +46,26 @@ boot) e instala o inkdoor nele.
    Para levar o `config.toml` que você já tem, copie-o antes para o host (por exemplo
    `scp config.toml root@<ip-do-proxmox>:`) e acrescente `--config config.toml`.
 
-4. No fim, o script mostra o ID e o IP do container.
-   - **Se você passou `--config`**, o serviço já está rodando.
-   - **Se não**, termine a configuração dentro do container:
+4. No fim, o script mostra o endereço do admin e a senha, assim:
 
-     ```sh
-     pct enter <id>
-     nano /etc/inkdoor/config.toml   # cole os links das agendas (docs/pt-BR/calendar-sources.md)
-     inkdoor check                   # testa cada link
-     systemctl start inkdoor
-     ```
+   ```
+   Nova senha do admin: k7mq-x3vt-9hwp-r2nd  (salva em /etc/inkdoor/admin-password; ...)
 
-5. No Kindle, coloque `URL="http://<ip-do-container>:8000/kindle.png"` em
-   `inkdoor/config.sh` ([configurando o Kindle](kindle.md)).
+   O inkdoor está rodando.
+     Admin:  http://192.168.1.50:8000  (entre com a senha mostrada acima)
+     No Kindle, em inkdoor/config.sh:  URL="http://192.168.1.50:8000/kindle.png"
+   ```
+
+5. Abra o endereço do admin num navegador da mesma rede e entre com essa senha.
+6. Em **Agendas**, adicione os links das suas agendas ([onde encontrar](calendar-sources.md))
+   e, depois de salvar, aperte **Testar link** em cada uma. A prévia em **Início** mostra a
+   porta como o Kindle vai mostrar.
+7. No Kindle, coloque `URL="http://<ip-do-container>:8000/kindle.png"` em
+   `inkdoor/config.sh` ([configurando o Kindle](kindle.md)). A página inicial do admin mostra
+   esse endereço com um botão de copiar.
+
+Enquanto nenhum link for adicionado, a porta mostra uma tela de configuração com o endereço do
+admin.
 
 ### Opções
 
@@ -82,12 +91,15 @@ endereço do container no roteador ("reserva de DHCP").
 
 | Tarefa | Comando no host do Proxmox |
 |---|---|
+| Mudar a config | o admin, em `http://<ip-do-container>:8000` |
 | Atualizar o inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
+| Gerar uma senha nova do admin | `pct exec <id> -- inkdoor password` |
 | Acompanhar o log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Testar os links das agendas | `pct exec <id> -- inkdoor check` |
-| Editar a config | `pct enter <id>` e depois `nano /etc/inkdoor/config.toml` |
+| Editar a config na mão | `pct enter <id>` e depois `nano /etc/inkdoor/config.toml` |
 
-Mudanças na config valem a partir da próxima atualização da tela; só uma `port` nova precisa de
+O que você salva no admin atualiza a porta na hora. Edições feitas na mão valem a partir da
+próxima atualização da tela; só uma `port` nova ou uma mudança em `[admin] enabled` precisam de
 `systemctl restart inkdoor`.
 
 ### Criando o container na mão
@@ -109,20 +121,90 @@ bash install.sh --lang pt-BR
 
 Ele instala o Python e o git pelo apt, baixa o inkdoor em `/opt/inkdoor` e cria o usuário
 `inkdoor` e o serviço. Na primeira vez, cria o `/etc/inkdoor/config.toml` a partir do exemplo,
-com o fuso horário da máquina e o `--lang` escolhido. O serviço só sobe quando a config tem pelo
-menos um link: preencha, rode `inkdoor check` e depois `systemctl start inkdoor`.
+com o fuso horário da máquina, o `--lang` escolhido e o admin ligado. Depois gera uma senha do
+admin, liga o serviço e mostra o endereço do admin e a senha. Continue a partir do passo 5 do
+Proxmox, acima.
 
 Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão nova do mesmo
-repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config nunca é sobrescrita.
+repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config e sua senha do admin
+nunca são sobrescritas; numa instalação de antes do admin existir, ele liga o admin uma vez e
+mostra a primeira senha.
 
 Opções: `--lang en-US|pt-BR`, `--timezone Area/Cidade` (para uma config nova),
 `--ref BRANCH_OU_TAG`.
 
+## Admin
+
+O admin é um pequeno site servido pelo `inkdoor serve` na mesma porta da imagem do Kindle.
+Depois de entrar, você pode:
+
+- **Início**: ver uma prévia da porta, o status, quando ela atualizou pela última vez e quais
+  links estão falhando; atualizar na hora; copiar o endereço para o Kindle.
+- **Agendas** e **Tarefas**: adicionar, editar, reordenar e remover agendas e o link do
+  TickTick, e testar cada link. Um link salvo nunca volta a aparecer inteiro, só o começo dele.
+- **Tela**: idioma, fuso horário, relógio, horário e dias do expediente, intervalo de
+  atualização.
+- **Conta**: trocar a senha, sair.
+
+Cada salvamento regrava o `config.toml` e guarda a versão anterior como `config.toml.bak`. Os
+comentários do arquivo se perdem no primeiro salvamento; as opções que o admin não controla são
+mantidas. Se o arquivo quebrar (por exemplo, depois de uma edição na mão), o admin mostra o que
+está errado e oferece restaurar a versão anterior.
+
+> **O admin usa HTTP simples, sem criptografia.** Quem consegue observar o tráfego da sua rede
+> (uma visita no seu Wi-Fi, um aparelho invadido) pode ler a senha quando você entra e um link
+> de agenda quando você cola, então use o admin só numa rede de confiança e nunca abra a porta
+> dele no roteador.
+
+### Senha
+
+O instalador mostra a primeira senha. Para gerar outra (por exemplo, se você perdeu), rode
+`inkdoor password` no servidor (num container do Proxmox: `pct exec <id> -- inkdoor password`).
+Ele mostra a senha nova uma única vez e desconecta todos os navegadores. Também dá para trocar a
+senha na página **Conta**.
+
+### Abrindo o admin por nome
+
+O admin, e também a imagem do Kindle, só respondem quando o endereço no navegador é um IP ou um
+nome de rede local: um nome sem pontos, ou terminado em `.local`, `.lan`, `.home`,
+`.home.arpa`, `.internal`, `.localdomain`, `.fritz.box` ou `.ts.net`. Isso bloqueia sites que
+tentam chegar ao seu servidor usando o próprio nome deles (DNS rebinding). Para usar outro
+nome, coloque-o no `config.toml`:
+
+```toml
+[admin]
+enabled = true
+allowed_hosts = ["porta.example.com"]
+```
+
+Escreva cada nome exatamente como você digita no navegador, sem a porta e sem curingas. Um nome
+com acentos ou outras letras fora do ASCII vai na forma ASCII (punycode, que começa com
+`xn--`). Se a `URL` do Kindle usa um nome que não está liberado, a porta mostra uma tela
+avisando.
+
+### Num notebook
+
+O `inkdoor serve` no seu próprio computador serve só a imagem do Kindle: um notebook entra em
+redes que você não controla. Para usar o admin nele, acrescente ao `config.toml`:
+
+```toml
+[admin]
+enabled = true
+```
+
+Depois rode `inkdoor password`, reinicie o `inkdoor serve` e abra `http://<ip-do-computador>:8000`
+(o `inkdoor url` mostra o endereço). Desligue de novo antes de levar o notebook para uma rede
+em que você não confia.
+
 ## Segurança
 
 - **Deixe tudo na rede local.** Nunca abra a porta no roteador (port forward): a imagem mostra a
-  sua agenda. Se o servidor tem firewall, libere a porta só para a sua rede ou só para o IP do
-  Kindle.
-- O servidor HTTP só responde `/kindle.png`, e o serviço roda com um usuário sem privilégios,
-  num sandbox do systemd que só pode gravar em `/var/lib/inkdoor`.
-- O `config.toml` guarda links secretos: quem tem esses links consegue ler suas agendas.
+  sua agenda. Se o servidor tem firewall, libere a porta só para a sua rede.
+- Só o `/kindle.png` é público; todas as outras páginas pedem o login do admin. O serviço roda
+  com um usuário sem privilégios, num sandbox do systemd que só pode gravar em
+  `/var/lib/inkdoor` e `/etc/inkdoor`.
+- O `config.toml` guarda links secretos: quem tem esses links consegue ler suas agendas. Num
+  servidor, ele e o arquivo da senha só podem ser lidos pelo usuário `inkdoor`.
+- Quem entra no admin consegue fazer o servidor acessar endereços da sua rede local com
+  **Testar link** (nunca o próprio servidor). É assim que funciona uma agenda num servidor da
+  rede, como um Nextcloud, então guarde bem a senha.

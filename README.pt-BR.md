@@ -70,7 +70,10 @@ Onde encontrar o link de cada agenda: [docs/pt-BR/calendar-sources.md](docs/pt-B
 
 O `inkdoor serve` precisa ficar rodando para a porta atualizar. Para deixá-lo numa máquina
 sempre ligada (um container no Proxmox com um comando, ou qualquer máquina Debian ou Ubuntu),
-veja [docs/pt-BR/server.md](docs/pt-BR/server.md).
+veja [docs/pt-BR/server.md](docs/pt-BR/server.md). Lá o instalador liga o **admin pela web**:
+você cola os links das agendas, testa e vê uma prévia da porta no navegador, sem editar
+arquivo nenhum. No seu próprio computador o admin fica desligado, a não ser que você
+[ligue](docs/pt-BR/server.md#num-notebook).
 
 ### 2. Kindle
 
@@ -95,12 +98,15 @@ em pt-BR, 12 horas em en-US); para forçar, use `clock = "24h"` ou `clock = "12h
 | `inkdoor render` | Gera `output/kindle.png` uma vez. |
 | `inkdoor check` | Testa cada link: acesso, quantidade de compromissos, se os títulos vêm ou só "Ocupado". |
 | `inkdoor demo 10:20 16:50` | Gera prévias com dados fictícios, sem precisar de agendas. |
+| `inkdoor password` | Gera uma senha nova do admin, salva ao lado do `config.toml` e mostra uma única vez. Desconecta todos os navegadores. |
+| `inkdoor url` | Mostra o endereço do admin para outros aparelhos da rede, ex.: `http://192.168.1.50:8000`. |
 
 Opções gerais: `--config caminho/config.toml`, `--output pasta/`, `--lang en-US|pt-BR`.
 
 ## Configuração
 
-Tudo fica em `config.toml` (veja os comentários em [`config.example.toml`](config.example.toml)):
+Tudo fica em `config.toml`, que o [admin](docs/pt-BR/server.md#admin) edita para você (veja
+os comentários em [`config.example.toml`](config.example.toml)):
 
 - `[display]`: `language`, `timezone`, `clock`, `workday_start` / `workday_end` (expediente),
   `workdays` (dias úteis), `min_gap_minutes` (folga mínima para aparecer na lista)
@@ -109,6 +115,9 @@ Tudo fica em `config.toml` (veja os comentários em [`config.example.toml`](conf
   (se muda o status da porta), `status_label` (a palavra grande, ex.: `"Ocupado"` para
   compromissos pessoais), `url`
 - `[tasks]`: link de assinatura do TickTick e `overdue_days` (dias de atraso a mostrar)
+- `[admin]`: `enabled` (o admin pela web, desligado por padrão; lido ao iniciar) e
+  `allowed_hosts` (outros nomes para abrir o admin, veja
+  [docs/pt-BR/server.md](docs/pt-BR/server.md#abrindo-o-admin-por-nome))
 
 ## Desenvolvimento
 

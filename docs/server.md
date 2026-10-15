@@ -11,15 +11,17 @@ included.
 - **Any Debian or Ubuntu machine** (a VM, a mini PC, a Raspberry Pi with a 64-bit OS):
   [use the installer](#debian-or-ubuntu).
 
-Either way you get the same layout:
+Either way you get the same layout, and you configure inkdoor from a browser with the
+[admin](#admin):
 
 | Path | What it is |
 |---|---|
-| `/etc/inkdoor/config.toml` | your config, readable only by root and the `inkdoor` user |
+| `/etc/inkdoor/config.toml` | your config, private to the `inkdoor` user |
+| `/etc/inkdoor/admin-password` | the admin password, stored as a hash |
 | `/opt/inkdoor` | the code and its Python environment |
 | `/var/lib/inkdoor/kindle.png` | the rendered screen |
 | `inkdoor.service` | the systemd service, started at boot and restarted if it fails |
-| `/usr/local/bin/inkdoor` | runs inkdoor with that config: `inkdoor check`, `inkdoor render` |
+| `/usr/local/bin/inkdoor` | runs inkdoor with that config: `inkdoor password`, `inkdoor check` |
 
 ## Proxmox VE
 
@@ -41,23 +43,28 @@ boot) and installs inkdoor in it.
    bash create-lxc.sh
    ```
 
-   To bring your existing `config.toml`, copy it to the host first (for example
-   `scp config.toml root@<proxmox-ip>:`) and add `--config config.toml`. Add `--lang pt-BR`
-   for the screen and the messages in Brazilian Portuguese.
+   Add `--lang pt-BR` for the screen and the messages in Brazilian Portuguese. To bring an
+   existing `config.toml`, copy it to the host first (for example
+   `scp config.toml root@<proxmox-ip>:`) and add `--config config.toml`.
 
-4. At the end the script prints the container's ID and IP.
-   - **If you passed `--config`**, the service is already running.
-   - **If not**, finish the setup inside the container:
+4. At the end the script prints the admin's address and its password, like this:
 
-     ```sh
-     pct enter <id>
-     nano /etc/inkdoor/config.toml   # paste your calendar links (docs/calendar-sources.md)
-     inkdoor check                   # test every link
-     systemctl start inkdoor
-     ```
+   ```
+   New admin password: k7mq-x3vt-9hwp-r2nd  (saved in /etc/inkdoor/admin-password; ...)
 
-5. On the Kindle, set `URL="http://<container-ip>:8000/kindle.png"` in `inkdoor/config.sh`
-   ([Kindle setup](kindle.md)).
+   inkdoor is running.
+     Admin:  http://192.168.1.50:8000  (log in with the password above)
+     On the Kindle, in inkdoor/config.sh:  URL="http://192.168.1.50:8000/kindle.png"
+   ```
+
+5. Open the admin address in a browser on the same network and log in with that password.
+6. In **Calendars**, add your calendar links ([where to find them](calendar-sources.md)) and
+   press **Test link** on each one after saving it. The preview on **Home** shows the door as
+   the Kindle will.
+7. On the Kindle, set `URL="http://<container-ip>:8000/kindle.png"` in `inkdoor/config.sh`
+   ([Kindle setup](kindle.md)). The admin's home page shows this address with a copy button.
+
+Until a link is added, the door shows a setup screen with the admin's address.
 
 ### Options
 
@@ -83,12 +90,15 @@ the container's address on your router (a "DHCP reservation").
 
 | Task | Command on the Proxmox host |
 |---|---|
+| Change the config | the admin, at `http://<container-ip>:8000` |
 | Update inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
+| Make a new admin password | `pct exec <id> -- inkdoor password` |
 | Follow the log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Test the calendar links | `pct exec <id> -- inkdoor check` |
-| Edit the config | `pct enter <id>`, then `nano /etc/inkdoor/config.toml` |
+| Edit the config by hand | `pct enter <id>`, then `nano /etc/inkdoor/config.toml` |
 
-Config changes are picked up at the next refresh; only a new `port` needs
+Changes saved in the admin update the door right away. Hand edits are picked up at the next
+refresh; only a new `port` or a change to `[admin] enabled` needs
 `systemctl restart inkdoor`.
 
 ### Creating the container yourself
@@ -110,21 +120,87 @@ bash install.sh
 
 It installs Python and git from apt, downloads inkdoor to `/opt/inkdoor`, creates the
 `inkdoor` user and the service. On the first run it creates `/etc/inkdoor/config.toml` from the
-example, with the machine's time zone and the `--lang` you gave. The service starts only once
-the config has at least one link: fill it in, run `inkdoor check`, then
-`systemctl start inkdoor`.
+example, with the machine's time zone, the `--lang` you gave and the admin turned on. It then
+makes an admin password, starts the service and prints the admin's address and the password.
+Continue from step 5 of the Proxmox steps above.
 
 To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the new version from the same
 repository and branch (`--ref`) as before, and restarts the service. It never overwrites your
-config.
+config or your admin password; on an install from before the admin existed, it turns the admin
+on once and prints its first password.
 
 Options: `--lang en-US|pt-BR`, `--timezone Area/City` (for a new config), `--ref BRANCH_OR_TAG`.
+
+## Admin
+
+The admin is a small website served by `inkdoor serve` on the same port as the Kindle image.
+After logging in you can:
+
+- **Home**: see a preview of the door, its status, when it last updated and which links are
+  failing; update it now; copy the Kindle's address.
+- **Calendars** and **Tasks**: add, edit, reorder and remove calendars and the TickTick link,
+  and test each link. A saved link is never shown again in full, only its start.
+- **Screen**: language, time zone, clock, workday hours and days, refresh interval.
+- **Account**: change the password, log out.
+
+Every save rewrites `config.toml` and keeps the previous version as `config.toml.bak`. Comments
+in the file are lost on the first save; settings the admin does not manage are kept. If the
+file breaks (for example after a hand edit), the admin says what is wrong and offers to restore
+the previous version.
+
+> **The admin uses plain HTTP.** Someone who can watch your network traffic (a guest on your
+> Wi-Fi, a compromised device) could read the password when you log in and a calendar link when
+> you paste it, so use the admin only on a network you trust and never forward its port.
+
+### Password
+
+The installer prints the first password. To make a new one (for example if you lost it), run
+`inkdoor password` on the server (in a Proxmox container: `pct exec <id> -- inkdoor password`).
+It prints the new password once and logs out every browser. You can also change it on the
+**Account** page.
+
+### Opening the admin by name
+
+The admin, and the Kindle image, only answer when the address in the browser is an IP address
+or a local network name: a name without dots, or one ending in `.local`, `.lan`, `.home`,
+`.home.arpa`, `.internal`, `.localdomain`, `.fritz.box` or `.ts.net`. This blocks websites that
+try to reach your server through their own names (DNS rebinding). To use another name, list it
+in `config.toml`:
+
+```toml
+[admin]
+enabled = true
+allowed_hosts = ["door.example.com"]
+```
+
+Write each name exactly as typed in the browser, without the port and without wildcards. A name
+with accents or other non-ASCII letters goes in its ASCII form (punycode, starting with
+`xn--`). If the Kindle's `URL` uses a name that is not allowed, the door shows a screen saying
+so.
+
+### On a laptop
+
+Plain `inkdoor serve` on your own computer serves only the Kindle image: a laptop joins
+networks you do not control. To use the admin there, add this to `config.toml`:
+
+```toml
+[admin]
+enabled = true
+```
+
+Then run `inkdoor password`, restart `inkdoor serve` and open `http://<computer-ip>:8000`
+(`inkdoor url` prints the address). Turn it off again before taking the laptop to a network you
+do not trust.
 
 ## Security
 
 - **Keep it on your local network.** Never forward the port on your router: the image shows
-  your schedule. If the server has a firewall, allow the port only from your LAN or from the
-  Kindle's IP.
-- The HTTP server answers only `/kindle.png`, and the service runs as an unprivileged user in a
-  systemd sandbox that can only write to `/var/lib/inkdoor`.
-- `config.toml` holds secret calendar links: anyone who has them can read your calendars.
+  your schedule. If the server has a firewall, allow the port only from your LAN.
+- Only `/kindle.png` is public; every other page needs the admin login. The service runs as an
+  unprivileged user in a systemd sandbox that can only write to `/var/lib/inkdoor` and
+  `/etc/inkdoor`.
+- `config.toml` holds secret calendar links: anyone who has them can read your calendars. On a
+  server, it and the password file are readable only by the `inkdoor` user.
+- Anyone who logs in to the admin can make the server fetch addresses on your local network
+  with **Test link** (never the server itself). That is how a calendar on a LAN server such as
+  Nextcloud works, so keep the password private.
