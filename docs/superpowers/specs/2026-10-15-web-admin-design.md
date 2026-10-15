@@ -213,7 +213,10 @@ All link fetches (render loop, `inkdoor check`, admin "Test") go through one hel
   documented.
 - Admin "Test" allows at most 2 concurrent tests (a non-blocking semaphore; a third gets a "busy,
   try again" answer), and Waitress gets `threads=8`, so tests can never starve `/kindle.png`.
-- `[admin] enabled` is read at startup; changing it needs a restart. `allowed_hosts` is read from
+- `[admin] enabled` is read at startup; changing it needs a restart. When neither `config.toml`
+  nor `config.toml.bak` loads and the file exists (broken), the admin is enabled if an
+  `admin-password` file exists next to the config, so a server install can still reach "Restore
+  previous version"; a missing config file keeps the admin disabled. `allowed_hosts` is read from
   the last valid config on every request.
 - "Update now" is limited to once every 30 seconds.
 
