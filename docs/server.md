@@ -54,10 +54,13 @@ boot) and installs inkdoor in it.
 
    inkdoor is running.
      Admin:  http://192.168.1.50:3667  (log in with the password above)
+             or http://inkdoor.local:3667 on computers and phones (the Kindle uses the IP)
      On the Kindle, in inkdoor/config.sh:  URL="http://192.168.1.50:3667/kindle.png"
    ```
 
 5. Open the admin address in a browser on the same network and log in with that password.
+   Computers and phones can also use `http://inkdoor.local:3667` (the container's name, announced
+   on the network); the Kindle cannot resolve such names, so it always uses the IP address.
 6. In **Calendars**, add your calendar links ([where to find them](calendar-sources.md)) and
    press **Test link** on each one after saving it. The preview on **Home** shows the door as
    the Kindle will.
@@ -137,7 +140,8 @@ curl -fsSLO https://raw.githubusercontent.com/frkey/inkdoor/master/deploy/instal
 bash install.sh
 ```
 
-It installs Python and git from apt, downloads inkdoor to `/opt/inkdoor`, creates the
+It installs Python, git and avahi (which announces the machine as `<hostname>.local`) from apt,
+downloads inkdoor to `/opt/inkdoor`, creates the
 `inkdoor` user and the service. On the first run it creates `/etc/inkdoor/config.toml` with just
 the `--lang` you gave, the machine's time zone and the admin turned on: calendars are added in
 the admin (every option is explained in `/opt/inkdoor/config.example.toml`). It then makes an
