@@ -10,6 +10,8 @@ import copy
 import hashlib
 import hmac
 import os
+import re
+import threading
 from dataclasses import dataclass
 
 import tomli_w
@@ -18,6 +20,9 @@ from . import config
 from .files import write_private
 
 BACKUP_SUFFIX = ".bak"
+_DIGEST = re.compile(r"[0-9a-f]{64}")
+# Read, compare and write as one step, so two saves made from the same read cannot both win.
+_LOCK = threading.RLock()
 
 
 class ConfigChanged(Exception):
@@ -53,32 +58,45 @@ def check(data: dict) -> dict:
     return config.validate(config.with_defaults(cfg))
 
 
-def save(path, data: dict, expected_digest: str) -> str:
+def save(path, data: dict, expected_digest) -> str:
     """Validates and writes ``data``; the previous file becomes the backup. Returns the new digest."""
     check(data)
     return _replace(path, tomli_w.dumps(data).encode("utf-8"), expected_digest)
 
 
-def restore_backup(path, expected_digest: str) -> str:
+def restore_backup(path, expected_digest) -> str:
     """Puts the backup back. The file it replaces becomes the new backup, so this can be undone."""
     backup = os.fspath(path) + BACKUP_SUFFIX
-    try:
-        data, raw = config.read_toml(backup)
-    except config.ConfigMissing:
-        raise config.ConfigInvalid("unreadable", path=backup, error="FileNotFoundError") from None
-    check(data)
-    return _replace(path, raw, expected_digest)
+    with _LOCK:
+        try:
+            data, raw = config.read_toml(backup)
+        except config.ConfigMissing:
+            raise config.ConfigInvalid("unreadable", path=backup, error="FileNotFoundError") from None
+        check(data)
+        return _replace(path, raw, expected_digest)
 
 
-def _replace(path, new: bytes, expected_digest: str) -> str:
+def _is_digest(value) -> bool:
+    return isinstance(value, str) and _DIGEST.fullmatch(value) is not None
+
+
+def _replace(path, new: bytes, expected_digest) -> str:
+    """Writes ``new`` if the file still has ``expected_digest``, then keeps the old bytes as backup.
+
+    The new file goes first: if the backup write then fails, config.toml already holds the good
+    bytes. (Writing the backup first could overwrite the only good copy during a restore.)
+    """
     path = os.fspath(path)
-    try:
-        old = config.read_bytes(path)
-    except config.ConfigMissing:
-        old = None
-    if not hmac.compare_digest(digest(old or b""), expected_digest):
+    if not _is_digest(expected_digest):  # it comes from a browser form; never crash on it
         raise ConfigChanged()
-    if old is not None:
-        write_private(path + BACKUP_SUFFIX, old)
-    write_private(path, new)
+    with _LOCK:
+        try:
+            old = config.read_bytes(path)
+        except config.ConfigMissing:
+            old = None
+        if not hmac.compare_digest(digest(old or b""), expected_digest):
+            raise ConfigChanged()
+        write_private(path, new)
+        if old is not None:
+            write_private(path + BACKUP_SUFFIX, old)
     return digest(new)

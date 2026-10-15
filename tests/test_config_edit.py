@@ -3,10 +3,11 @@ import os
 import stat
 import subprocess
 import sys
+import threading
 
 import pytest
 
-from inkdoor import config
+from inkdoor import config, config_edit
 from inkdoor.config_edit import ConfigChanged, RawConfig, check, read_raw, restore_backup, save
 from inkdoor.files import write_private
 
@@ -118,6 +119,90 @@ def test_restore_backup_refuses_a_bad_or_stale_backup(tmp_path):
     with pytest.raises(ConfigChanged):
         restore_backup(p, EMPTY_DIGEST)
     assert p.read_text() == "[server]\nport = 8001\n"
+
+
+def test_restore_keeps_the_good_bytes_if_the_backup_write_fails(tmp_path, monkeypatch):
+    p = tmp_path / "config.toml"
+    p.write_text("[server]\nport = 8001\n")
+    save(p, {"server": {"port": 8002}}, read_raw(p).digest)
+    good = (tmp_path / "config.toml.bak").read_bytes()
+    p.write_text("[server\n")                          # broken by hand
+    real = config_edit.write_private
+
+    def fail_on_backup(path, data):
+        if os.fspath(path).endswith(".bak"):
+            raise OSError("disk full")
+        real(path, data)
+
+    monkeypatch.setattr(config_edit, "write_private", fail_on_backup)
+    with pytest.raises(OSError):
+        restore_backup(p, hashlib.sha256(p.read_bytes()).hexdigest())
+    assert p.read_bytes() == good
+    assert (tmp_path / "config.toml.bak").read_bytes() == good
+
+
+@pytest.mark.parametrize("bad", [None, "", "é" * 64, "A" * 64, 3, "0" * 63, "0" * 65],
+                         ids=["none", "empty", "non-ascii", "uppercase", "int", "short", "long"])
+def test_malformed_digest_is_a_change_not_a_crash(tmp_path, bad):
+    p = tmp_path / "config.toml"
+    p.write_text("[server]\nport = 8001\n")
+    with pytest.raises(ConfigChanged):
+        save(p, {"server": {"port": 8002}}, bad)
+    with pytest.raises(ConfigChanged):
+        save(tmp_path / "missing.toml", {"server": {"port": 8002}}, bad)
+    assert p.read_text() == "[server]\nport = 8001\n"
+
+
+def test_uppercase_digest_is_refused(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("[server]\nport = 8001\n")
+    with pytest.raises(ConfigChanged):
+        save(p, {"server": {"port": 8002}}, read_raw(p).digest.upper())
+
+
+@pytest.mark.parametrize("existing", [True, False])
+def test_concurrent_saves_with_the_same_digest_let_exactly_one_win(tmp_path, existing):
+    for run in range(25):
+        p = tmp_path / f"config{run}.toml"
+        if existing:
+            p.write_text("[server]\nport = 8001\n")
+        expected = read_raw(p).digest
+        barrier = threading.Barrier(2)
+        results = []
+
+        def worker(port):
+            barrier.wait()
+            try:
+                save(p, {"server": {"port": port}}, expected)
+                results.append("ok")
+            except ConfigChanged:
+                results.append("changed")
+            except Exception as ex:                     # pragma: no cover - the failure we guard against
+                results.append(repr(ex))
+
+        threads = [threading.Thread(target=worker, args=(port,)) for port in (8002, 8003)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert sorted(results) == ["changed", "ok"]
+        assert read_raw(p).data["server"]["port"] in (8002, 8003)
+        assert not (tmp_path / f"config{run}.toml.tmp").exists()
+
+
+def test_write_private_leaves_another_writers_tmp_alone_when_it_cannot_open(tmp_path, monkeypatch):
+    p = tmp_path / "config.toml"
+    tmp = tmp_path / "config.toml.tmp"
+    real_open = os.open
+
+    def racing_open(path, flags, mode=0o777):
+        tmp.write_text("another writer")                # someone created it after the stale cleanup
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(os, "open", racing_open)
+    with pytest.raises(FileExistsError):
+        write_private(p, b"data")
+    assert tmp.read_text() == "another writer"
 
 
 def test_restore_without_backup_is_a_config_error(tmp_path):
