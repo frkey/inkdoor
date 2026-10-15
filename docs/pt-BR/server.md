@@ -140,10 +140,11 @@ bash install.sh --lang pt-BR
 ```
 
 Ele instala o Python e o git pelo apt, baixa o inkdoor em `/opt/inkdoor` e cria o usuário
-`inkdoor` e o serviço. Na primeira vez, cria o `/etc/inkdoor/config.toml` a partir do exemplo,
-com o fuso horário da máquina, o `--lang` escolhido e o admin ligado. Depois gera uma senha do
-admin, liga o serviço e mostra o endereço do admin e a senha. Continue a partir do passo 5 do
-Proxmox, acima.
+`inkdoor` e o serviço. Na primeira vez, cria o `/etc/inkdoor/config.toml` só com o `--lang`
+escolhido, o fuso horário da máquina e o admin ligado: as agendas você adiciona no admin (cada
+opção está explicada em `/opt/inkdoor/config.example.toml`). Depois gera uma senha do admin,
+liga o serviço e mostra o endereço do admin e a senha. Continue a partir do passo 5 do Proxmox,
+acima.
 
 Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão nova do mesmo
 repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config e sua senha do admin

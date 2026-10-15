@@ -138,9 +138,10 @@ bash install.sh
 ```
 
 It installs Python and git from apt, downloads inkdoor to `/opt/inkdoor`, creates the
-`inkdoor` user and the service. On the first run it creates `/etc/inkdoor/config.toml` from the
-example, with the machine's time zone, the `--lang` you gave and the admin turned on. It then
-makes an admin password, starts the service and prints the admin's address and the password.
+`inkdoor` user and the service. On the first run it creates `/etc/inkdoor/config.toml` with just
+the `--lang` you gave, the machine's time zone and the admin turned on: calendars are added in
+the admin (every option is explained in `/opt/inkdoor/config.example.toml`). It then makes an
+admin password, starts the service and prints the admin's address and the password.
 Continue from step 5 of the Proxmox steps above.
 
 To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the new version from the same

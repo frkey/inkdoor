@@ -74,10 +74,10 @@ case "$LANGUAGE" in
     MSG_DOWNLOAD="Baixando o inkdoor (%s)..."
     MSG_NOT_GIT="%s existe mas não é um clone do git; mova a pasta e rode de novo."
     MSG_PIP="Instalando o pacote Python..."
-    MSG_CONFIG_NEW="Criei %s a partir do exemplo."
+    MSG_CONFIG_NEW="Criei %s. As agendas você adiciona no admin."
     MSG_CONFIG_KEPT="Mantive o %s que já existia."
     MSG_CONFIG_LINK="%s é um link simbólico; deixei como está. O admin não grava em links: edite o arquivo à mão (para ligar o admin, acrescente [admin] enabled = true nele)."
-    MSG_NO_TIMEZONE="Não detectei o fuso horário; ajuste timezone em %s."
+    MSG_NO_TIMEZONE="Não detectei o fuso horário; escolha o seu na página Tela do admin."
     MSG_BAD_TIMEZONE="Fuso horário desconhecido: %s (exemplo: America/Sao_Paulo)."
     MSG_ADMIN_ENABLED="Liguei o admin pela web em %s."
     MSG_SERVICE="Instalando o serviço do systemd..."
@@ -103,10 +103,10 @@ O inkdoor está rodando."
     MSG_DOWNLOAD="Downloading inkdoor (%s)..."
     MSG_NOT_GIT="%s exists but is not a git checkout; move it away and run again."
     MSG_PIP="Installing the Python package..."
-    MSG_CONFIG_NEW="Created %s from the example."
+    MSG_CONFIG_NEW="Created %s. Add your calendars in the admin."
     MSG_CONFIG_KEPT="Kept the existing %s."
     MSG_CONFIG_LINK="%s is a symbolic link; left it as it is. The admin does not save to a link: edit the file by hand (to turn the admin on, add [admin] enabled = true to it)."
-    MSG_NO_TIMEZONE="Could not detect the time zone; set timezone in %s."
+    MSG_NO_TIMEZONE="Could not detect the time zone; pick yours on the admin's Screen page."
     MSG_BAD_TIMEZONE="Unknown time zone: %s (example: America/New_York)."
     MSG_ADMIN_ENABLED="Turned on the web admin in %s."
     MSG_SERVICE="Installing the systemd service..."
@@ -238,22 +238,23 @@ else
   if [ -f "$CONF" ]; then
     say "$MSG_CONFIG_KEPT" "$CONF"
   else
-    as_inkdoor cp "$APP_DIR/config.example.toml" "$CONF"
-    if [ -n "$LANGUAGE" ]; then
-      as_inkdoor sed -i "s|^language = \"[^\"]*\"|language = \"$LANGUAGE\"|" "$CONF"
-    fi
+    # --timezone was checked at the start; without it, use the machine's zone unless it is UTC,
+    # the usual server default rather than where the door is
     if [ -z "$TIMEZONE" ]; then  # e.g. /usr/share/zoneinfo/America/Sao_Paulo
       TIMEZONE="$(readlink /etc/localtime 2>/dev/null | sed -n 's|^.*/zoneinfo/\(posix/\)\{0,1\}||p')"
+      case "$TIMEZONE" in UTC|Etc/UTC|Etc/Universal) TIMEZONE="" ;; esac
+      valid_timezone "$TIMEZONE" || TIMEZONE=""
     fi
-    case "$TIMEZONE" in
-      UTC|Etc/UTC|Etc/Universal) say "$MSG_NO_TIMEZONE" "$CONF" ;;
-      *)
-        if valid_timezone "$TIMEZONE"; then
-          as_inkdoor sed -i "s|^timezone = \"[^\"]*\"|timezone = \"$TIMEZONE\"|" "$CONF"
-        else
-          say "$MSG_NO_TIMEZONE" "$CONF"
-        fi ;;
-    esac
+    # Only what this installer knows: calendars are added in the admin (until then the door
+    # shows the setup screen), and config.example.toml explains every option for hand edits.
+    # Both values are validated above, so they are safe to write as they are.
+    {
+      printf '# inkdoor settings. The web admin edits this file; every option is explained in\n'
+      printf '# %s/config.example.toml.\n\n[display]\n' "$APP_DIR"
+      printf 'language = "%s"\n' "${LANGUAGE:-en-US}"
+      [ -z "$TIMEZONE" ] || printf 'timezone = "%s"\n' "$TIMEZONE"
+    } | as_inkdoor tee "$CONF" >/dev/null
+    [ -n "$TIMEZONE" ] || say "$MSG_NO_TIMEZONE"
     say "$MSG_CONFIG_NEW" "$CONF"
   fi
 
