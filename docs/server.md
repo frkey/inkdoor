@@ -95,6 +95,7 @@ the container's address on your router (a "DHCP reservation").
 | Make a new admin password | `pct exec <id> -- inkdoor password` |
 | Follow the log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Test the calendar links | `pct exec <id> -- inkdoor check` |
+| Something is wrong | [Troubleshooting](troubleshooting.md) |
 | Edit the config by hand | `pct enter <id>`, then `nano /etc/inkdoor/config.toml` |
 
 Changes saved in the admin update the door right away. Hand edits are picked up at the next
@@ -162,6 +163,11 @@ After logging in you can:
   list, refresh interval. The port is shown read-only: changing it means editing `config.toml`
   and restarting the service.
 - **Account**: change the password, log out.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/admin-calendars-dark-en-US.png">
+  <img alt="The admin's Calendars page: three calendars, each with its marker, door word, shortened link and buttons to test, edit, move and remove it" src="img/admin-calendars-light-en-US.png">
+</picture>
 
 Every save rewrites `config.toml` and keeps the previous version as `config.toml.bak`. Comments
 in the file are lost on the first save; settings the admin does not manage are kept. If the

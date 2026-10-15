@@ -1,0 +1,144 @@
+# Contributing to inkdoor
+
+Thanks for your interest! inkdoor is a small project, and every kind of help counts: a bug
+report from a Kindle model nobody has tried, a translation, a clearer sentence in the docs, or
+a pull request.
+
+- [Ground rules](#ground-rules)
+- [Development setup](#development-setup)
+- [Project layout](#project-layout)
+- [Making a change](#making-a-change)
+- [Translations](#translations)
+- [Testing on real hardware](#testing-on-real-hardware)
+
+## Ground rules
+
+- **Privacy first.** This is a public repository. Never put real calendar links, names, email
+  addresses or meeting titles in code, tests, docs, screenshots or issues. Use the fictional data
+  in `src/inkdoor/demo.py` and `tests/fixtures/`. Never commit `config.toml` or `admin-password`.
+- **English in the repository**: code, comments, commits, issues and pull requests. Users see
+  inkdoor in their own language, so every user-facing string is translated (see
+  [Translations](#translations)).
+- **The door must never say "Free" without knowing.** Any change to fetching, caching or the
+  status keeps this rule; when in doubt, the door says "Knock first".
+- [`CLAUDE.md`](CLAUDE.md) holds the full conventions (it is written for AI assistants, and
+  just as useful for people): language policy, screen constraints, security rules for links and
+  the admin, deploy script rules, labels and the review process.
+
+## Development setup
+
+You need Python 3.10 or newer.
+
+```sh
+git clone https://github.com/frkey/inkdoor.git
+cd inkdoor
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Then:
+
+```sh
+pytest                                    # the whole suite, a few seconds, no network
+inkdoor -o output demo 10:20 16:50        # render previews with fictional data
+inkdoor -o output --lang pt-BR demo 10:20
+```
+
+Shell scripts are checked with [ShellCheck](https://www.shellcheck.net/):
+
+```sh
+cd kindle && shellcheck inkdoor/*.sh documents/*.sh
+shellcheck deploy/*.sh deploy/proxmox/*.sh
+```
+
+CI runs all of this on every pull request (Python 3.10 and 3.12) and uploads the rendered
+previews as an artifact, so you can look at them without running anything.
+
+## Project layout
+
+```
+src/inkdoor/
+  sources.py      reads calendars (ICS) and tasks: recurrence, time zones, de-duplication, cache
+  render.py       screen layout and drawing (1072×1448, 16 grays)
+  server.py       the render loop and `inkdoor serve` (Waitress)
+  net.py          fetches links (size cap, deadline, redirects, no loopback) and finds the LAN address
+  check.py        `inkdoor check` and the admin's Test link
+  config.py       loading and validating config.toml
+  config_edit.py  edits config.toml for the admin (atomic, private, with a backup)
+  files.py        private (mode 600), atomic file writes
+  i18n.py         translations and time/date formatting
+  locales/        en-US.json (the reference) and pt-BR.json
+  demo.py         fictional data for previews and screenshots
+  fonts/          a Latin subset of Inter (SIL OFL 1.1)
+  web/
+    __init__.py   the Flask app: request guard, login, the public /kindle.png
+    auth.py       password hashing, sessions, login rate limit
+    hosts.py      Host header allowlist (DNS rebinding)
+    links.py      masking and checking pasted links
+    forms.py      reading and checking the admin's forms
+    editing.py    what the pages share about reading and saving config.toml
+    pages.py      the blueprint, built from home, calendars, screen and account
+    templates/    Jinja templates
+    static/       admin.css and admin.js (every page also works without JavaScript)
+kindle/           POSIX sh scripts that run on the Kindle (BusyBox)
+deploy/           systemd unit, Debian/Ubuntu installer, Proxmox container script
+tests/            pytest suite with fictional calendars in tests/fixtures/
+docs/             user docs, each with a pt-BR translation in docs/pt-BR/
+```
+
+## Making a change
+
+1. **Find or open an issue** first, unless the change is tiny. Search
+   [open and closed issues](https://github.com/frkey/inkdoor/issues?q=is%3Aissue) to avoid
+   duplicates. One issue per independent piece of work.
+2. **Branch from `master`** and keep the change focused on that issue.
+3. **Add or update tests.** Tests are hermetic: no network, no real clock where it matters, no
+   listener on `0.0.0.0`. Shared helpers live in `tests/helpers.py` and `tests/web_helpers.py`.
+4. **Anything visual?** Render the demo in both languages at a few times (for example 7:30, 10:20,
+   15:20, 16:50 and 21:10) and look at the images; Portuguese strings are longer and are the
+   usual cause of overflow. Keep strokes at least 3 px wide so they survive e-ink.
+5. **Anything user-visible?** Update the docs in both languages: `README.md` and
+   `README.pt-BR.md`, and each file in `docs/` with its twin in `docs/pt-BR/`.
+6. **Open a pull request** with the template: what changes and why, `Fixes #N` (or `Refs #N`),
+   and the test plan.
+
+### Review
+
+Every pull request is reviewed until a round finds no new real defect (correctness, security,
+data loss, the door's status, or a rule in `CLAUDE.md`). Before opening yours, review your own
+diff line by line. The maintainer then reviews it, you handle each finding (fix it, explain why
+it does not apply, or move it to an issue) and push, and the new commits are reviewed the same
+way. Style suggestions alone do not hold a pull request back.
+
+### Deploy scripts
+
+`deploy/` scripts are bash and must stay idempotent: running `install.sh` again is how users
+update. They must never overwrite `/etc/inkdoor/config.toml` or `admin-password`. If you touch
+the systemd sandbox in `inkdoor.service`, check that it still starts in an unprivileged Proxmox
+container with nesting.
+
+## Translations
+
+inkdoor ships in English (the reference) and Brazilian Portuguese. To add a language:
+
+1. Copy `src/inkdoor/locales/en-US.json` to `<code>.json` (for example `es-ES.json`) and
+   translate the values. Plurals are `{"one": ..., "other": ...}`. `tests/test_i18n.py` fails if
+   any key is missing.
+2. Add demo content for the language in `src/inkdoor/demo.py`, then render the demo and look for
+   text that overflows.
+3. Add the Kindle's messages to the `case "$LANGUAGE"` block in `kindle/inkdoor/common.sh`. Keep
+   them ASCII: the Kindle's built-in screen font has no accents.
+4. Add the installer messages to the same kind of block in `deploy/install.sh` and
+   `deploy/proxmox/create-lxc.sh` (these run in a terminal, so accents are fine).
+5. Optionally, translate the user docs into `docs/<code>/` and add a `README.<code>.md`.
+
+Times, dates and durations always go through `Translator.time()`, `.date_short()`,
+`.date_header()` and `.duration()`, never through ad-hoc formatting.
+
+## Testing on real hardware
+
+The Kindle scripts were written for a Kindle Paperwhite 10th generation. If you run inkdoor on
+another model, another firmware or another kind of server, a short report is very welcome, even
+when everything works: open an issue with the model, the firmware version and what you saw
+(`inkdoor/log.txt` on the Kindle helps).
