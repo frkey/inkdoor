@@ -178,7 +178,24 @@ def test_serve_warns_when_the_admin_has_no_password(tmp_path, monkeypatch, capsy
     server.serve(str(tmp_path / "config.toml"), str(tmp_path / "out"), None)
     out = capsys.readouterr().out
     assert EN("cli.no_password") in out
-    assert EN("cli.serving", port=port) in out
+    assert EN("cli.serving", address=FAKE_LAN_ADDRESS, port=port) in out
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("address", [FAKE_LAN_ADDRESS, None])
+def test_serve_prints_the_lan_address(tmp_path, monkeypatch, capsys, language, address):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    monkeypatch.setattr(net, "lan_address", lambda: address)
+    monkeypatch.setattr(server, "_run", lambda httpd: None)
+    monkeypatch.setattr(server, "render_loop", lambda *args: None)
+    port = free_port()
+    (tmp_path / "config.toml").write_text(
+        f'[display]\nlanguage = "{language}"\n\n[server]\nport = {port}\n')
+    server.serve(str(tmp_path / "config.toml"), str(tmp_path / "out"), None)
+    t = Translator(language)
+    shown = address or t("cli.this_computer_ip")
+    assert t("cli.serving", address=shown, port=port) in capsys.readouterr().out
+    assert f"http://{shown}:{port}/kindle.png" in t("cli.serving", address=shown, port=port)
 
 
 def test_serve_does_not_warn_with_a_password_or_without_the_admin(tmp_path, monkeypatch, capsys):
