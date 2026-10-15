@@ -140,7 +140,9 @@ After logging in you can:
   failing; update it now; copy the Kindle's address.
 - **Calendars** and **Tasks**: add, edit, reorder and remove calendars and the TickTick link,
   and test each link. A saved link is never shown again in full, only its start.
-- **Screen**: language, time zone, clock, workday hours and days, refresh interval.
+- **Screen**: language, time zone, clock, workday hours and days, the shortest free gap to
+  list, refresh interval. The port is shown read-only: changing it means editing `config.toml`
+  and restarting the service.
 - **Account**: change the password, log out.
 
 Every save rewrites `config.toml` and keeps the previous version as `config.toml.bak`. Comments
@@ -202,5 +204,6 @@ do not trust.
 - `config.toml` holds secret calendar links: anyone who has them can read your calendars. On a
   server, it and the password file are readable only by the `inkdoor` user.
 - Anyone who logs in to the admin can make the server fetch addresses on your local network
-  with **Test link** (never the server itself). That is how a calendar on a LAN server such as
-  Nextcloud works, so keep the password private.
+  with **Test link**, including other services on the server's own LAN address; only loopback
+  (`127.0.0.1`, `localhost`) and link-local addresses are refused. That is how a calendar on a
+  LAN server such as Nextcloud works, and it is an accepted risk, so keep the password private.

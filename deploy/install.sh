@@ -62,6 +62,7 @@ case "$LANGUAGE" in
     MSG_PIP="Instalando o pacote Python..."
     MSG_CONFIG_NEW="Criei %s a partir do exemplo."
     MSG_CONFIG_KEPT="Mantive o %s que já existia."
+    MSG_CONFIG_LINK="%s é um link simbólico; deixei como está. Para usar o admin, acrescente [admin] enabled = true nele."
     MSG_NO_TIMEZONE="Não detectei o fuso horário; ajuste timezone em %s."
     MSG_BAD_TIMEZONE="Fuso horário desconhecido: %s (exemplo: America/Sao_Paulo)."
     MSG_ADMIN_ENABLED="Liguei o admin pela web em %s."
@@ -88,6 +89,7 @@ O inkdoor está rodando."
     MSG_PIP="Installing the Python package..."
     MSG_CONFIG_NEW="Created %s from the example."
     MSG_CONFIG_KEPT="Kept the existing %s."
+    MSG_CONFIG_LINK="%s is a symbolic link; left it as it is. To use the admin, add [admin] enabled = true to it."
     MSG_NO_TIMEZONE="Could not detect the time zone; set timezone in %s."
     MSG_BAD_TIMEZONE="Unknown time zone: %s (example: America/New_York)."
     MSG_ADMIN_ENABLED="Turned on the web admin in %s."
@@ -171,33 +173,29 @@ install -d -m 755 -o inkdoor -g inkdoor "$STATE_DIR"
 # existing folder)
 install -d -m 700 -o inkdoor -g inkdoor "$CONF_DIR"
 
-if [ -f "$CONF" ]; then
-  say "$MSG_CONFIG_KEPT" "$CONF"
-else
-  cp "$APP_DIR/config.example.toml" "$CONF"
-  if [ -n "$LANGUAGE" ]; then
-    sed -i "s|^language = \"[^\"]*\"|language = \"$LANGUAGE\"|" "$CONF"
-  fi
-  if [ -z "$TIMEZONE" ]; then  # e.g. /usr/share/zoneinfo/America/Sao_Paulo
-    TIMEZONE="$(readlink /etc/localtime 2>/dev/null | sed -n 's|^.*/zoneinfo/\(posix/\)\{0,1\}||p')"
-  fi
-  case "$TIMEZONE" in
-    UTC|Etc/UTC|Etc/Universal) say "$MSG_NO_TIMEZONE" "$CONF" ;;
-    *)
-      if valid_timezone "$TIMEZONE"; then
-        sed -i "s|^timezone = \"[^\"]*\"|timezone = \"$TIMEZONE\"|" "$CONF"
-      else
-        say "$MSG_NO_TIMEZONE" "$CONF"
-      fi ;;
-  esac
-  say "$MSG_CONFIG_NEW" "$CONF"
-fi
+# Every run: each file in the folder (config.toml, its backup, admin-password) becomes
+# inkdoor:inkdoor 600, like the folder's 700 above; older installs used root:inkdoor 750/640.
+# The folder is flat, and only its own entries are touched: inkdoor owns it, so anything deeper
+# could be a symlink swapped in while find runs. Symlinks are skipped (-type f, chown -h). A hard
+# link to another user's file cannot be planted (fs.protected_hardlinks; the service's sandbox
+# also mounts the folder separately, so links across it fail with EXDEV).
+find "$CONF_DIR" -mindepth 1 -maxdepth 1 -type f \( ! -user inkdoor -o ! -group inkdoor \) \
+  -exec chown -h inkdoor:inkdoor {} +
+
+# as_inkdoor CMD...: runs a command as the inkdoor user, with a private umask. Everything written
+# in /etc/inkdoor goes through it, so a link planted there cannot redirect a write made by root.
+as_inkdoor() {
+  (cd / && umask 077 && runuser -u inkdoor -- "$@")
+}
+
+# chmod as the owner too, for the same reason
+as_inkdoor find "$CONF_DIR" -mindepth 1 -maxdepth 1 -type f -exec chmod 600 {} +
 
 # admin_setting: "on", "off" or "none" (no [admin] table) in config.toml. Prints nothing when
 # the file does not parse; it is left alone, since the admin shows the problem and can restore
 # the backup.
 admin_setting() {
-  "$APP_DIR/.venv/bin/python" - "$CONF" <<'EOF'
+  as_inkdoor "$APP_DIR/.venv/bin/python" - "$CONF" <<'EOF'
 import sys
 from inkdoor.config import read_toml
 try:
@@ -209,20 +207,41 @@ print("none" if admin is None else "on" if admin.get("enabled") is True else "of
 EOF
 }
 
-# A server is what the admin is for: turn it on in new configs and, once, in older installs.
-# An existing [admin] table is kept as it is, including enabled = false.
-ADMIN="$(admin_setting)"
-if [ "$ADMIN" = "none" ]; then
-  printf '\n[admin]\nenabled = true\n' >> "$CONF"
-  ADMIN="on"
-  say "$MSG_ADMIN_ENABLED" "$CONF"
-fi
+ADMIN=""
+if [ -L "$CONF" ]; then
+  say "$MSG_CONFIG_LINK" "$CONF"
+else
+  if [ -f "$CONF" ]; then
+    say "$MSG_CONFIG_KEPT" "$CONF"
+  else
+    as_inkdoor cp "$APP_DIR/config.example.toml" "$CONF"
+    if [ -n "$LANGUAGE" ]; then
+      as_inkdoor sed -i "s|^language = \"[^\"]*\"|language = \"$LANGUAGE\"|" "$CONF"
+    fi
+    if [ -z "$TIMEZONE" ]; then  # e.g. /usr/share/zoneinfo/America/Sao_Paulo
+      TIMEZONE="$(readlink /etc/localtime 2>/dev/null | sed -n 's|^.*/zoneinfo/\(posix/\)\{0,1\}||p')"
+    fi
+    case "$TIMEZONE" in
+      UTC|Etc/UTC|Etc/Universal) say "$MSG_NO_TIMEZONE" "$CONF" ;;
+      *)
+        if valid_timezone "$TIMEZONE"; then
+          as_inkdoor sed -i "s|^timezone = \"[^\"]*\"|timezone = \"$TIMEZONE\"|" "$CONF"
+        else
+          say "$MSG_NO_TIMEZONE" "$CONF"
+        fi ;;
+    esac
+    say "$MSG_CONFIG_NEW" "$CONF"
+  fi
 
-# Every run: each file in the folder (config.toml, its backup, admin-password) is
-# inkdoor:inkdoor 600, like the folder's 700 above. Older installs used root:inkdoor 750/640.
-find "$CONF_DIR" -type f -exec chown -h inkdoor:inkdoor {} +
-# chmod as the owner, so a file swapped for a symlink cannot point root's chmod elsewhere
-(cd / && runuser -u inkdoor -- find "$CONF_DIR" -type f -exec chmod 600 {} +)
+  # A server is what the admin is for: turn it on in new configs and, once, in older installs.
+  # An existing [admin] table is kept as it is, including enabled = false.
+  ADMIN="$(admin_setting)"
+  if [ "$ADMIN" = "none" ]; then
+    printf '\n[admin]\nenabled = true\n' | as_inkdoor tee -a "$CONF" >/dev/null
+    ADMIN="on"
+    say "$MSG_ADMIN_ENABLED" "$CONF"
+  fi
+fi
 
 say "$MSG_SERVICE"
 cat > "$WRAPPER" <<'EOF'
@@ -239,10 +258,13 @@ install -m 644 "$APP_DIR/deploy/inkdoor.service" "$UNIT"
 systemctl daemon-reload
 systemctl enable --quiet inkdoor
 
+# Its messages in the same language as this script's (English without --lang)
+CLI_LANG=(--lang "${LANGUAGE:-en-US}")
+
 # The first password is made by inkdoor itself, as the inkdoor user, and printed once
 NEW_PASSWORD=""
 if [ ! -e "$CONF_DIR/admin-password" ]; then
-  "$WRAPPER" password
+  "$WRAPPER" password "${CLI_LANG[@]}"
   NEW_PASSWORD=1
 fi
 
@@ -251,7 +273,7 @@ sleep 3
 systemctl is-active --quiet inkdoor || die "$MSG_FAILED"
 
 # "inkdoor url" says why on its own when this machine has no address on the local network
-ADMIN_URL="$("$WRAPPER" url)" || ADMIN_URL="http://<ip>:<port>"
+ADMIN_URL="$("$WRAPPER" url "${CLI_LANG[@]}")" || ADMIN_URL="http://<ip>:<port>"
 say "$MSG_RUNNING"
 if [ "$ADMIN" = "off" ]; then
   say "$MSG_ADMIN_OFF" "$CONF"

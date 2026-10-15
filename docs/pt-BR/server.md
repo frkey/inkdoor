@@ -142,8 +142,9 @@ Depois de entrar, você pode:
   links estão falhando; atualizar na hora; copiar o endereço para o Kindle.
 - **Agendas** e **Tarefas**: adicionar, editar, reordenar e remover agendas e o link do
   TickTick, e testar cada link. Um link salvo nunca volta a aparecer inteiro, só o começo dele.
-- **Tela**: idioma, fuso horário, relógio, horário e dias do expediente, intervalo de
-  atualização.
+- **Tela**: idioma, fuso horário, relógio, horário e dias do expediente, a menor folga a
+  listar, intervalo de atualização. A porta aparece só para leitura: para mudá-la, edite o
+  `config.toml` e reinicie o serviço.
 - **Conta**: trocar a senha, sair.
 
 Cada salvamento regrava o `config.toml` e guarda a versão anterior como `config.toml.bak`. Os
@@ -206,5 +207,7 @@ em que você não confia.
 - O `config.toml` guarda links secretos: quem tem esses links consegue ler suas agendas. Num
   servidor, ele e o arquivo da senha só podem ser lidos pelo usuário `inkdoor`.
 - Quem entra no admin consegue fazer o servidor acessar endereços da sua rede local com
-  **Testar link** (nunca o próprio servidor). É assim que funciona uma agenda num servidor da
-  rede, como um Nextcloud, então guarde bem a senha.
+  **Testar link**, inclusive outros serviços no próprio endereço de rede do servidor; só os
+  endereços de loopback (`127.0.0.1`, `localhost`) e link-local são recusados. É assim que
+  funciona uma agenda num servidor da rede, como um Nextcloud, e esse risco é aceito, então
+  guarde bem a senha.
