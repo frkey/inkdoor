@@ -5,13 +5,13 @@
 #
 # Run it as root on the machine (or container) that will serve the Kindle image.
 # To update, run /opt/inkdoor/deploy/install.sh: it keeps the version (--ref) and repository
-# of the current install, and it never overwrites config.toml.
+# of the current install, and it never overwrites config.toml or the admin password.
 #
 # Layout:
 #   /opt/inkdoor              code and virtualenv
-#   /etc/inkdoor/config.toml  your config (readable by root and the inkdoor user only)
+#   /etc/inkdoor              config.toml and admin-password (private to the inkdoor user)
 #   /var/lib/inkdoor          rendered image
-#   /usr/local/bin/inkdoor    runs inkdoor with that config, e.g. "inkdoor check"
+#   /usr/local/bin/inkdoor    runs inkdoor with that config, e.g. "inkdoor password"
 set -euo pipefail
 
 ARGS=("$@")
@@ -64,16 +64,15 @@ case "$LANGUAGE" in
     MSG_CONFIG_KEPT="Mantive o %s que já existia."
     MSG_NO_TIMEZONE="Não detectei o fuso horário; ajuste timezone em %s."
     MSG_BAD_TIMEZONE="Fuso horário desconhecido: %s (exemplo: America/Sao_Paulo)."
+    MSG_ADMIN_ENABLED="Liguei o admin pela web em %s."
     MSG_SERVICE="Instalando o serviço do systemd..."
-    MSG_NEXT_STEPS="
-Próximos passos:
-  1. Cole os links das agendas:  nano $CONF
-  2. Teste os links:             inkdoor check
-  3. Ligue o serviço:            systemctl start inkdoor
-  4. No Kindle, em inkdoor/config.sh:  URL=\"%s\""
     MSG_RUNNING="
-O inkdoor está rodando. No Kindle, em inkdoor/config.sh, use:
-  URL=\"%s\""
+O inkdoor está rodando."
+    MSG_ADMIN_NEW="  Admin:  %s  (entre com a senha mostrada acima)"
+    MSG_ADMIN_URL="  Admin:  %s"
+    MSG_PASSWORD_HINT="  Esqueceu a senha do admin? Rode: inkdoor password"
+    MSG_ADMIN_OFF="  O admin pela web está desligado ([admin] enabled = false em %s)."
+    MSG_KINDLE_URL="  No Kindle, em inkdoor/config.sh:  URL=\"%s\""
     MSG_FAILED="O serviço não subiu. Veja: journalctl -u inkdoor -n 50"
     ;;
   *)
@@ -91,16 +90,15 @@ O inkdoor está rodando. No Kindle, em inkdoor/config.sh, use:
     MSG_CONFIG_KEPT="Kept the existing %s."
     MSG_NO_TIMEZONE="Could not detect the time zone; set timezone in %s."
     MSG_BAD_TIMEZONE="Unknown time zone: %s (example: America/New_York)."
+    MSG_ADMIN_ENABLED="Turned on the web admin in %s."
     MSG_SERVICE="Installing the systemd service..."
-    MSG_NEXT_STEPS="
-Next steps:
-  1. Paste your calendar links:  nano $CONF
-  2. Test them:                  inkdoor check
-  3. Start the service:          systemctl start inkdoor
-  4. On the Kindle, in inkdoor/config.sh:  URL=\"%s\""
     MSG_RUNNING="
-inkdoor is running. On the Kindle, in inkdoor/config.sh, use:
-  URL=\"%s\""
+inkdoor is running."
+    MSG_ADMIN_NEW="  Admin:  %s  (log in with the password above)"
+    MSG_ADMIN_URL="  Admin:  %s"
+    MSG_PASSWORD_HINT="  Forgot the admin password? Run: inkdoor password"
+    MSG_ADMIN_OFF="  The web admin is off ([admin] enabled = false in %s)."
+    MSG_KINDLE_URL="  On the Kindle, in inkdoor/config.sh:  URL=\"%s\""
     MSG_FAILED="The service did not start. See: journalctl -u inkdoor -n 50"
     ;;
 esac
@@ -169,7 +167,8 @@ say "$MSG_PIP"
 id inkdoor >/dev/null 2>&1 ||
   useradd --system --user-group --home-dir "$STATE_DIR" --no-create-home --shell /usr/sbin/nologin inkdoor
 install -d -m 755 -o inkdoor -g inkdoor "$STATE_DIR"
-install -d -m 750 -o root -g inkdoor "$CONF_DIR"
+# The web admin saves the config, so the folder belongs to the inkdoor user
+install -d -m 700 -o inkdoor -g inkdoor "$CONF_DIR"
 
 if [ -f "$CONF" ]; then
   say "$MSG_CONFIG_KEPT" "$CONF"
@@ -192,8 +191,39 @@ else
   esac
   say "$MSG_CONFIG_NEW" "$CONF"
 fi
-chown root:inkdoor "$CONF"
-chmod 640 "$CONF"
+
+# admin_setting: "on", "off" or "none" (no [admin] table) in config.toml. Prints nothing when
+# the file does not parse; it is left alone, since the admin shows the problem and can restore
+# the backup.
+admin_setting() {
+  "$APP_DIR/.venv/bin/python" - "$CONF" <<'EOF'
+import sys
+from inkdoor.config import read_toml
+try:
+    data, _ = read_toml(sys.argv[1])
+except Exception:
+    sys.exit()
+admin = data.get("admin")
+print("none" if admin is None else "on" if admin.get("enabled") is True else "off")
+EOF
+}
+
+# A server is what the admin is for: turn it on in new configs and, once, in older installs.
+# An existing [admin] table is kept as it is, including enabled = false.
+ADMIN="$(admin_setting)"
+if [ "$ADMIN" = "none" ]; then
+  printf '\n[admin]\nenabled = true\n' >> "$CONF"
+  ADMIN="on"
+  say "$MSG_ADMIN_ENABLED" "$CONF"
+fi
+
+# Every run: the folder is inkdoor:inkdoor 700 and each file in it (config.toml, its backup,
+# admin-password) inkdoor:inkdoor 600. Older installs used root:inkdoor 750/640.
+chown inkdoor:inkdoor "$CONF_DIR"
+chmod 700 "$CONF_DIR"
+find "$CONF_DIR" -type f -exec chown -h inkdoor:inkdoor {} +
+# chmod as the owner, so a file swapped for a symlink cannot point root's chmod elsewhere
+(cd / && runuser -u inkdoor -- find "$CONF_DIR" -type f -exec chmod 600 {} +)
 
 say "$MSG_SERVICE"
 cat > "$WRAPPER" <<'EOF'
@@ -210,34 +240,26 @@ install -m 644 "$APP_DIR/deploy/inkdoor.service" "$UNIT"
 systemctl daemon-reload
 systemctl enable --quiet inkdoor
 
-PORT="$(awk -F= '/^\[server\]/ { s = 1; next } /^\[/ { s = 0 }
-  s && $1 ~ /^[ \t]*port[ \t]*$/ { sub(/#.*/, "", $2); gsub(/[ \t"]/, "", $2); print $2; exit }' "$CONF")"
-IP="$(ip -4 -o address show scope global 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')"
-URL="http://${IP:-<ip>}:${PORT:-8000}/kindle.png"
-
-# has_links: true once config.toml has at least one real calendar or task link.
-# Uses inkdoor's own rule; a config that does not load counts as filled in, so the service
-# starts and reports the problem itself.
-has_links() {
-  "$APP_DIR/.venv/bin/python" - "$CONF" <<'EOF'
-import sys
-from inkdoor.config import is_configured, load
-try:
-    cfg = load(sys.argv[1])
-except Exception:
-    sys.exit(0)
-urls = [c.get("url") for c in cfg["calendar"]] + [(cfg.get("tasks") or {}).get("url")]
-sys.exit(0 if any(is_configured(url) for url in urls) else 1)
-EOF
-}
-
-# Until a link is pasted there is nothing to show: leave starting the service to the user
-if ! has_links; then
-  say "$MSG_NEXT_STEPS" "$URL"
-  exit 0
+# The first password is made by inkdoor itself, as the inkdoor user, and printed once
+NEW_PASSWORD=""
+if [ ! -e "$CONF_DIR/admin-password" ]; then
+  "$WRAPPER" password
+  NEW_PASSWORD=1
 fi
 
 systemctl restart inkdoor
 sleep 3
 systemctl is-active --quiet inkdoor || die "$MSG_FAILED"
-say "$MSG_RUNNING" "$URL"
+
+# "inkdoor url" says why on its own when this machine has no address on the local network
+ADMIN_URL="$("$WRAPPER" url)" || ADMIN_URL="http://<ip>:<port>"
+say "$MSG_RUNNING"
+if [ "$ADMIN" = "off" ]; then
+  say "$MSG_ADMIN_OFF" "$CONF"
+elif [ -n "$NEW_PASSWORD" ]; then
+  say "$MSG_ADMIN_NEW" "$ADMIN_URL"
+else
+  say "$MSG_ADMIN_URL" "$ADMIN_URL"
+  say "$MSG_PASSWORD_HINT"
+fi
+say "$MSG_KINDLE_URL" "$ADMIN_URL/kindle.png"

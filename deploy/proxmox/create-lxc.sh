@@ -81,8 +81,8 @@ O container %s foi criado, mas a instalação não terminou.
   Ou apagar:       pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Pronto! Container %s (%s).
+  Abra o admin no navegador, com o endereço e a senha mostrados acima.
   Entrar no container:   pct enter %s
-  Editar a config:       nano /etc/inkdoor/config.toml   (dentro do container)
   Atualizar o inkdoor:   pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="O IP veio do DHCP: reserve-o no roteador para o Kindle sempre achar o servidor."
     ;;
@@ -108,8 +108,8 @@ Container %s was created, but the installation did not finish.
   Or remove it:  pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Done! Container %s (%s).
+  Open the admin in a browser, with the address and password printed above.
   Open a shell in it:   pct enter %s
-  Edit the config:      nano /etc/inkdoor/config.toml   (inside the container)
   Update inkdoor:       pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="The IP came from DHCP: reserve it on your router so the Kindle always finds the server."
     ;;

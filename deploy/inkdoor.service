@@ -14,14 +14,16 @@ Environment=PYTHONUNBUFFERED=1
 Restart=always
 RestartSec=30
 
-# The server only reads its config, fetches calendars and writes the PNG to /var/lib/inkdoor.
+# The server fetches calendars, writes the PNG to /var/lib/inkdoor and, from the web admin,
+# writes its config and password to /etc/inkdoor. Every file it creates is private (UMask).
 # In a Proxmox LXC container this sandbox needs the "nesting" feature (on by default).
 NoNewPrivileges=true
 # The one privilege kept: listening on a port below 1024, e.g. port = 80
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-UMask=0022
+UMask=0077
 ProtectSystem=strict
+ReadWritePaths=/etc/inkdoor
 ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true
