@@ -4,7 +4,8 @@
 #   install.sh [--lang en-US|pt-BR] [--timezone Area/City] [--ref BRANCH_OR_TAG]
 #
 # Run it as root on the machine (or container) that will serve the Kindle image.
-# Running it again updates inkdoor and restarts the service. config.toml is never overwritten.
+# To update, run /opt/inkdoor/deploy/install.sh: it keeps the version (--ref) and repository
+# of the current install, and it never overwrites config.toml.
 #
 # Layout:
 #   /opt/inkdoor              code and virtualenv
@@ -13,8 +14,14 @@
 #   /usr/local/bin/inkdoor    runs inkdoor with that config, e.g. "inkdoor check"
 set -euo pipefail
 
-REPO="${INKDOOR_REPO:-https://github.com/frkey/inkdoor.git}"
-REF="${INKDOOR_REF:-master}"
+ARGS=("$@")
+# Fingerprint of this script, to notice when the download brings a newer installer.
+# Only read regular files: under "bash <(curl ...)" $0 is a pipe that bash is still reading.
+SELF_HASH=""
+[ ! -f "$0" ] || SELF_HASH="$(sha256sum < "$0")"
+
+REPO="${INKDOOR_REPO:-}"
+REF="${INKDOOR_REF:-}"
 LANGUAGE="${INKDOOR_LANG:-}"
 TIMEZONE=""
 BAD_OPTION=""
@@ -31,7 +38,7 @@ while [ $# -gt 0 ]; do
     --lang) LANGUAGE="${2:-}"; shift 2 || shift ;;
     --timezone) TIMEZONE="${2:-}"; shift 2 || shift ;;
     --ref) REF="${2:-}"; shift 2 || shift ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) BAD_OPTION="$1"; shift ;;
   esac
 done
@@ -56,12 +63,14 @@ case "$LANGUAGE" in
     MSG_CONFIG_NEW="Criei %s a partir do exemplo."
     MSG_CONFIG_KEPT="Mantive o %s que já existia."
     MSG_NO_TIMEZONE="Não detectei o fuso horário; ajuste timezone em %s."
+    MSG_BAD_TIMEZONE="Fuso horário desconhecido: %s (exemplo: America/Sao_Paulo)."
     MSG_SERVICE="Instalando o serviço do systemd..."
     MSG_NEXT_STEPS="
 Próximos passos:
   1. Cole os links das agendas:  nano $CONF
   2. Teste os links:             inkdoor check
-  3. Ligue o serviço:            systemctl start inkdoor"
+  3. Ligue o serviço:            systemctl start inkdoor
+  4. No Kindle, em inkdoor/config.sh:  URL=\"%s\""
     MSG_RUNNING="
 O inkdoor está rodando. No Kindle, em inkdoor/config.sh, use:
   URL=\"%s\""
@@ -81,12 +90,14 @@ O inkdoor está rodando. No Kindle, em inkdoor/config.sh, use:
     MSG_CONFIG_NEW="Created %s from the example."
     MSG_CONFIG_KEPT="Kept the existing %s."
     MSG_NO_TIMEZONE="Could not detect the time zone; set timezone in %s."
+    MSG_BAD_TIMEZONE="Unknown time zone: %s (example: America/New_York)."
     MSG_SERVICE="Installing the systemd service..."
     MSG_NEXT_STEPS="
 Next steps:
   1. Paste your calendar links:  nano $CONF
   2. Test them:                  inkdoor check
-  3. Start the service:          systemctl start inkdoor"
+  3. Start the service:          systemctl start inkdoor
+  4. On the Kindle, in inkdoor/config.sh:  URL=\"%s\""
     MSG_RUNNING="
 inkdoor is running. On the Kindle, in inkdoor/config.sh, use:
   URL=\"%s\""
@@ -116,8 +127,23 @@ command -v apt-get >/dev/null || die "$MSG_NEED_APT"
 say "$MSG_PACKAGES"
 export DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends python3 python3-venv git ca-certificates >/dev/null
+apt-get install -y -qq --no-install-recommends python3 python3-venv git ca-certificates tzdata >/dev/null
 python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || die "$MSG_OLD_PYTHON"
+
+# valid_timezone NAME: a zone from the system's tz database, e.g. America/Sao_Paulo
+valid_timezone() {
+  case "$1" in ''|/*|*..*|*[!A-Za-z0-9/_+-]*) return 1 ;; esac
+  [ -f "/usr/share/zoneinfo/$1" ]
+}
+[ -z "$TIMEZONE" ] || valid_timezone "$TIMEZONE" || die "$MSG_BAD_TIMEZONE" "$TIMEZONE"
+
+# Without --ref or INKDOOR_REPO, keep what the current install came from
+if [ -d "$APP_DIR/.git" ]; then
+  [ -n "$REPO" ] || REPO="$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)"
+  [ -n "$REF" ] || REF="$(git -C "$APP_DIR" config --get inkdoor.ref || true)"
+fi
+REPO="${REPO:-https://github.com/frkey/inkdoor.git}"
+REF="${REF:-master}"
 
 say "$MSG_DOWNLOAD" "$REF"
 if [ -d "$APP_DIR/.git" ]; then
@@ -129,6 +155,12 @@ elif [ -e "$APP_DIR" ]; then
 else
   git clone --quiet --depth 1 --branch "$REF" "$REPO" "$APP_DIR"
 fi
+git -C "$APP_DIR" config inkdoor.ref "$REF"
+
+# Finish with the installer that was just downloaded, so an update also updates these steps
+if [ -z "${INKDOOR_REEXEC:-}" ] && [ "$SELF_HASH" != "$(sha256sum < "$APP_DIR/deploy/install.sh")" ]; then
+  INKDOOR_REEXEC=1 INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" exec bash "$APP_DIR/deploy/install.sh" "${ARGS[@]}"
+fi
 
 say "$MSG_PIP"
 [ -x "$APP_DIR/.venv/bin/python" ] || python3 -m venv "$APP_DIR/.venv"
@@ -139,11 +171,9 @@ id inkdoor >/dev/null 2>&1 ||
 install -d -m 755 -o inkdoor -g inkdoor "$STATE_DIR"
 install -d -m 750 -o root -g inkdoor "$CONF_DIR"
 
-NEW_CONFIG=0
 if [ -f "$CONF" ]; then
   say "$MSG_CONFIG_KEPT" "$CONF"
 else
-  NEW_CONFIG=1
   cp "$APP_DIR/config.example.toml" "$CONF"
   if [ -n "$LANGUAGE" ]; then
     sed -i "s|^language = \"[^\"]*\"|language = \"$LANGUAGE\"|" "$CONF"
@@ -152,8 +182,13 @@ else
     TIMEZONE="$(readlink /etc/localtime 2>/dev/null | sed -n 's|^.*/zoneinfo/\(posix/\)\{0,1\}||p')"
   fi
   case "$TIMEZONE" in
-    ''|UTC|Etc/UTC|Etc/Universal) say "$MSG_NO_TIMEZONE" "$CONF" ;;
-    *) sed -i "s|^timezone = \"[^\"]*\"|timezone = \"$TIMEZONE\"|" "$CONF" ;;
+    UTC|Etc/UTC|Etc/Universal) say "$MSG_NO_TIMEZONE" "$CONF" ;;
+    *)
+      if valid_timezone "$TIMEZONE"; then
+        sed -i "s|^timezone = \"[^\"]*\"|timezone = \"$TIMEZONE\"|" "$CONF"
+      else
+        say "$MSG_NO_TIMEZONE" "$CONF"
+      fi ;;
   esac
   say "$MSG_CONFIG_NEW" "$CONF"
 fi
@@ -175,15 +210,34 @@ install -m 644 "$APP_DIR/deploy/inkdoor.service" "$UNIT"
 systemctl daemon-reload
 systemctl enable --quiet inkdoor
 
-if [ "$NEW_CONFIG" -eq 1 ]; then
-  say "$MSG_NEXT_STEPS"
+PORT="$(awk -F= '/^\[server\]/ { s = 1; next } /^\[/ { s = 0 }
+  s && $1 ~ /^[ \t]*port[ \t]*$/ { sub(/#.*/, "", $2); gsub(/[ \t"]/, "", $2); print $2; exit }' "$CONF")"
+IP="$(ip -4 -o address show scope global 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')"
+URL="http://${IP:-<ip>}:${PORT:-8000}/kindle.png"
+
+# has_links: true once config.toml has at least one real calendar or task link.
+# Uses inkdoor's own rule; a config that does not load counts as filled in, so the service
+# starts and reports the problem itself.
+has_links() {
+  "$APP_DIR/.venv/bin/python" - "$CONF" <<'EOF'
+import sys
+from inkdoor.config import is_configured, load
+try:
+    cfg = load(sys.argv[1])
+except Exception:
+    sys.exit(0)
+urls = [c.get("url") for c in cfg["calendar"]] + [(cfg.get("tasks") or {}).get("url")]
+sys.exit(0 if any(is_configured(url) for url in urls) else 1)
+EOF
+}
+
+# Until a link is pasted there is nothing to show: leave starting the service to the user
+if ! has_links; then
+  say "$MSG_NEXT_STEPS" "$URL"
   exit 0
 fi
 
 systemctl restart inkdoor
 sleep 3
 systemctl is-active --quiet inkdoor || die "$MSG_FAILED"
-PORT="$(awk -F= '/^\[server\]/ { s = 1; next } /^\[/ { s = 0 }
-  s && $1 ~ /^[ \t]*port[ \t]*$/ { sub(/#.*/, "", $2); gsub(/[ \t"]/, "", $2); print $2; exit }' "$CONF")"
-IP="$(ip -4 -o address show scope global 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')"
-say "$MSG_RUNNING" "http://${IP:-<ip>}:${PORT:-8000}/kindle.png"
+say "$MSG_RUNNING" "$URL"

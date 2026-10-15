@@ -70,16 +70,20 @@ case "$LANGUAGE" in
     MSG_TEMPLATE="Procurando o template do Debian..."
     MSG_NO_TEMPLATE="Não achei um template debian-12 ou debian-13 em '%s'."
     MSG_DOWNLOAD_TEMPLATE="Baixando o template %s..."
+    MSG_TEMPLATE_FALLBACK="Este Proxmox não aceitou %s; tentando %s."
     MSG_CREATE="Criando o container %s (%s)..."
     MSG_NETWORK="Esperando a rede do container..."
     MSG_NO_NETWORK="O container não conseguiu acessar a internet. Confira a rede (--bridge, --ip, --gateway)."
     MSG_CONFIG="Copiando %s para o container..."
-    MSG_FAILED_AFTER_CREATE="Algo deu errado. O container %s foi criado; para apagar: pct destroy %s --purge"
+    MSG_FAILED_AFTER_CREATE="
+O container %s foi criado, mas a instalação não terminou.
+  Tentar de novo:  pct exec %s -- bash /root/inkdoor-install.sh
+  Ou apagar:       pct stop %s; pct destroy %s --purge"
     MSG_DONE="
-Pronto! Container %s com IP %s.
+Pronto! Container %s (%s).
   Entrar no container:   pct enter %s
   Editar a config:       nano /etc/inkdoor/config.toml   (dentro do container)
-  Atualizar o inkdoor:   pct exec %s -- bash /root/inkdoor-install.sh"
+  Atualizar o inkdoor:   pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="O IP veio do DHCP: reserve-o no roteador para o Kindle sempre achar o servidor."
     ;;
   *)
@@ -93,16 +97,20 @@ Pronto! Container %s com IP %s.
     MSG_TEMPLATE="Looking for the Debian template..."
     MSG_NO_TEMPLATE="No debian-12 or debian-13 template found in '%s'."
     MSG_DOWNLOAD_TEMPLATE="Downloading the %s template..."
+    MSG_TEMPLATE_FALLBACK="This Proxmox did not accept %s; trying %s."
     MSG_CREATE="Creating container %s (%s)..."
     MSG_NETWORK="Waiting for the container's network..."
     MSG_NO_NETWORK="The container cannot reach the internet. Check the network (--bridge, --ip, --gateway)."
     MSG_CONFIG="Copying %s into the container..."
-    MSG_FAILED_AFTER_CREATE="Something went wrong. Container %s was created; to remove it: pct destroy %s --purge"
+    MSG_FAILED_AFTER_CREATE="
+Container %s was created, but the installation did not finish.
+  Try again:     pct exec %s -- bash /root/inkdoor-install.sh
+  Or remove it:  pct stop %s; pct destroy %s --purge"
     MSG_DONE="
-Done! Container %s with IP %s.
+Done! Container %s (%s).
   Open a shell in it:   pct enter %s
   Edit the config:      nano /etc/inkdoor/config.toml   (inside the container)
-  Update inkdoor:       pct exec %s -- bash /root/inkdoor-install.sh"
+  Update inkdoor:       pct exec %s -- bash /opt/inkdoor/deploy/install.sh"
     MSG_DHCP_HINT="The IP came from DHCP: reserve it on your router so the Kindle always finds the server."
     ;;
 esac
@@ -129,46 +137,80 @@ command -v pct >/dev/null || die "$MSG_NEED_PVE"
 [ -n "$CTID" ] || CTID="$(pvesh get /cluster/nextid)"
 ! pct status "$CTID" >/dev/null 2>&1 || die "$MSG_CTID_TAKEN" "$CTID"
 
-# The installer: next to this script in a checkout, otherwise downloaded
+CREATED=0
 INSTALLER="$(mktemp)"
-trap 'rm -f "$INSTALLER"' EXIT
-LOCAL_INSTALLER="$(dirname "${BASH_SOURCE[0]}")/../install.sh"
-if [ -f "$LOCAL_INSTALLER" ]; then
-  cp "$LOCAL_INSTALLER" "$INSTALLER"
+on_exit() {
+  local status=$?
+  rm -f "$INSTALLER"
+  if [ "$status" -ne 0 ] && [ "$CREATED" -eq 1 ]; then
+    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "$CTID" "$CTID" >&2
+  fi
+}
+trap on_exit EXIT
+
+# The installer: from this checkout when the script runs from deploy/proxmox/ of a clone,
+# otherwise downloaded. Never pick up some other install.sh lying next to a downloaded script.
+DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)"
+if [ -n "$DEPLOY_DIR" ] && [ -f "$DEPLOY_DIR/proxmox/create-lxc.sh" ] &&
+   [ -f "$DEPLOY_DIR/inkdoor.service" ] && [ -f "$DEPLOY_DIR/install.sh" ]; then
+  cp "$DEPLOY_DIR/install.sh" "$INSTALLER"
 else
   curl -fsSL "$RAW_URL/$REF/deploy/install.sh" -o "$INSTALLER"
 fi
 
+# newest_template VERSION: newest debian-VERSION-standard template, available or downloaded
+newest_template() {
+  {
+    pveam available --section system 2>/dev/null | awk '{ print $2 }'
+    pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk '{ print $1 }' | sed 's|^.*vztmpl/||'
+  } | grep -E "^debian-$1-standard_.*_amd64\.tar\.(zst|gz|xz)\$" | sort -V | tail -n 1 || true
+}
+
 say "$MSG_TEMPLATE"
 pveam update >/dev/null 2>&1 || true
-TEMPLATE="$(pveam available --section system 2>/dev/null | awk '{ print $2 }' |
-  grep -E '^debian-1[23]-standard_.*_amd64\.tar\.(zst|gz|xz)$' | sort -V | tail -n 1 || true)"
-if [ -z "$TEMPLATE" ]; then  # offline: use a template that is already downloaded
-  TEMPLATE="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk '{ print $1 }' | sed 's|^.*vztmpl/||' |
-    grep -E '^debian-1[23]-standard_' | sort -V | tail -n 1 || true)"
-fi
-[ -n "$TEMPLATE" ] || die "$MSG_NO_TEMPLATE" "$TEMPLATE_STORAGE"
-if ! pveam list "$TEMPLATE_STORAGE" | grep -q "vztmpl/$TEMPLATE"; then
-  say "$MSG_DOWNLOAD_TEMPLATE" "$TEMPLATE"
-  pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >/dev/null
-fi
+# Newest Debian first; Proxmox releases older than Debian 13 refuse its template
+TEMPLATES=()
+for version in 13 12; do
+  template="$(newest_template "$version")"
+  [ -z "$template" ] || TEMPLATES+=("$template")
+done
+[ "${#TEMPLATES[@]}" -gt 0 ] || die "$MSG_NO_TEMPLATE" "$TEMPLATE_STORAGE"
 
 NET="name=eth0,bridge=$BRIDGE,ip=$IP"
 [ -z "$GATEWAY" ] || NET="$NET,gw=$GATEWAY"
 
 say "$MSG_CREATE" "$CTID" "$CT_HOSTNAME"
-pct create "$CTID" "$TEMPLATE_STORAGE:vztmpl/$TEMPLATE" \
-  --hostname "$CT_HOSTNAME" \
-  --description "inkdoor: https://github.com/frkey/inkdoor" \
-  --tags inkdoor \
-  --cores 1 --memory "$MEMORY" --swap 256 \
-  --rootfs "$STORAGE:$DISK" \
-  --net0 "$NET" \
-  --unprivileged 1 --features nesting=1 \
-  --timezone host \
-  --onboot 1 >/dev/null
-trap 'rm -f "$INSTALLER"; say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" >&2' ERR
+for i in "${!TEMPLATES[@]}"; do
+  TEMPLATE="${TEMPLATES[$i]}"
+  if ! pveam list "$TEMPLATE_STORAGE" | grep -q "vztmpl/$TEMPLATE"; then
+    say "$MSG_DOWNLOAD_TEMPLATE" "$TEMPLATE"
+    pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >/dev/null
+  fi
+  if pct create "$CTID" "$TEMPLATE_STORAGE:vztmpl/$TEMPLATE" \
+      --hostname "$CT_HOSTNAME" \
+      --description "inkdoor: https://github.com/frkey/inkdoor" \
+      --tags inkdoor \
+      --cores 1 --memory "$MEMORY" --swap 256 \
+      --rootfs "$STORAGE:$DISK" \
+      --net0 "$NET" \
+      --unprivileged 1 --features nesting=1 \
+      --timezone host \
+      --onboot 1 >/dev/null; then
+    break
+  fi
+  NEXT="${TEMPLATES[$((i + 1))]:-}"
+  [ -n "$NEXT" ] || exit 1
+  say "$MSG_TEMPLATE_FALLBACK" "$TEMPLATE" "$NEXT"
+done
+CREATED=1
 pct start "$CTID"
+# Copied before the network check, so the retry command printed on failure works
+pct push "$CTID" "$INSTALLER" /root/inkdoor-install.sh --perms 755
+if [ -n "$CONFIG" ]; then
+  say "$MSG_CONFIG" "$CONFIG"
+  pct exec "$CTID" -- mkdir -p /etc/inkdoor
+  pct push "$CTID" "$CONFIG" /etc/inkdoor/config.toml --perms 600
+fi
 
 say "$MSG_NETWORK"
 for _ in $(seq 60); do
@@ -179,18 +221,10 @@ for _ in $(seq 60); do
 done
 pct exec "$CTID" -- getent hosts deb.debian.org >/dev/null 2>&1 || die "$MSG_NO_NETWORK"
 
-pct push "$CTID" "$INSTALLER" /root/inkdoor-install.sh --perms 755
-if [ -n "$CONFIG" ]; then
-  say "$MSG_CONFIG" "$CONFIG"
-  pct exec "$CTID" -- mkdir -p /etc/inkdoor
-  pct push "$CTID" "$CONFIG" /etc/inkdoor/config.toml --perms 600
-fi
-
 ARGS=()
 [ -z "$LANGUAGE" ] || ARGS+=(--lang "$LANGUAGE")
 pct exec "$CTID" -- env INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" \
   bash /root/inkdoor-install.sh "${ARGS[@]}"
 
-CT_IP="$(pct exec "$CTID" -- ip -4 -o address show scope global | awk '{ sub(/\/.*/, "", $4); print $4; exit }')"
-say "$MSG_DONE" "$CTID" "$CT_IP" "$CTID" "$CTID"
+say "$MSG_DONE" "$CTID" "$CT_HOSTNAME" "$CTID" "$CTID"
 [ "$IP" != "dhcp" ] || say "$MSG_DHCP_HINT"

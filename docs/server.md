@@ -24,7 +24,7 @@ Either way you get the same layout:
 ## Proxmox VE
 
 `deploy/proxmox/create-lxc.sh` runs on the Proxmox host. It downloads the newest Debian
-template, creates an unprivileged container (1 core, 512 MB of RAM, 4 GB of disk, started at
+template (13, or 12 on Proxmox versions that do not support 13 yet), creates an unprivileged container (1 core, 512 MB of RAM, 4 GB of disk, started at
 boot) and installs inkdoor in it.
 
 1. Open a shell on the Proxmox host: in the web UI, select the node and click **Shell**
@@ -64,7 +64,7 @@ boot) and installs inkdoor in it.
 | Option | Default | |
 |---|---|---|
 | `--config FILE` | | `config.toml` to copy into the container |
-| `--lang en-US\|pt-BR` | `en-US` | screen language of a new config, and the script's messages |
+| `--lang en-US\|pt-BR` | system language, else `en-US` | screen language of a new config, and the script's messages |
 | `--ip dhcp\|CIDR` | `dhcp` | a static address, e.g. `192.168.1.50/24` |
 | `--gateway IP` | | your router, required with a static `--ip` |
 | `--ctid N` | next free ID | |
@@ -83,7 +83,7 @@ the container's address on your router (a "DHCP reservation").
 
 | Task | Command on the Proxmox host |
 |---|---|
-| Update inkdoor | `pct exec <id> -- bash /root/inkdoor-install.sh` |
+| Update inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
 | Follow the log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Test the calendar links | `pct exec <id> -- inkdoor check` |
 | Edit the config | `pct enter <id>`, then `nano /etc/inkdoor/config.toml` |
@@ -110,11 +110,13 @@ bash install.sh
 
 It installs Python and git from apt, downloads inkdoor to `/opt/inkdoor`, creates the
 `inkdoor` user and the service. On the first run it creates `/etc/inkdoor/config.toml` from the
-example, with the machine's time zone and the `--lang` you gave, and leaves the service
-stopped. Fill in the config, run `inkdoor check`, then `systemctl start inkdoor`.
+example, with the machine's time zone and the `--lang` you gave. The service starts only once
+the config has at least one link: fill it in, run `inkdoor check`, then
+`systemctl start inkdoor`.
 
-Run the same script again to update: it downloads the new version and restarts the service.
-It never overwrites your config.
+To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the new version from the same
+repository and branch (`--ref`) as before, and restarts the service. It never overwrites your
+config.
 
 Options: `--lang en-US|pt-BR`, `--timezone Area/City` (for a new config), `--ref BRANCH_OR_TAG`.
 

@@ -24,7 +24,7 @@ Nos dois casos, o resultado é o mesmo:
 ## Proxmox VE
 
 O `deploy/proxmox/create-lxc.sh` roda no host do Proxmox. Ele baixa o template mais novo do
-Debian, cria um container sem privilégios (1 core, 512 MB de RAM, 4 GB de disco, ligado no
+Debian (o 13, ou o 12 em versões do Proxmox que ainda não aceitam o 13), cria um container sem privilégios (1 core, 512 MB de RAM, 4 GB de disco, ligado no
 boot) e instala o inkdoor nele.
 
 1. Abra um terminal no host do Proxmox: na interface web, selecione o nó e clique em
@@ -63,7 +63,7 @@ boot) e instala o inkdoor nele.
 | Opção | Padrão | |
 |---|---|---|
 | `--config ARQUIVO` | | `config.toml` a copiar para o container |
-| `--lang en-US\|pt-BR` | `en-US` | idioma da tela numa config nova e das mensagens do script |
+| `--lang en-US\|pt-BR` | idioma do sistema, senão `en-US` | idioma da tela numa config nova e das mensagens do script |
 | `--ip dhcp\|CIDR` | `dhcp` | um endereço fixo, por exemplo `192.168.1.50/24` |
 | `--gateway IP` | | seu roteador; obrigatório com `--ip` fixo |
 | `--ctid N` | próximo ID livre | |
@@ -82,7 +82,7 @@ endereço do container no roteador ("reserva de DHCP").
 
 | Tarefa | Comando no host do Proxmox |
 |---|---|
-| Atualizar o inkdoor | `pct exec <id> -- bash /root/inkdoor-install.sh` |
+| Atualizar o inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
 | Acompanhar o log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Testar os links das agendas | `pct exec <id> -- inkdoor check` |
 | Editar a config | `pct enter <id>` e depois `nano /etc/inkdoor/config.toml` |
@@ -109,11 +109,11 @@ bash install.sh --lang pt-BR
 
 Ele instala o Python e o git pelo apt, baixa o inkdoor em `/opt/inkdoor` e cria o usuário
 `inkdoor` e o serviço. Na primeira vez, cria o `/etc/inkdoor/config.toml` a partir do exemplo,
-com o fuso horário da máquina e o `--lang` escolhido, e deixa o serviço parado. Preencha a
-config, rode `inkdoor check` e depois `systemctl start inkdoor`.
+com o fuso horário da máquina e o `--lang` escolhido. O serviço só sobe quando a config tem pelo
+menos um link: preencha, rode `inkdoor check` e depois `systemctl start inkdoor`.
 
-Para atualizar, rode o mesmo script de novo: ele baixa a versão nova e reinicia o serviço. Sua
-config nunca é sobrescrita.
+Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão nova do mesmo
+repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config nunca é sobrescrita.
 
 Opções: `--lang en-US|pt-BR`, `--timezone Area/Cidade` (para uma config nova),
 `--ref BRANCH_OU_TAG`.

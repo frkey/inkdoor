@@ -17,7 +17,9 @@ RestartSec=30
 # The server only reads its config, fetches calendars and writes the PNG to /var/lib/inkdoor.
 # In a Proxmox LXC container this sandbox needs the "nesting" feature (on by default).
 NoNewPrivileges=true
-CapabilityBoundingSet=
+# The one privilege kept: listening on a port below 1024, e.g. port = 80
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 UMask=0022
 ProtectSystem=strict
 ProtectHome=true
