@@ -91,7 +91,7 @@ the container's address on your router (a "DHCP reservation").
 | Task | Command on the Proxmox host |
 |---|---|
 | Change the config | the admin, at `http://<container-ip>:3667` |
-| Update inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
+| Update inkdoor | `pct exec <id> -- env LC_ALL=C.UTF-8 bash /opt/inkdoor/deploy/install.sh` |
 | Make a new admin password | `pct exec <id> -- inkdoor password` |
 | Follow the log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Test the calendar links | `pct exec <id> -- inkdoor check` |

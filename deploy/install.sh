@@ -57,6 +57,11 @@ if [ -z "$LANGUAGE" ]; then
   case "${LC_ALL:-${LANG:-}}" in pt*) LANGUAGE="pt-BR" ;; esac
 fi
 
+# The messages' language is settled: from here on, every command runs in a locale that always
+# exists. A shell reached through "pct exec" carries the Proxmox host's locale (en_US.UTF-8, say),
+# which a fresh container does not have, and apt, perl and locale warn about it on every call.
+export LC_ALL=C.UTF-8 LANG=C.UTF-8
+
 case "$LANGUAGE" in
   pt*)
     MSG_NEED_ROOT="Rode este script como root."
@@ -172,7 +177,9 @@ git -C "$APP_DIR" config inkdoor.ref "$REF"
 
 # Finish with the installer that was just downloaded, so an update also updates these steps
 if [ -z "${INKDOOR_REEXEC:-}" ] && [ "$SELF_HASH" != "$(sha256sum < "$APP_DIR/deploy/install.sh")" ]; then
-  INKDOOR_REEXEC=1 INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" exec bash "$APP_DIR/deploy/install.sh" "${ARGS[@]}"
+  # the language too: the locale it was found in is gone (LC_ALL=C.UTF-8 above)
+  INKDOOR_REEXEC=1 INKDOOR_REPO="$REPO" INKDOOR_REF="$REF" INKDOOR_LANG="$LANGUAGE" \
+    exec bash "$APP_DIR/deploy/install.sh" "${ARGS[@]}"
 fi
 
 say "$MSG_PIP"

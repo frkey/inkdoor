@@ -92,7 +92,7 @@ endereço do container no roteador ("reserva de DHCP").
 | Tarefa | Comando no host do Proxmox |
 |---|---|
 | Mudar a config | o admin, em `http://<ip-do-container>:3667` |
-| Atualizar o inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
+| Atualizar o inkdoor | `pct exec <id> -- env LC_ALL=C.UTF-8 bash /opt/inkdoor/deploy/install.sh` |
 | Gerar uma senha nova do admin | `pct exec <id> -- inkdoor password` |
 | Acompanhar o log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Testar os links das agendas | `pct exec <id> -- inkdoor check` |
