@@ -539,7 +539,7 @@ def test_removing_last_busy_calendar_never_shows_free(logged, state, monkeypatch
     assert logged.post("/calendars/0/delete", data=logged.csrf_data(confirmed="1")).status_code == 303
     server.run_cycle(state, SourceCache())
     assert state.last_render.word == EN("status.unknown")
-    assert state.last_render.headline == EN("status.unknown_headline")
+    assert state.last_render.headline == EN("status.no_busy_headline")
 
     logged.post("/calendars/0/delete", data=logged.csrf_data(confirmed="1"))
     logged.post("/tasks/delete", data=logged.csrf_data(confirmed="1"))

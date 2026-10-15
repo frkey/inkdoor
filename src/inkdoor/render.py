@@ -75,7 +75,7 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
 
     if snap.configured == "no_busy" and not current:
         # calendars exist but none marks the owner busy: "Free" would be a guess
-        return Status(True, t("status.unknown"), t("status.unknown_headline"),
+        return Status(True, t("status.unknown"), t("status.no_busy_headline"),
                       t("status.no_busy_detail"))
 
     if current:
@@ -157,24 +157,38 @@ def draw_header(d, now, t: Translator):
     d.text((W - M - d.textlength(text, font=f), 58), text, font=f, fill=GRAY)
 
 
+def fit_word(d, word: str, width: int):
+    """(font, lines) for the status word: the largest size from 150 down to 80 that fits on one
+    line; below that, two lines at 80 (the admin allows 30-character labels), ellipsized only
+    when even two lines are not enough."""
+    size = 150
+    while d.textlength(word, font=font("Black", size, True)) > width and size > 80:
+        size -= 4
+    f = font("Black", size, True)
+    lines = _wrap(d, word, f, width) or [word]     # a blank label still gets one line
+    if len(lines) > 2:
+        lines = [lines[0], ellipsize(d, " ".join(lines[1:]), f, width)]
+    return f, lines
+
+
 def draw_status(d, st: Status, y):
     pad = 52
     width = W - 2 * M - 2 * pad
-    size = 150   # main word: the largest size that fits
-    while d.textlength(st.word.upper(), font=font("Black", size, True)) > width and size > 80:
-        size -= 4
-    word = ellipsize(d, st.word.upper(), font("Black", size, True), width)
-    f1, f2, f3 = font("Black", size, True), font("Bold", 76, True), font("Medium", 32)
+    f1, words = fit_word(d, st.word.upper(), width)
+    f2, f3 = font("Bold", 76, True), font("Medium", 32)
     while d.textlength(st.headline, font=f2) > width and f2.size > 48:
         f2 = font("Bold", f2.size - 4, True)
-    b1 = d.textbbox((0, 0), word, font=f1)
+    b1 = d.textbbox((0, 0), "ÁGp" if len(words) > 1 else words[0], font=f1)
     b2 = d.textbbox((0, 0), "0:00gpé", font=f2)
     b3 = d.textbbox((0, 0), "Ágp", font=f3)
     top = 46
     y1 = y + top - b1[1]
-    y2 = y1 + b1[3] + 22 - b2[1]
+    line_step = b1[3] - b1[1] + 12
+    y2 = y1 + (len(words) - 1) * line_step + b1[3] + 22 - b2[1]
     y3 = y2 + b2[3] + 20 - b3[1]
-    height = (y3 + b3[3] - y) + top
+    # without a detail line the box ends below the headline, with no empty band
+    bottom = y3 + b3[3] if st.detail else y2 + b2[3]
+    height = (bottom - y) + top
     box = (M, y, W - M, y + height)
     if st.busy:
         d.rounded_rectangle(box, 24, fill=BLACK)
@@ -182,9 +196,11 @@ def draw_status(d, st: Status, y):
     else:
         d.rounded_rectangle(box, 24, fill=WHITE, outline=BLACK, width=7)
         fg, soft = BLACK, DARK
-    d.text((M + pad, y1), word, font=f1, fill=fg)
+    for i, line in enumerate(words):
+        d.text((M + pad, y1 + i * line_step), line, font=f1, fill=fg)
     d.text((M + pad, y2), st.headline, font=f2, fill=fg)
-    d.text((M + pad, y3), ellipsize(d, st.detail, f3, width), font=f3, fill=soft)
+    if st.detail:
+        d.text((M + pad, y3), ellipsize(d, st.detail, f3, width), font=f3, fill=soft)
     return y + height
 
 
@@ -446,27 +462,20 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
 def render_error(cfg: dict | None, message: str) -> Image.Image:
     """Screen shown when inkdoor itself fails, so the door never keeps a stale status."""
     t = translator_for(cfg or {})
-    img = Image.new("L", (W, H), WHITE)
-    d = ImageDraw.Draw(img)
     st = Status(True, t("status.unknown"), t("status.error_headline"), t("status.error_detail"))
-    y = draw_status(d, st, 130) + 60
-    f = font("Medium", 28)
-    for line in _wrap(d, message, f, W - 2 * M)[:12]:
-        d.text((M, y), line, font=f, fill=DARK)
-        y += 40
-    return img.point(lambda v: min(255, round(v / 17) * 17))
+    return _render_notice(st, message, size=28, line_height=40, max_lines=12)
 
 
-def _render_notice(st: Status) -> Image.Image:
-    """Status box plus the detail line wrapped below it, so long text and URLs stay readable."""
+def _render_notice(st: Status, text: str, size: int = 36, line_height: int = 52,
+                   max_lines: int = 8) -> Image.Image:
+    """The status box, then ``text`` wrapped below it, so long text and URLs stay readable."""
     img = Image.new("L", (W, H), WHITE)
     d = ImageDraw.Draw(img)
-    detail, st.detail = st.detail, ""
     y = draw_status(d, st, 130) + 60
-    f = font("Medium", 36)
-    for line in _wrap(d, detail, f, W - 2 * M)[:8]:
+    f = font("Medium", size)
+    for line in _wrap(d, text, f, W - 2 * M)[:max_lines]:
         d.text((M, y), line, font=f, fill=DARK)
-        y += 52
+        y += line_height
     return img.point(lambda v: min(255, round(v / 17) * 17))
 
 
@@ -475,7 +484,7 @@ def render_setup(cfg: dict | None, admin_url: str | None) -> Image.Image:
     t = translator_for(cfg or {})
     detail = (t("status.setup_admin", url=admin_url) if admin_url is not None
               else t("status.setup_file"))
-    return _render_notice(Status(True, t("status.setup"), t("status.setup_headline"), detail))
+    return _render_notice(Status(True, t("status.setup"), t("status.setup_headline"), ""), detail)
 
 
 def render_host_rejected(cfg: dict | None, host: str | None) -> Image.Image:
@@ -485,8 +494,7 @@ def render_host_rejected(cfg: dict | None, host: str | None) -> Image.Image:
     """
     t = translator_for(cfg or {})
     detail = t("status.host_detail_generic") if host is None else t("status.host_detail", host=host[:60])
-    st = Status(True, t("status.unknown"), t("status.host_headline"), detail)
-    return _render_notice(st)
+    return _render_notice(Status(True, t("status.unknown"), t("status.host_headline"), ""), detail)
 
 
 def _wrap(d, text: str, f, width: int) -> list[str]:

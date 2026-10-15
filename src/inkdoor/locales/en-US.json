@@ -52,6 +52,7 @@
     "unknown_detail": "Could not read: {sources}",
     "error_headline": "display error",
     "error_detail": "Check the computer running inkdoor serve",
+    "no_busy_headline": "no busy calendar",
     "no_busy_detail": "No calendar is set to mark you busy",
     "setup": "Setup",
     "setup_headline": "inkdoor is almost ready",
