@@ -40,6 +40,11 @@
     {{ m.link_field(errors, link, not exists,
                     t("admin.field_link_help_edit") if exists else t("admin.field_tasks_link_help_new"),
                     repaste) }}
+    {% call m.howto(t("admin.howto_ticktick_title"), open=not exists) %}
+    {{ m.steps("admin.howto_ticktick") }}
+    <p class="help">{{ t("admin.howto_ticktick_note") }}
+      <a href="{{ docs_url('calendar-sources.md#ticktick') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_more") }}</a></p>
+    {% endcall %}
     {{ m.text_field("name", t("admin.field_name"), values.name, errors, maxlength=60) }}
     {{ m.text_field("overdue_days", t("admin.field_overdue_days"), values.overdue_days, errors,
                     help=t("admin.field_overdue_days_help"), type="number", inputmode="numeric",

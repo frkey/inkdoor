@@ -20,6 +20,7 @@ import hmac
 import io
 import math
 import os
+import re
 import secrets
 import threading
 import time
@@ -152,6 +153,20 @@ def _origin_matches(origin: str, scheme: str, host: str) -> bool:
     return normalize(other_scheme, other_host) == normalize(scheme, host)
 
 
+_BOLD = re.compile(r"\*\*(.+?)\*\*")
+DOCS_BASE = "https://github.com/frkey/inkdoor/blob/master/"
+
+
+def emphasis(text: str) -> Markup:
+    """A catalog sentence for a page: escaped, with **menu names** in bold (and nothing else)."""
+    return Markup(_BOLD.sub(lambda m: f"<strong>{m.group(1)}</strong>", str(escape(text))))
+
+
+def docs_url(language: str, page: str) -> str:
+    """A user guide on GitHub, in the page's language when it has one (``page`` like "kindle.md")."""
+    return DOCS_BASE + ("docs/pt-BR/" if language.startswith("pt") else "docs/") + page
+
+
 def _same_token(given, expected: str) -> bool:
     if not isinstance(given, str) or not given:
         return False
@@ -195,6 +210,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     """The app. ``clock`` (wall time) dates sessions; ``monotonic`` paces logins, so setting the
     system clock back can never lock everyone out of the admin."""
     app = _App(__name__, static_folder=None, template_folder="templates")
+    app.jinja_env.filters["emphasis"] = emphasis
     app.config.update(
         MAX_CONTENT_LENGTH=MAX_REQUEST_BYTES,
         PROVIDE_AUTOMATIC_OPTIONS=False,  # Flask 3.1+; the guard refuses OPTIONS on any version
@@ -318,7 +334,8 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
 
         # notices are taken only when a full page calls notices(), never by a fragment
         return {"t": t(), "csrf_field": csrf_field, "logged_in": session is not None,
-                "notices": lambda: pop_notices(session)}
+                "notices": lambda: pop_notices(session),
+                "docs_url": lambda page: docs_url(t().language, page)}
 
     # --- errors -------------------------------------------------------------------------------
 

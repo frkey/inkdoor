@@ -44,6 +44,11 @@
         <a class="button" href="/kindle-files.zip" download>{{ t("admin.kindle_download") }}</a>
         <p class="help">{{ t("admin.kindle_download_help") }}</p>
       </div>
+      {% call m.howto(t("admin.howto_kindle_title")) %}
+      {{ m.steps("admin.howto_kindle") }}
+      <p class="help">{{ t("admin.howto_kindle_note") }}
+        <a href="{{ docs_url('kindle.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_kindle_more") }}</a></p>
+      {% endcall %}
       {% endif %}
       {{ m.copy_field("kindle-url", t("admin.kindle_url_label"), kindle_url,
                       help=t("admin.kindle_url_help")) }}
