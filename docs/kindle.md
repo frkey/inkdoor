@@ -60,4 +60,5 @@ start by itself after a restart.
   ([docs/server.md](server.md)).
 - **Single instance**: tapping "start display" twice does not start two loops.
 - **No connection**: after 3 failures in a row, "cannot reach the computer" appears in the
-  corner of the screen. The history is in `inkdoor/log.txt`.
+  corner of the screen. The history is in `inkdoor/log.txt`, and
+  [Troubleshooting](troubleshooting.md#on-the-kindle) explains every message.

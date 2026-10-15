@@ -59,4 +59,5 @@ não inicia sozinho depois de reiniciar.
   para de atualizar. Um servidor de casa evita isso e nunca dorme ([server.md](server.md)).
 - **Uma instância só**: tocar duas vezes em "start display" não inicia dois painéis.
 - **Sem conexão**: depois de 3 falhas seguidas, aparece "sem conexao com o PC" no canto da tela.
-  O histórico fica em `inkdoor/log.txt`.
+  O histórico fica em `inkdoor/log.txt`, e a
+  [Solução de problemas](troubleshooting.md#no-kindle) explica cada mensagem.

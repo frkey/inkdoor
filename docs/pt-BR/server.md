@@ -96,6 +96,7 @@ endereço do container no roteador ("reserva de DHCP").
 | Gerar uma senha nova do admin | `pct exec <id> -- inkdoor password` |
 | Acompanhar o log | `pct exec <id> -- journalctl -u inkdoor -f` |
 | Testar os links das agendas | `pct exec <id> -- inkdoor check` |
+| Algo deu errado | [Solução de problemas](troubleshooting.md) |
 | Editar a config na mão | `pct enter <id>` e depois `nano /etc/inkdoor/config.toml` |
 
 O que você salva no admin atualiza a porta na hora. Edições feitas na mão valem a partir da
@@ -165,6 +166,11 @@ Depois de entrar, você pode:
   listar, intervalo de atualização. A porta aparece só para leitura: para mudá-la, edite o
   `config.toml` e reinicie o serviço.
 - **Conta**: trocar a senha, sair.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../img/admin-calendars-dark-pt-BR.png">
+  <img alt="A página Agendas do admin: três agendas, cada uma com seu marcador, a palavra na porta, o link encurtado e botões para testar, editar, mover e remover" src="../img/admin-calendars-light-pt-BR.png">
+</picture>
 
 Cada salvamento regrava o `config.toml` e guarda a versão anterior como `config.toml.bak`. Os
 comentários do arquivo se perdem no primeiro salvamento; as opções que o admin não controla são
