@@ -143,22 +143,27 @@ available alongside these.
 ## Pull requests
 
 - **Review until clean, before opening a pull request.** Once the work is committed and the tests
-  pass, run `/code-review high`. Handle its findings (next bullet), commit, and run it again: the
-  fixes are new code that the previous round did not see. Repeat until a round returns no finding
-  that needs a change (none, or only findings recorded as not applicable or deferred).
-- **Same loop before every later push** to an open PR: review the new commits until a round is
-  clean, then push.
-- **Stop and ask**: if a fourth round still finds new problems that need changes, stop and ask the
-  maintainer; it usually means the approach needs rethinking, not another patch.
+  pass, run `/code-review high` on the branch. Handle its findings (see "Handle every finding"),
+  commit, and run another round on the fix commits only
+  (`/code-review high <last-reviewed-commit>..HEAD`): the fixes are new code that the previous
+  round did not see. Repeat until a round is clean.
+- **A round is clean** when it reports no new real defect: nothing about correctness, security,
+  data loss, the door's status or a rule in this file. Polish and style suggestions do not keep
+  the loop going; record them as not applicable or defer them to an issue.
+- **Same loop before every later push** to an open PR: review the new commits (from the last
+  reviewed commit to `HEAD`) until a round is clean, then push.
+- **Stop and ask**: if the fourth round of the same loop still finds a new real defect, stop and
+  ask the maintainer; it usually means the approach needs rethinking, not another patch.
 - **Handle every finding**: fix it; or explain in the PR description why it does not apply; or, if
   it is real but out of scope, open an issue (see "Issues and labels") and link it. A finding
   already recorded as not applicable or deferred does not need to be handled again in later rounds.
-- **Without Claude Code**: contributors review their own diff line by line and ask the maintainer
-  to run the loop on the PR.
+- **Without Claude Code**: contributors review their own diff line by line before opening the PR.
+  The maintainer then runs `/code-review` on the PR and posts the findings; the contributor
+  handles them and pushes, and the maintainer reviews the new commits, until a round is clean.
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
-  issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the number
-  of rounds, confirms the last one was clean, and counts the findings fixed, not applicable and
-  deferred.
+  issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the
+  totals over every loop on the PR: the number of rounds, that the last round was clean, and the
+  findings (each counted once) fixed, not applicable and deferred.
 
 ## Privacy
 
