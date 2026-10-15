@@ -55,7 +55,7 @@ pip install -e .
 
 cp config.example.toml config.toml   # paste your calendar links here
 inkdoor check                        # tests every link
-inkdoor serve                        # renders and serves http://<computer-ip>:8000/kindle.png
+inkdoor serve                        # renders and serves http://<computer-ip>:3667/kindle.png
 ```
 
 Where to find each calendar link: [docs/calendar-sources.md](docs/calendar-sources.md).
@@ -102,7 +102,7 @@ content to `src/inkdoor/demo.py`. The tests fail if a catalog is missing any key
 | `inkdoor check` | Tests each link: reachability, number of events, and whether titles come through or only "Busy". |
 | `inkdoor demo 10:20 16:50` | Renders previews with fictional data, no calendars needed. |
 | `inkdoor password` | Makes a new admin password, saves it next to `config.toml` and prints it once. Logs out every browser. |
-| `inkdoor url` | Prints the admin's address for other devices on the network, e.g. `http://192.168.1.50:8000`. |
+| `inkdoor url` | Prints the admin's address for other devices on the network, e.g. `http://192.168.1.50:3667`. |
 
 Global options: `--config path/config.toml`, `--output dir/`, `--lang en-US|pt-BR`.
 

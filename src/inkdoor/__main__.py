@@ -1,6 +1,6 @@
 """inkdoor command line.
 
-    inkdoor serve            render every few minutes and serve http://<ip>:8000/kindle.png
+    inkdoor serve            render every few minutes and serve http://<ip>:3667/kindle.png
     inkdoor render           render once (output/kindle.png)
     inkdoor check            test every calendar link
     inkdoor demo [HH:MM...]  render previews with fictional data

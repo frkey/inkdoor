@@ -23,7 +23,7 @@ DISPLAY_DEFAULTS = {
     "workdays": [0, 1, 2, 3, 4],
     "min_gap_minutes": 30,
 }
-SERVER_DEFAULTS = {"port": 8000, "refresh_minutes": 5}
+SERVER_DEFAULTS = {"port": 3667, "refresh_minutes": 5}
 ADMIN_DEFAULTS = {"enabled": False, "allowed_hosts": []}
 TABLE_SECTIONS = ("display", "server", "tasks", "admin")
 

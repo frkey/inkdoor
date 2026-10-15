@@ -921,11 +921,11 @@ def test_status_json_needs_a_session_and_reports_the_last_render(app, logged, st
 def test_home_shows_the_kindle_url_with_a_copy_button(logged, monkeypatch):
     monkeypatch.setattr(net, "lan_address", lambda: "192.168.0.50")
     page = body(logged.get("/"))
-    assert '>http://192.168.0.50:8000/kindle.png</code>' in page
+    assert '>http://192.168.0.50:3667/kindle.png</code>' in page
     assert "data-copy=" in page
     monkeypatch.setattr(net, "lan_address", lambda: None)
     page = body(logged.get("/"))
-    assert str(escape(EN("admin.kindle_url_unknown", port=8000))) in page
+    assert str(escape(EN("admin.kindle_url_unknown", port=3667))) in page
 
 
 def test_home_preview_uses_the_last_render_time(logged, state):

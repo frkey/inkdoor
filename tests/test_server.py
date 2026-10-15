@@ -94,7 +94,7 @@ def test_startup_with_broken_missing_and_unreadable_config(tmp_path):
 
     cfg, problem = server.load_for_serve(str(path), None)               # missing
     assert problem == "missing" and cfg == with_defaults({})
-    assert cfg["server"]["port"] == 8000 and cfg["admin"]["enabled"] is False
+    assert cfg["server"]["port"] == 3667 and cfg["admin"]["enabled"] is False
 
     path.write_text("[server\n")                                         # broken, no backup
     cfg, problem = server.load_for_serve(str(path), None)
@@ -106,7 +106,7 @@ def test_startup_with_broken_missing_and_unreadable_config(tmp_path):
 
     (tmp_path / "config.toml.bak").write_text("[server]\nport = 70000\n")  # backup invalid too
     cfg, problem = server.load_for_serve(str(path), None)
-    assert problem == "broken" and cfg["server"]["port"] == 8000
+    assert problem == "broken" and cfg["server"]["port"] == 3667
 
     path.write_text("[server]\nport = 8124\n")                          # fixed
     cfg, problem = server.load_for_serve(str(path), None)
@@ -115,7 +115,7 @@ def test_startup_with_broken_missing_and_unreadable_config(tmp_path):
     path.unlink()
     path.mkdir()                                                         # unreadable: a folder
     cfg, problem = server.load_for_serve(str(path), None)
-    assert problem == "broken" and cfg["server"]["port"] == 8000
+    assert problem == "broken" and cfg["server"]["port"] == 3667
 
 
 @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anything")
@@ -127,7 +127,7 @@ def test_startup_with_a_config_without_permission(tmp_path):
         cfg, problem = server.load_for_serve(str(path), None)
     finally:
         path.chmod(0o600)
-    assert problem == "broken" and cfg["server"]["port"] == 8000
+    assert problem == "broken" and cfg["server"]["port"] == 3667
 
 
 def test_startup_defaults_honor_the_language_override(tmp_path, monkeypatch):
@@ -185,7 +185,7 @@ def test_nothing_configured_renders_setup_not_free(tmp_path, monkeypatch):
     monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
     st.admin_enabled = True
     server.run_cycle(st, SourceCache())
-    assert pixels(image_path(st)) == pixels(render_setup(st.cfg, "http://192.168.1.20:8000"))
+    assert pixels(image_path(st)) == pixels(render_setup(st.cfg, "http://192.168.1.20:3667"))
 
 
 def test_cycle_logs_exception_type_only(state, monkeypatch, capsys):

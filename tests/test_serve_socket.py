@@ -205,7 +205,7 @@ class FakeServer:
 
 @pytest.fixture
 def no_bind(monkeypatch):
-    """serve without a socket: the defaults would bind port 8000."""
+    """serve without a socket: the defaults would bind port 3667."""
     import waitress
     monkeypatch.setattr(waitress, "create_server", lambda app, **kwargs: FakeServer())
 

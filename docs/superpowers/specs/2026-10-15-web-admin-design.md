@@ -7,7 +7,7 @@ Status: approved in conversation on 2026-10-15; revised after an adversarial rev
 
 Configure inkdoor from a browser instead of editing `config.toml` and copying it into a server or
 container. After installing (for example with `deploy/proxmox/create-lxc.sh`), a user opens
-`http://<server-ip>:8000`, logs in with a generated password, pastes calendar links, tests them
+`http://<server-ip>:3667`, logs in with a generated password, pastes calendar links, tests them
 and sees the door screen update, without touching a terminal again.
 
 Users: the maintainer first, but the repository is public, so it must be safe and clear for
@@ -19,7 +19,7 @@ anyone who installs it on a home network.
 |---|---|
 | Scope | The whole config: calendars, tasks, display settings, plus a live preview of the screen. Not logs, updates or restarts. |
 | Transport | Plain HTTP on the LAN. No TLS. |
-| Port | The same port as the Kindle image (`[server] port`, default 8000). |
+| Port | The same port as the Kindle image (`[server] port`, default 3667). |
 | First password | Random, generated at install time and printed by the installer. |
 | Stack | Flask + Jinja templates + Waitress, server-rendered pages, small first-party JS for progressive enhancement. |
 
@@ -130,7 +130,7 @@ config writes. `SourceCache` gets its own lock.
 
 `serve` must always come up, otherwise the restore button is unreachable and the door is stuck:
 
-1. Try `config.toml`; if it fails, try `config.toml.bak`; if that fails, use defaults (port 8000).
+1. Try `config.toml`; if it fails, try `config.toml.bak`; if that fails, use defaults (port 3667).
 2. When `.bak` loads, the door keeps working from it and the admin shows the "broken file" banner
    with the restore option. When only defaults are left, the door shows the error screen (broken
    file) or the setup screen (missing file), and the admin opens in "broken file" or "first

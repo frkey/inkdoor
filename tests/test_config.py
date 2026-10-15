@@ -12,7 +12,7 @@ def write(tmp_path, text):
 def test_defaults_and_language_override(tmp_path):
     cfg = config.load(write(tmp_path, '[display]\nlanguage = "en-US"\n'), language="pt-BR")
     assert cfg["display"]["language"] == "pt-BR"
-    assert cfg["server"] == {"port": 8000, "refresh_minutes": 5}
+    assert cfg["server"] == {"port": 3667, "refresh_minutes": 5}
 
 
 @pytest.mark.parametrize("text, key", [

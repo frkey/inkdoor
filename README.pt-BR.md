@@ -54,7 +54,7 @@ pip install -e .
 
 cp config.example.toml config.toml   # cole aqui os links das suas agendas
 inkdoor check                        # confere cada link
-inkdoor serve                        # gera e serve http://<ip-do-computador>:8000/kindle.png
+inkdoor serve                        # gera e serve http://<ip-do-computador>:3667/kindle.png
 ```
 
 No `config.toml`, defina o idioma:
@@ -99,7 +99,7 @@ em pt-BR, 12 horas em en-US); para forçar, use `clock = "24h"` ou `clock = "12h
 | `inkdoor check` | Testa cada link: acesso, quantidade de compromissos, se os títulos vêm ou só "Ocupado". |
 | `inkdoor demo 10:20 16:50` | Gera prévias com dados fictícios, sem precisar de agendas. |
 | `inkdoor password` | Gera uma senha nova do admin, salva ao lado do `config.toml` e mostra uma única vez. Desconecta todos os navegadores. |
-| `inkdoor url` | Mostra o endereço do admin para outros aparelhos da rede, ex.: `http://192.168.1.50:8000`. |
+| `inkdoor url` | Mostra o endereço do admin para outros aparelhos da rede, ex.: `http://192.168.1.50:3667`. |
 
 Opções gerais: `--config caminho/config.toml`, `--output pasta/`, `--lang en-US|pt-BR`.
 

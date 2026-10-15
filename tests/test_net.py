@@ -513,7 +513,7 @@ def test_tests_never_resolve_this_machine():
 
     from inkdoor.config import with_defaults
     assert net.lan_address() == FAKE_LAN_ADDRESS
-    assert net.admin_url(with_defaults({})) == f"http://{FAKE_LAN_ADDRESS}:8000"
+    assert net.admin_url(with_defaults({})) == f"http://{FAKE_LAN_ADDRESS}:3667"
 
 
 @pytest.mark.real_lan_address
@@ -528,7 +528,7 @@ def test_lan_address_survives_an_odd_host_name(monkeypatch):
 def test_admin_url_uses_the_lan_address_and_the_port(monkeypatch):
     from inkdoor.config import with_defaults
     monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
-    assert net.admin_url(with_defaults({})) == "http://192.168.1.20:8000"
+    assert net.admin_url(with_defaults({})) == "http://192.168.1.20:3667"
     assert net.admin_url(with_defaults({"server": {"port": 8123}})) == "http://192.168.1.20:8123"
     monkeypatch.setattr(net, "lan_address", lambda: None)
     assert net.admin_url(with_defaults({})) is None
