@@ -14,7 +14,7 @@ workdays = [0, 1, 2, 3, 4]  # 0 = Monday ... 6 = Sunday
 min_gap_minutes = 30        # only show "free · 45 min" for gaps at least this long
 
 [server]
-port = 8000
+port = 3667
 refresh_minutes = 5
 
 # ---------- Calendars ----------

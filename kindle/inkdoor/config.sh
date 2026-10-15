@@ -1,6 +1,6 @@
 # ===== EDIT HERE =====
 # Address of the image served by "inkdoor serve" (use your computer's IP on the local network)
-URL="http://192.168.0.10:8000/kindle.png"
+URL="http://192.168.0.10:3667/kindle.png"
 
 # Seconds between screen updates
 INTERVAL=300

@@ -32,7 +32,7 @@ Kindle/
 Edit `inkdoor/config.sh`:
 
 ```sh
-URL="http://192.168.0.10:8000/kindle.png"   # IP of the computer running "inkdoor serve"
+URL="http://192.168.0.10:3667/kindle.png"   # IP of the computer running "inkdoor serve"
 INTERVAL=300                                # seconds between updates
 FULL_REFRESH_EVERY=6                        # every N updates, a full refresh (flashes, clears ghosting)
 LANGUAGE="en-US"                            # messages on the Kindle: en-US or pt-BR

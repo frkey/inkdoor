@@ -243,7 +243,7 @@ def test_check_rejects_bad_values():
 def test_check_validates_a_copy():
     data = {"display": {"language": "pt-BR"}}
     checked = check(data)
-    assert checked["server"]["port"] == 8000
+    assert checked["server"]["port"] == 3667
     assert data == {"display": {"language": "pt-BR"}}
 
 

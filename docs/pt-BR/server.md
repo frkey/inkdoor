@@ -52,15 +52,15 @@ boot) e instala o inkdoor nele.
    Nova senha do admin: k7mq-x3vt-9hwp-r2nd  (salva em /etc/inkdoor/admin-password; ...)
 
    O inkdoor está rodando.
-     Admin:  http://192.168.1.50:8000  (entre com a senha mostrada acima)
-     No Kindle, em inkdoor/config.sh:  URL="http://192.168.1.50:8000/kindle.png"
+     Admin:  http://192.168.1.50:3667  (entre com a senha mostrada acima)
+     No Kindle, em inkdoor/config.sh:  URL="http://192.168.1.50:3667/kindle.png"
    ```
 
 5. Abra o endereço do admin num navegador da mesma rede e entre com essa senha.
 6. Em **Agendas**, adicione os links das suas agendas ([onde encontrar](calendar-sources.md))
    e, depois de salvar, aperte **Testar link** em cada uma. A prévia em **Início** mostra a
    porta como o Kindle vai mostrar.
-7. No Kindle, coloque `URL="http://<ip-do-container>:8000/kindle.png"` em
+7. No Kindle, coloque `URL="http://<ip-do-container>:3667/kindle.png"` em
    `inkdoor/config.sh` ([configurando o Kindle](kindle.md)). A página inicial do admin mostra
    esse endereço com um botão de copiar.
 
@@ -91,7 +91,7 @@ endereço do container no roteador ("reserva de DHCP").
 
 | Tarefa | Comando no host do Proxmox |
 |---|---|
-| Mudar a config | o admin, em `http://<ip-do-container>:8000` |
+| Mudar a config | o admin, em `http://<ip-do-container>:3667` |
 | Atualizar o inkdoor | `pct exec <id> -- bash /opt/inkdoor/deploy/install.sh` |
 | Gerar uma senha nova do admin | `pct exec <id> -- inkdoor password` |
 | Acompanhar o log | `pct exec <id> -- journalctl -u inkdoor -f` |
@@ -101,6 +101,13 @@ endereço do container no roteador ("reserva de DHCP").
 O que você salva no admin atualiza a porta na hora. Edições feitas na mão valem a partir da
 próxima atualização da tela; só uma `port` nova ou uma mudança em `[admin] enabled` precisam de
 `systemctl restart inkdoor`.
+
+A porta padrão é a 3667 ("DOOR" no teclado do telefone); antes era a 8000. Configs criadas a
+partir do `config.example.toml` (pelo instalador ou na mão) têm `port = 8000`, então continuam
+nessa porta depois de atualizar, e o Kindle continua funcionando. **Se a sua seção `[server]` não
+tem a linha `port`**, o servidor passa para a 3667 ao atualizar: acrescente `port = 8000` em
+`[server]` antes, para manter a porta antiga. Para passar para a 3667 de propósito, mude `port` no
+`config.toml`, reinicie o serviço e atualize a `URL` no `inkdoor/config.sh` do Kindle.
 
 ### Criando o container na mão
 
@@ -193,7 +200,7 @@ redes que você não controla. Para usar o admin nele, acrescente ao `config.tom
 enabled = true
 ```
 
-Depois rode `inkdoor password`, reinicie o `inkdoor serve` e abra `http://<ip-do-computador>:8000`
+Depois rode `inkdoor password`, reinicie o `inkdoor serve` e abra `http://<ip-do-computador>:3667`
 (o `inkdoor url` mostra o endereço). Desligue de novo antes de levar o notebook para uma rede
 em que você não confia.
 

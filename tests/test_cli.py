@@ -72,13 +72,13 @@ def test_cli_url_prints_the_admin_address(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(net, "lan_address", lambda: "192.168.1.20")
     config_path = tmp_path / "config.toml"
     assert main(["url", "--config", str(config_path)]) == 0           # missing: default port
-    assert capsys.readouterr().out == "http://192.168.1.20:8000\n"
+    assert capsys.readouterr().out == "http://192.168.1.20:3667\n"
     config_path.write_text("[server]\nport = 8123\n")
     assert main(["url", "--config", str(config_path)]) == 0
     assert capsys.readouterr().out == "http://192.168.1.20:8123\n"
     config_path.write_text("[server\n")                                 # broken: default port
     assert main(["url", "--config", str(config_path)]) == 0
-    assert capsys.readouterr().out == "http://192.168.1.20:8000\n"
+    assert capsys.readouterr().out == "http://192.168.1.20:3667\n"
 
 
 def test_cli_url_fails_without_a_lan_address(tmp_path, monkeypatch, capsys):
