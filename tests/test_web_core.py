@@ -474,7 +474,8 @@ def test_404_page_is_translated(app):
 def test_pages_have_no_inline_scripts_or_styles(app, rendered):
     s = logged_in(app)
     pages = [get(client(app), "/login"), get(s, "/"), get(client(app), "/nope"),
-             get(s, "/calendars"), get(s, "/calendars/new"), get(s, "/tasks")]
+             get(s, "/calendars"), get(s, "/calendars/new"), get(s, "/tasks"),
+             get(s, "/screen"), get(s, "/account")]
     for page in pages:
         html = page.get_data(as_text=True)
         scripts = re.findall(r"<script\b[^>]*>.*?</script>", html, re.S)

@@ -98,6 +98,13 @@ def safe_next(value: str | None) -> str:
     return value
 
 
+def wait_text(t: Translator, seconds: float) -> str:
+    """How long to wait before the next password attempt, for a message."""
+    if seconds < 60:
+        return t("admin.wait_seconds", n=max(1, math.ceil(seconds)))
+    return t.duration(math.ceil(seconds / 60))
+
+
 def _printable(text: str, limit: int = 60) -> str:
     """A Host header that is safe to put in a log line or on the screen."""
     cleaned = "".join(c if 0x20 < ord(c) < 0x7F else "?" for c in text[:limit])
@@ -287,11 +294,6 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
         response.set_cookie(LOGIN_COOKIE, token, path="/login", httponly=True, samesite="Strict")
         return response
 
-    def wait_text(seconds: float) -> str:
-        if seconds < 60:
-            return t()("admin.wait_seconds", n=max(1, math.ceil(seconds)))
-        return t().duration(math.ceil(seconds / 60))
-
     @app.route("/login", methods=["GET", "POST"], endpoint="login")
     def login():
         if watcher.changed():  # e.g. `inkdoor password` just ran: old sessions end here too
@@ -311,7 +313,7 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
         ip = request.remote_addr or ""
         wait = limiter.retry_after(ip)  # reserves this attempt; checked before scrypt
         if wait > 0:
-            return login_page(429, t()("admin.try_again", wait=wait_text(wait)), next_)
+            return login_page(429, t()("admin.try_again", wait=wait_text(t(), wait)), next_)
         ok = False
         try:
             password = request.form.get("password", "")
@@ -336,19 +338,6 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
         response = redirect("/login")
         response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="Strict")
         return response
-
-    @app.get("/", endpoint="home")
-    def home():
-        image = os.path.join(state.output_dir, IMAGE_NAME)
-        try:
-            preview = os.stat(image).st_mtime_ns // 1_000_000
-        except OSError:
-            preview = None
-        last = state.last_render
-        updated = None
-        if last is not None:
-            updated = t()("admin.last_update", date=t().date_short(last.at), time=t().time(last.at))
-        return page("home.html", last=last, updated=updated, preview=preview)
 
     from .pages import blueprint  # here: pages imports helpers from this module
     app.register_blueprint(blueprint(state))

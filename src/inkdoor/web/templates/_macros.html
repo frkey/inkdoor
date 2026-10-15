@@ -60,10 +60,37 @@
 </form>
 {%- endmacro %}
 
-{% macro config_banners(problem, warning) -%}
-{% if problem %}
-<p class="alert" role="alert">{{ t("admin.config_unreadable", message=problem) }}</p>
-{% elif warning %}
-<p class="alert" role="alert">{{ t("admin.config_invalid", message=warning) }}</p>
+{% macro restore_form(digest) -%}
+<form method="post" action="/restore" class="restore"
+      data-confirm="{{ t('admin.confirm_restore') }}">
+  {{ form_fields(digest) }}
+  <button type="submit">{{ t("admin.restore") }}</button>
+  <p class="help">{{ t("admin.restore_help") }}</p>
+</form>
+{%- endmacro %}
+
+{% macro config_banners(problem, warning, restore=None) -%}
+{% if problem or warning %}
+<div class="alert" role="alert">
+  {% if problem %}
+  <p>{{ t("admin.config_unreadable", message=problem) }}</p>
+  {% else %}
+  <p>{{ t("admin.config_invalid", message=warning) }}</p>
+  {% endif %}
+  {% if restore %}{{ restore_form(restore) }}{% endif %}
+</div>
 {% endif %}
+{%- endmacro %}
+
+{% macro copy_field(id, label, value, help=None) -%}
+<div class="field">
+  <label for="{{ id }}">{{ label }}</label>
+  <div class="copy-row">
+    <input id="{{ id }}" type="text" value="{{ value }}" readonly spellcheck="false"
+           autocapitalize="off" class="copy-value"{% if help %} aria-describedby="{{ id }}-help"{% endif %}>
+    <button type="button" class="button-quiet" data-copy="{{ id }}"
+            data-copied-label="{{ t('admin.copied') }}" hidden>{{ t("admin.copy") }}</button>
+  </div>
+  {% if help %}<p class="help" id="{{ id }}-help">{{ help }}</p>{% endif %}
+</div>
 {%- endmacro %}

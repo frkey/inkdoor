@@ -5,13 +5,15 @@ import re
 import threading
 
 import pytest
+from markupsafe import escape
 
-from inkdoor import net, server
+from inkdoor import config_edit, net, server
 from inkdoor.config_edit import read_raw
 from inkdoor.i18n import Translator
 from inkdoor.sources import SourceCache
-from inkdoor.web import links, pages
-from test_web_core import BASE, FakeClock, logged_in, make_app, make_state
+from inkdoor.state import RenderInfo
+from inkdoor.web import auth, links, pages
+from test_web_core import BASE, PASSWORD, FakeClock, logged_in, make_app, make_state
 
 from conftest import fixture
 
@@ -579,3 +581,372 @@ def test_pages_follow_the_configured_language(tmp_path):
     assert pt("admin.tasks_title") in body(admin.get("/tasks"))
     r = admin.post("/calendars/new", data=admin.form(name="", url=""))
     assert pt("admin.error_name_required") in body(r)
+    page = body(admin.get("/screen"))
+    assert pt("admin.screen_title") in page and pt("admin.field_timezone") in page
+    assert pt.get("weekdays")[0] in page
+    assert pt("admin.password_title") in body(admin.get("/account"))
+    assert pt("admin.update_now") in body(admin.get("/"))
+
+
+# --- screen settings --------------------------------------------------------------------------
+
+def screen_form(logged, **fields):
+    data = {"language": "en-US", "timezone": "America/Sao_Paulo", "clock": "",
+            "workday_start": "8", "workday_end": "19", "workdays": ["0", "1", "2", "3", "4"],
+            "min_gap_minutes": "30", "refresh_minutes": "5"}
+    data.update(fields)
+    return logged.csrf_data(**data)
+
+
+def write_config(state, text):
+    with open(state.config_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def test_screen_shows_the_settings_and_the_port_read_only(logged, state):
+    write_config(state, '[display]\ntimezone = "Europe/Lisbon"\nworkday_start = 9\n'
+                        '[server]\nport = 8123\n')
+    page = body(logged.get("/screen"))
+    assert 'value="Europe/Lisbon"' in page and 'value="9"' in page
+    assert '<datalist id="timezones">' in page and '<option value="America/New_York">' in page
+    assert "8123" in page and 'name="port"' not in page
+    assert EN("admin.port_note") in page
+    assert EN("admin.nav.screen") in page
+
+
+def test_screen_save_writes_only_what_changed(logged, state):
+    write_config(state, '[display]\nlanguage = "en-US"\nclock = "12h"\nfavorite = "kept"\n')
+    r = logged.post("/screen", data=screen_form(
+        logged, timezone="  Europe/Lisbon ", workdays=["5", "1", "1"], workday_end="18",
+        min_gap_minutes="0", refresh_minutes="10"))
+    assert r.status_code == 303 and r.headers["Location"] == "/screen"
+    assert logged.raw() == {
+        "display": {"language": "en-US", "favorite": "kept", "timezone": "Europe/Lisbon",
+                    "workday_end": 18, "workdays": [1, 5], "min_gap_minutes": 0},
+        "server": {"refresh_minutes": 10},
+    }
+    assert state.render_event.is_set()
+    assert EN("admin.saved") in body(logged.get("/screen"))
+
+
+def test_screen_save_of_the_defaults_pins_nothing(logged):
+    assert logged.post("/screen", data=screen_form(logged)).status_code == 303
+    assert logged.raw() == {}
+
+
+@pytest.mark.parametrize("fields, field, error", [                            # Review Focus 3
+    ({"timezone": "Mars/Olympus_Mons"}, "timezone", "admin.error_timezone"),
+    ({"timezone": ""}, "timezone", "admin.error_timezone"),
+    ({"timezone": "../../etc/passwd"}, "timezone", "admin.error_timezone"),
+    ({"workday_start": "abc"}, "workday_start", "admin.error_hour"),
+    ({"workday_start": "8.5"}, "workday_start", "admin.error_hour"),
+    ({"workday_end": "25"}, "workday_end", "admin.error_hour"),
+    ({"workday_start": "-1"}, "workday_start", "admin.error_hour"),
+    ({"workday_start": "19", "workday_end": "8"}, "workday_end", "admin.error_workday_order"),
+    ({"workdays": ["9"]}, "workdays", "admin.error_workdays"),
+    ({"workdays": ["1", "x"]}, "workdays", "admin.error_workdays"),
+    ({"workdays": []}, "workdays", "admin.error_workdays_empty"),
+    ({"min_gap_minutes": "241"}, "min_gap_minutes", "admin.error_min_gap"),
+    ({"min_gap_minutes": "1e2"}, "min_gap_minutes", "admin.error_min_gap"),
+    ({"refresh_minutes": "0"}, "refresh_minutes", "admin.error_refresh"),
+    ({"refresh_minutes": "１０"}, "refresh_minutes", "admin.error_refresh"),  # full-width digits
+    ({"clock": "13h"}, "clock", "admin.error_clock"),
+    ({"language": "xx-YY"}, "language", "admin.error_language"),
+])
+def test_screen_tampered_values_show_field_errors(logged, state, fields, field, error):
+    write_config(state, '[display]\nlanguage = "en-US"\n')
+    before = logged.digest()
+    r = logged.post("/screen", data=screen_form(logged, **fields))
+    assert r.status_code == 200
+    page = body(r)
+    expected = EN(error, low=0, high=0) if error != "admin.error_hour" else EN(error)
+    assert f'id="{field}-error"' in page
+    assert re.sub(r"\d+", "", expected) in re.sub(r"\d+", "", page)
+    assert logged.digest() == before
+
+
+def test_screen_missing_fields_are_errors_not_crashes(logged):
+    r = logged.post("/screen", data=logged.csrf_data())
+    assert r.status_code == 200 and EN("admin.error_timezone") in body(r)
+    assert logged.raw() == {}
+
+
+def test_screen_stale_form_is_refused(logged, state):
+    stale = screen_form(logged, timezone="Europe/Lisbon")
+    write_config(state, "# edited by hand\n")
+    r = logged.post("/screen", data=stale)
+    assert r.status_code == 303
+    assert logged.raw() == {}
+    assert EN("admin.changed_elsewhere") in body(logged.get("/screen"))
+
+
+def test_screen_empty_clock_removes_the_key(logged, state):
+    write_config(state, '[display]\nclock = "24h"\n')
+    page = body(logged.get("/screen"))
+    assert re.search(r'<option value="24h" selected>', page)
+    logged.post("/screen", data=screen_form(logged, clock=""))
+    assert logged.raw() == {"display": {}}
+    logged.post("/screen", data=screen_form(logged, clock="12h"))
+    assert logged.raw() == {"display": {"clock": "12h"}}
+
+
+def test_screen_language_is_read_only_under_an_override(tmp_path):
+    state = make_state(tmp_path)
+    state.language = "pt-BR"
+    admin = Admin(make_app(state, FakeClock()), state)
+    write_config(state, '[display]\nlanguage = "en-US"\n')
+    pt = Translator("pt-BR")
+    page = body(admin.get("/screen"))
+    assert pt("admin.language_overridden") in page
+    assert not re.search(r'<select[^>]*name="language"', page)
+    r = admin.post("/screen", data=screen_form(admin, language="pt-BR", refresh_minutes="7"))
+    assert r.status_code == 303
+    assert admin.raw() == {"display": {"language": "en-US"}, "server": {"refresh_minutes": 7}}
+
+
+def test_screen_language_choice_is_saved(logged):
+    page = body(logged.get("/screen"))
+    assert "Português (Brasil)" in page
+    logged.post("/screen", data=screen_form(logged, language="pt-BR"))
+    assert logged.raw() == {"display": {"language": "pt-BR"}}
+
+
+def test_screen_broken_file_shows_the_error_and_no_form(logged, state):
+    write_config(state, "[display\n")
+    r = logged.get("/screen")
+    assert r.status_code == 200 and "config.toml has a syntax error" in body(r)
+    assert 'name="digest"' not in body(r) or 'action="/restore"' in body(r)
+    assert 'action="/screen"' not in body(r)
+
+
+# --- account ----------------------------------------------------------------------------------
+
+GENERATED = re.compile(r"\b[2-9a-hjkmnp-z]{4}-[2-9a-hjkmnp-z]{4}-[2-9a-hjkmnp-z]{4}-"
+                       r"[2-9a-hjkmnp-z]{4}\b")
+
+
+def password_hash(state):
+    return auth.read_password_hash(auth.password_path(state.config_path))
+
+
+def change_password(admin, **fields):
+    admin.app.test_clock.advance(1)  # the one-attempt-per-second pace
+    return admin.post("/account/password", data={"csrf": admin.c.csrf, **fields})
+
+
+def test_account_page_has_the_password_form_and_logout(logged):
+    page = body(logged.get("/account"))
+    assert 'action="/account/password"' in page and 'name="current"' in page
+    assert 'name="new"' in page and 'name="generate"' in page
+    assert 'autocomplete="current-password"' in page and 'autocomplete="new-password"' in page
+    assert page.count('action="/logout"') >= 2
+
+
+def test_wrong_current_password_changes_nothing(logged, state):
+    before = password_hash(state)
+    r = change_password(logged, current="not-the-password", new="a-brand-new-password")
+    assert r.status_code == 200 and EN("admin.wrong_current_password") in body(r)
+    assert password_hash(state) == before
+    assert logged.get("/").status_code == 200
+
+
+def test_short_new_password_is_refused(logged, state):
+    before = password_hash(state)
+    # 12 characters, but dashes and spaces do not count
+    r = change_password(logged, current=PASSWORD, new="abcd-efgh ijk")
+    assert r.status_code == 200 and EN("admin.error_password_short", n=12) in body(r)
+    assert password_hash(state) == before
+    r = change_password(logged, current=PASSWORD, new="")
+    assert r.status_code == 200 and EN("admin.error_password_short", n=12) in body(r)
+    assert password_hash(state) == before
+
+
+def test_password_change_keeps_this_browser_and_logs_out_the_others(app, state):
+    me, other = Admin(app, state), Admin(app, state)
+    old_csrf = me.c.csrf
+    r = change_password(me, current=PASSWORD, new="correct horse battery")
+    assert r.status_code == 303 and r.headers["Location"] == "/account"
+    assert auth.verify_password("correct horse battery", password_hash(state))
+    assert not auth.verify_password(PASSWORD, password_hash(state))
+    assert other.get("/").status_code == 302
+    page = me.get("/account")
+    assert page.status_code == 200 and EN("admin.password_changed") in body(page)
+    new_csrf = re.search(r'name="csrf" value="([^"]+)"', body(page)).group(1)
+    assert new_csrf != old_csrf
+    assert me.get("/").status_code == 200  # the watcher does not log this browser out later
+
+
+def test_generated_password_is_shown_once(app, state):
+    me = Admin(app, state)
+    r = change_password(me, current=PASSWORD, generate="1", new="ignored")
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    found = GENERATED.findall(body(r))
+    assert len(set(found)) == 1
+    assert auth.verify_password(found[0], password_hash(state))
+    assert "Location" not in r.headers and found[0] not in str(r.headers)
+    # the page's forms carry the new session's token
+    me.c.csrf = re.search(r'name="csrf" value="([^"]+)"', body(r)).group(1)
+    page = body(me.get("/account"))
+    assert found[0] not in page
+    assert me.get("/").status_code == 200
+
+
+def test_password_change_is_rate_limited_before_scrypt(logged, monkeypatch):
+    calls = []
+    real = auth.verify_password
+    monkeypatch.setattr(auth, "verify_password", lambda *a: calls.append(1) or real(*a))
+    for _ in range(5):
+        r = change_password(logged, current="wrong-wrong", new="a-brand-new-password")
+        assert r.status_code == 200
+    r = change_password(logged, current="wrong-wrong", new="a-brand-new-password")
+    assert r.status_code == 429 and len(calls) == 5
+
+
+# --- home -------------------------------------------------------------------------------------
+
+def test_update_now_is_throttled(logged, state):
+    r = logged.post("/render", data={"csrf": logged.c.csrf})
+    assert r.status_code == 303 and r.headers["Location"] == "/"
+    assert state.render_event.is_set()
+    assert EN("admin.update_requested") in body(logged.get("/"))
+    state.render_event.clear()
+    r = logged.post("/render", data={"csrf": logged.c.csrf})
+    assert r.status_code == 303 and not state.render_event.is_set()
+    assert EN("admin.update_throttled") in body(logged.get("/"))
+
+
+def test_status_json_needs_a_session_and_reports_the_last_render(app, logged, state):
+    from test_web_core import client
+    r = client(app).get("/status.json", base_url=BASE)
+    assert r.status_code == 302
+    r = logged.get("/status.json")
+    assert r.status_code == 200 and r.get_json()["at"] is None
+    assert r.headers["Cache-Control"] == "no-store"
+    at = dt.datetime(2026, 10, 14, 16, 30, tzinfo=dt.timezone.utc)
+    state.last_render = RenderInfo(at, "In a meeting", "until 5:00 PM", ["Work: FetchError"])
+    data = logged.get("/status.json").get_json()
+    assert data["at"] == at.isoformat()
+    assert data["word"] == "In a meeting" and data["headline"] == "until 5:00 PM"
+    assert data["errors"] == ["Work: FetchError"] and data["updated"] == EN(
+        "admin.last_update", date=EN.date_short(at), time=EN.time(at))
+
+
+def test_home_shows_the_kindle_url_with_a_copy_button(logged, monkeypatch):
+    monkeypatch.setattr(net, "lan_address", lambda: "192.168.0.50")
+    page = body(logged.get("/"))
+    assert 'value="http://192.168.0.50:8000/kindle.png"' in page
+    assert "data-copy=" in page
+    monkeypatch.setattr(net, "lan_address", lambda: None)
+    page = body(logged.get("/"))
+    assert str(escape(EN("admin.kindle_url_unknown", port=8000))) in page
+
+
+def test_home_preview_uses_the_last_render_time(logged, state):
+    from PIL import Image
+    Image.new("L", (8, 8), 255).save(state.output_dir + "/kindle.png")
+    at = dt.datetime(2026, 10, 14, 16, 30, tzinfo=dt.timezone.utc)
+    state.last_render = RenderInfo(at, "Free", "until 5:00 PM", ["Work"])
+    page = body(logged.get("/"))
+    assert f'src="/kindle.png?t={int(at.timestamp() * 1000)}"' in page
+    assert f'data-at="{at.isoformat()}"' in page
+
+
+def test_first_setup_banner_points_to_calendars(logged, state):
+    state.config_problem = "missing"
+    page = body(logged.get("/"))
+    assert EN("admin.first_setup") in page and 'href="/calendars/new"' in page
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    assert EN("admin.first_setup") not in body(logged.get("/"))
+
+
+def test_deleted_file_is_broken_and_offers_the_backup(logged, state):
+    import os
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    add(logged, name="Home", url="https://calendar.example/home.ics")
+    os.remove(state.config_path)
+    state.config_problem = "broken"
+    page = body(logged.get("/"))
+    assert EN("admin.config_broken") in page and 'action="/restore"' in page
+    assert EN("admin.first_setup") not in page
+
+
+def test_restore_previous_version_from_a_broken_file(logged, state):
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    add(logged, name="Home", url="https://calendar.example/home.ics")  # .bak holds "Work" only
+    write_config(state, "[[calendar]\n")                               # a hand edit breaks it
+    state.config_problem = "broken"
+    page = body(logged.get("/"))
+    assert EN("admin.config_broken") in page and "config.toml has a syntax error" in page
+    assert 'action="/restore"' in page
+    digest = re.search(r'action="/restore".*?name="digest" value="([0-9a-f]{64})"', page,
+                       re.S).group(1)
+    state.render_event.clear()
+    r = logged.post("/restore", data={"csrf": logged.c.csrf, "digest": digest})
+    assert r.status_code == 303 and r.headers["Location"] == "/"
+    assert [c["name"] for c in logged.raw()["calendar"]] == ["Work"]
+    assert state.render_event.is_set()
+    with open(state.config_path + ".bak", encoding="utf-8") as f:
+        assert f.read() == "[[calendar]\n"
+    page = body(logged.get("/"))
+    assert EN("admin.restored") in page
+    assert EN("admin.config_broken") not in page  # before the render loop catches up, too
+
+
+def test_restore_is_offered_on_the_settings_pages_too(logged, state):
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    add(logged, name="Home", url="https://calendar.example/home.ics")
+    write_config(state, "[[calendar]\n")
+    for path in ("/calendars", "/tasks", "/screen"):
+        assert 'action="/restore"' in body(logged.get(path)), path
+
+
+def test_restore_is_not_offered_when_the_backup_is_broken_too(logged, state):
+    write_config(state, "[[calendar]\n")
+    with open(state.config_path + ".bak", "w", encoding="utf-8") as f:
+        f.write('[display]\ntimezone = "Mars/Base"\n')
+    state.config_problem = "broken"
+    page = body(logged.get("/"))
+    assert EN("admin.config_broken") in page and 'action="/restore"' not in page
+    digest = config_edit.digest(b"[[calendar]\n")
+    r = logged.post("/restore", data={"csrf": logged.c.csrf, "digest": digest})
+    assert r.status_code == 303
+    with open(state.config_path, encoding="utf-8") as f:
+        assert f.read() == "[[calendar]\n"
+
+
+def test_restore_with_a_stale_digest_is_refused(logged, state):
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    add(logged, name="Home", url="https://calendar.example/home.ics")
+    before = logged.digest()
+    r = logged.post("/restore", data={"csrf": logged.c.csrf, "digest": "0" * 64})
+    assert r.status_code == 303 and logged.digest() == before
+    assert EN("admin.changed_elsewhere") in body(logged.get("/"))
+
+
+# --- secrets on the new pages -----------------------------------------------------------------
+
+def test_links_never_leave_the_server_on_home_screen_and_account(logged, state, caplog, capsys,
+                                                                 monkeypatch):
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(net, "lan_address", lambda: "192.168.0.50")
+    add(logged, name="Work", url=LINK)
+    logged.post("/tasks", data=logged.csrf_data(name="Tasks", url=TASKS_LINK, overdue_days="7"))
+    responses = [logged.get(p) for p in ("/", "/screen", "/account", "/status.json")]
+    # a link pasted into the time zone field is not echoed back
+    responses.append(logged.post("/screen", data=screen_form(logged, timezone=LINK)))
+    # a broken file whose backup holds the links
+    write_config(state, "[[calendar]\n")
+    with open(state.config_path + ".bak", encoding="utf-8") as f:
+        assert CANARY in f.read()
+    state.config_problem = "broken"
+    state.last_render = RenderInfo(dt.datetime.now(dt.timezone.utc), "Busy", "until 5:00 PM",
+                                   ["Work: FetchError"])
+    responses += [logged.get(p) for p in ("/", "/screen", "/calendars", "/tasks", "/status.json")]
+    digest = config_edit.digest(b"[[calendar]\n")
+    responses.append(logged.post("/restore", data={"csrf": logged.c.csrf, "digest": digest}))
+    responses += [logged.get(p) for p in ("/", "/screen")]
+    responses.append(change_password(logged, current="wrong-wrong", new="a-brand-new-pw"))
+    everything = "".join(body(r) + str(r.headers) for r in responses)
+    everything += caplog.text + "".join(capsys.readouterr())
+    for i in range(len(CANARY) - 7):
+        assert CANARY[i:i + 8] not in everything

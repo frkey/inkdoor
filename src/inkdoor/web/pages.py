@@ -1,4 +1,4 @@
-"""Calendars and tasks pages of the admin.
+"""The admin pages: home, calendars, tasks, screen settings and account.
 
 Every page reads config.toml fresh (``config_edit.read_raw``) and every form carries the digest
 of the file as it was read, so a form opened before a hand edit (or in another tab) is refused
@@ -10,17 +10,21 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import os
 import threading
 from dataclasses import dataclass, field
-from zoneinfo import ZoneInfo
+from functools import lru_cache
+from zoneinfo import ZoneInfo, available_timezones
 
-from flask import Blueprint, abort, g, make_response, redirect, render_template, request
+from flask import (Blueprint, abort, current_app, g, jsonify, make_response, redirect,
+                   render_template, request)
 
 from .. import check as checker
-from .. import config, config_edit
-from ..config import STYLES, is_configured
-from ..state import ServerState
-from . import add_notice, forms, links, translator
+from .. import config, config_edit, i18n, net
+from ..config import DISPLAY_DEFAULTS, SERVER_DEFAULTS, STYLES, is_configured
+from ..state import IMAGE_NAME, ServerState
+from . import (MAX_PASSWORD_LENGTH, SESSION_COOKIE, SESSION_LIFETIME, add_notice, auth, forms,
+               links, translator, wait_text)
 
 # At most two link tests at a time across all browsers; a third gets "busy" (429) at once, so
 # slow links can never take all of Waitress's threads away from /kindle.png.
@@ -39,6 +43,58 @@ class TestResult:
 def _masked(url) -> str | None:
     """The link as pages may show it, or None when there is no link yet."""
     return links.mask(url) if isinstance(url, str) and is_configured(url) else None
+
+
+PASSWORD_MIN = 12
+# the keys the screen form owns, and the defaults that are not written when left unchanged
+SCREEN_KEYS = [("display", key, DISPLAY_DEFAULTS[key])
+               for key in ("language", "timezone", "workday_start", "workday_end", "workdays",
+                           "min_gap_minutes")]
+SCREEN_KEYS += [("display", "clock", ""), ("server", "refresh_minutes",
+                                            SERVER_DEFAULTS["refresh_minutes"])]
+
+
+@lru_cache(maxsize=1)
+def timezones() -> tuple[str, ...]:
+    """Time zone names for the screen form, sorted (reading them all takes a moment)."""
+    return tuple(sorted(available_timezones()))
+
+
+def languages() -> list[tuple[str, str]]:
+    """(code, name in that language) for every catalog."""
+    return [(code, i18n.Translator(code).get("_meta.name") or code) for code in i18n.available()]
+
+
+def _screen_values(data: dict) -> dict:
+    """The screen settings in the file, with defaults, as the form shows them."""
+    display = data.get("display", {})
+    server = data.get("server", {})
+    values = {key: display.get(key, default) for section, key, default in SCREEN_KEYS
+              if section == "display"}
+    values["language"] = i18n.normalize(str(values["language"]))
+    values["clock"] = values["clock"] if values["clock"] in forms.CLOCKS else ""
+    days = values["workdays"] if isinstance(values["workdays"], list) else []
+    values["workdays"] = [d for d in forms.WEEKDAYS if d in days]
+    values["refresh_minutes"] = server.get("refresh_minutes", SERVER_DEFAULTS["refresh_minutes"])
+    values["port"] = server.get("port", SERVER_DEFAULTS["port"])
+    return values
+
+
+def _apply_screen(data: dict, values: dict, keep_language: bool) -> None:
+    """Writes the form's values into the raw dict, leaving out defaults the file did not have."""
+    for section, key, default in SCREEN_KEYS:
+        if key == "language" and keep_language:
+            continue  # set at startup: never written to the file
+        table = data.get(section)
+        value = values[key]
+        if key == "clock" and value == "":
+            if table is not None:
+                table.pop("clock", None)
+            continue
+        if table is not None and key in table:
+            table[key] = value
+        elif value != default:
+            data.setdefault(section, {})[key] = value
 
 
 def _capitalized(text: str) -> str:
@@ -81,6 +137,26 @@ def blueprint(state: ServerState) -> Blueprint:
         except config.ConfigInvalid as ex:
             return describe(ex)
         return None
+
+    def backup_loads() -> bool:
+        try:
+            data, _ = config.read_toml(state.config_path + config_edit.BACKUP_SUFFIX)
+            config_edit.check(data)
+        except (config.ConfigMissing, config.ConfigInvalid):
+            return False
+        return True
+
+    def restore_offer(raw, problem: str | None, warning: str | None) -> str | None:
+        """The digest for "Restore previous version", or None when it is not offered: only for
+        a broken, invalid or deleted file whose backup would load."""
+        if not (problem or warning or (raw is not None and not raw.exists)) or not backup_loads():
+            return None
+        try:
+            return config_edit.digest(config.read_bytes(state.config_path))
+        except config.ConfigMissing:
+            return config_edit.digest(b"")
+        except config.ConfigInvalid:  # e.g. a permission problem: restoring cannot fix it
+            return None
 
     def changed(target: str):
         add_notice(g.session, t()("admin.changed_elsewhere"))
@@ -197,6 +273,7 @@ def blueprint(state: ServerState) -> Blueprint:
         context = {"problem": problem, "result": result, "default_label": t()("status.busy")}
         if raw is not None:
             context.update(cards=calendar_cards(raw), digest=raw.digest, warning=invalid(raw.data))
+        context["restore"] = restore_offer(raw, problem, context.get("warning"))
         return render_template("calendars.html", **context), status
 
     def calendar_form_page(raw, index, values, errors=None, form_error=None):
@@ -327,6 +404,7 @@ def blueprint(state: ServerState) -> Blueprint:
                 values=values or tasks_values(section or {}), errors=errors or {},
                 digest=raw.digest, warning=invalid(raw.data), form_error=form_error,
                 repaste=bool(errors) and link_given())
+        context["restore"] = restore_offer(raw, problem, context.get("warning"))
         return render_template("tasks.html", **context), status
 
     @bp.route("/tasks", methods=["GET", "POST"])
@@ -375,5 +453,173 @@ def blueprint(state: ServerState) -> Blueprint:
         if is_xhr():
             return fragment(result, status)
         return tasks_page(raw, result=result, status=status)
+
+    # --- home -------------------------------------------------------------------------------
+
+    def preview_token(last) -> int | None:
+        """The ``t`` of the preview's address: the last render time, so a new render shows."""
+        try:
+            mtime = os.stat(os.path.join(state.output_dir, IMAGE_NAME)).st_mtime_ns // 1_000_000
+        except OSError:
+            return None  # nothing drawn yet
+        return int(last.at.timestamp() * 1000) if last is not None else mtime
+
+    def updated_text(last) -> str | None:
+        if last is None:
+            return None
+        return t()("admin.last_update", date=t().date_short(last.at), time=t().time(last.at))
+
+    @bp.get("/")
+    def home():
+        last = state.last_render
+        raw, problem = read()
+        warning = invalid(raw.data) if raw is not None else None
+        # from the file as it is now: state.config_problem lags until the next render, so a
+        # restore or a first save would otherwise still show the old banner
+        missing = raw is not None and not raw.exists
+        broken = bool(problem or warning) or (missing and state.config_problem == "broken")
+        base = net.admin_url(state.cfg)
+        return render_template(
+            "home.html", active="home", last=last, updated=updated_text(last),
+            preview=preview_token(last), at=last.at.isoformat() if last is not None else "",
+            # keep checking for the new screen while a render is pending or none happened yet
+            poll=state.render_event.is_set() or last is None,
+            kindle_url=base + "/kindle.png" if base else None,
+            port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
+            using_defaults=state.using_defaults,
+            first_setup=missing and not broken,
+            restore=restore_offer(raw, problem, warning))
+
+    @bp.get("/status.json")
+    def status():
+        last = state.last_render
+        return jsonify(at=last.at.isoformat() if last is not None else None,
+                       word=last.word if last is not None else None,
+                       headline=last.headline if last is not None else None,
+                       updated=updated_text(last),
+                       errors=list(last.errors) if last is not None else [])
+
+    @bp.post("/render")
+    def render_now():
+        key = "admin.update_requested" if state.request_render(manual=True) \
+            else "admin.update_throttled"
+        add_notice(g.session, t()(key))
+        return redirect("/", 303)
+
+    @bp.post("/restore")
+    def restore():
+        try:
+            config_edit.restore_backup(state.config_path, request.form.get("digest"))
+        except config_edit.ConfigChanged:
+            return changed("/")
+        except config.ConfigInvalid as ex:
+            add_notice(g.session, t()("admin.restore_failed", message=describe(ex)))
+            return redirect("/", 303)
+        except OSError as ex:
+            add_notice(g.session, t()("admin.error_write", error=type(ex).__name__))
+            return redirect("/", 303)
+        state.request_render()
+        add_notice(g.session, t()("admin.restored"))
+        return redirect("/", 303)
+
+    # --- screen -------------------------------------------------------------------------------
+
+    def screen_page(raw=None, values=None, errors=None, form_error=None):
+        problem = None
+        if raw is None:
+            raw, problem = read()
+        context = {"problem": problem, "active": "screen", "locked": state.language is not None}
+        if raw is not None:
+            warning = invalid(raw.data)
+            current = _screen_values(raw.data)
+            context.update(values={**current, **(values or {})}, errors=errors or {},
+                           digest=raw.digest, warning=warning, form_error=form_error,
+                           languages=languages(), timezones=timezones(),
+                           port=current["port"])
+        context["restore"] = restore_offer(raw, problem, context.get("warning"))
+        if context["locked"]:
+            context["locked_name"] = dict(languages()).get(i18n.normalize(state.language),
+                                                           state.language)
+        return render_template("screen.html", **context)
+
+    @bp.route("/screen", methods=["GET", "POST"])
+    def screen():
+        if request.method != "POST":
+            return screen_page()
+        raw, response = fresh("/screen")
+        if response:
+            return response
+        locked = state.language is not None
+        values, errors = forms.screen_form(
+            request.form, t(), languages=[code for code, _ in languages()],
+            timezones=timezones(), language=i18n.normalize(state.language) if locked else None)
+        form_error = None
+        if not errors:
+            data = copy.deepcopy(raw.data)
+            _apply_screen(data, values, keep_language=locked)
+            response, form_error = save(raw, data, "/screen")
+            if response:
+                return response
+        return screen_page(raw, values, errors, form_error)
+
+    # --- account ------------------------------------------------------------------------------
+
+    def account_page(errors=None, form_error=None, generated=None, status=200):
+        body = render_template("account.html", active="account", errors=errors or {},
+                               form_error=form_error, generated=generated,
+                               min_length=PASSWORD_MIN)
+        return make_response(body, status)
+
+    @bp.get("/account")
+    def account():
+        return account_page()
+
+    @bp.post("/account/password")
+    def account_password():
+        inkdoor = current_app.extensions["inkdoor"]
+        sessions, limiter = inkdoor["sessions"], inkdoor["limiter"]
+        password_file = auth.password_path(state.config_path)
+        generate = request.form.get("generate") == "1"
+        current = request.form.get("current", "")
+        new = auth.generate_password() if generate else request.form.get("new", "")
+        if not generate:  # checked before scrypt: a refused new password costs nothing
+            if len(new) > MAX_PASSWORD_LENGTH:
+                return account_page({"new": t()("admin.error_too_long", n=MAX_PASSWORD_LENGTH)})
+            if auth.password_length(new) < PASSWORD_MIN:
+                return account_page({"new": t()("admin.error_password_short", n=PASSWORD_MIN)})
+        encoded = auth.read_password_hash(password_file)
+        if encoded is None:  # fail closed, as the login does
+            return account_page(form_error=t()("admin.no_password"), status=503)
+        ip = request.remote_addr or ""
+        wait = limiter.retry_after(ip)  # the login's limit: reserves this attempt, before scrypt
+        if wait > 0:
+            return account_page(form_error=t()("admin.try_again", wait=wait_text(t(), wait)),
+                                status=429)
+        ok = False
+        try:
+            ok = len(current) <= MAX_PASSWORD_LENGTH and auth.verify_password(current, encoded)
+        finally:
+            (limiter.succeeded if ok else limiter.failed)(ip)
+        if not ok:
+            return account_page({"current": t()("admin.wrong_current_password")})
+        try:
+            auth.set_password(password_file, new)
+        except OSError as ex:
+            return account_page(form_error=t()("admin.error_password_write",
+                                               error=type(ex).__name__), status=500)
+        # every browser is logged out; this one gets a fresh session. The watcher is told about
+        # the new file first, or the next request would see the change and drop that session too
+        sessions.drop_all()
+        inkdoor["watcher"].changed()
+        session = sessions.create()
+        g.session = session  # the page below carries the new session's CSRF token
+        if generate:  # shown in this response only: never in a redirect, notice or log
+            response = account_page(generated=new)
+        else:
+            add_notice(session, t()("admin.password_changed"))
+            response = redirect("/account", 303)
+        response.set_cookie(SESSION_COOKIE, session.sid, max_age=SESSION_LIFETIME, path="/",
+                            httponly=True, samesite="Strict")
+        return response
 
     return bp

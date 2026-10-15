@@ -6,7 +6,7 @@
 <div class="page-head">
   <h1>{{ t("admin.tasks_title") }}</h1>
 </div>
-{{ m.config_banners(problem, warning) }}
+{{ m.config_banners(problem, warning, restore) }}
 {% if not problem %}
 <p class="muted intro">{{ t("admin.tasks_intro") }}</p>
 {% if exists %}

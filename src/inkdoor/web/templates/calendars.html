@@ -9,7 +9,7 @@
   <a class="button" href="/calendars/new">{{ t("admin.add_calendar") }}</a>
   {% endif %}
 </div>
-{{ m.config_banners(problem, warning) }}
+{{ m.config_banners(problem, warning, restore) }}
 {% if not problem %}
 <p class="muted intro">{{ t("admin.calendars_intro") }}</p>
 {% if not cards %}

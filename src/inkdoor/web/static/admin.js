@@ -4,6 +4,9 @@
 //   form[data-confirm]      asks before submitting (remove buttons)
 //   form[data-test-target]  runs a link test in the background and shows the result in the
 //                           element with that id; data-error is shown when the test cannot run
+//   button[data-copy]       copies the value of the input with that id (shown only with JS)
+//   [data-preview]          the home page's preview: with data-poll or after a notice, asks
+//                           /status.json every 3 s for a minute and shows the new screen
 (function () {
   "use strict";
 
@@ -89,6 +92,129 @@
     });
   }
 
+  function copyButton(button) {
+    var input = document.getElementById(button.getAttribute("data-copy"));
+    if (!input) {
+      return;
+    }
+    var label = button.textContent;
+    var timer = null;
+    input.addEventListener("focus", function () {
+      input.select();
+    });
+
+    function copied() {
+      button.textContent = button.getAttribute("data-copied-label") || label;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(function () {
+        button.textContent = label;
+      }, 2000);
+    }
+
+    function selectAndCopy() {
+      // plain HTTP has no navigator.clipboard; the old command still works there
+      input.focus();
+      input.select();
+      try {
+        if (document.execCommand("copy")) {
+          copied();
+        }
+      } catch (ignored) {
+        // the text stays selected, ready for a manual copy
+      }
+    }
+
+    button.addEventListener("click", function () {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(input.value).then(copied, selectAndCopy);
+      } else {
+        selectAndCopy();
+      }
+    });
+    button.hidden = false;
+  }
+
+  var POLL_EVERY = 3000;
+  var POLL_TIMES = 20;  // one minute
+
+  function setStatus(name, text) {
+    var element = document.querySelector("[data-status=" + name + "]");
+    if (element) {
+      element.textContent = text || "";
+    }
+    return element;
+  }
+
+  function showErrors(errors) {
+    var box = document.querySelector("[data-status=errors]");
+    var list = box ? box.querySelector("ul") : null;
+    if (!list) {
+      return;
+    }
+    list.textContent = "";
+    (errors || []).forEach(function (source) {
+      var item = document.createElement("li");
+      item.textContent = source;
+      list.appendChild(item);
+    });
+    box.hidden = !errors || errors.length === 0;
+  }
+
+  function pollPreview(frame) {
+    if (!window.fetch || !window.JSON) {
+      return;
+    }
+    if (!frame.hasAttribute("data-poll") && !document.querySelector(".notice")) {
+      return;
+    }
+    var at = frame.getAttribute("data-at");
+    var left = POLL_TIMES;
+    var timer = window.setInterval(check, POLL_EVERY);
+
+    function stop() {
+      window.clearInterval(timer);
+    }
+
+    function show(data) {
+      var image = frame.querySelector("img");
+      if (!image || !setStatus("word", data.word)) {
+        window.location.reload();  // nothing drawn when the page loaded: load it whole
+        return;
+      }
+      image.src = "/kindle.png?t=" + Date.now();
+      setStatus("headline", data.headline);
+      setStatus("updated", data.updated);
+      showErrors(data.errors);
+      frame.setAttribute("data-at", data.at);
+    }
+
+    function check() {
+      left -= 1;
+      if (left < 0) {
+        stop();
+        return;
+      }
+      fetch("/status.json", { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (response) {
+          var type = response.headers.get("Content-Type") || "";
+          if (!response.ok || type.indexOf("application/json") !== 0) {
+            throw new Error("not a status");  // e.g. the session ended: the login page
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          if (data && data.at && data.at !== at) {
+            at = data.at;
+            stop();
+            show(data);
+          }
+        })
+        .catch(stop);
+    }
+  }
+
   document.querySelectorAll("form[data-confirm]").forEach(confirmBeforeSubmit);
   document.querySelectorAll("form[data-test-target]").forEach(testInBackground);
+  document.querySelectorAll("button[data-copy]").forEach(copyButton);
+  document.querySelectorAll("[data-preview]").forEach(pollPreview);
 })();

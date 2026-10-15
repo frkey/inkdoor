@@ -85,3 +85,82 @@ def tasks_form(form, t: Translator, *, new: bool):
     values = {"name": name, "overdue_days": days if days is not None else raw_days}
     link = _link(form, errors, t, required=new)
     return values, link, errors
+
+
+# --- screen settings ---------------------------------------------------------------------------
+
+MIN_GAP_MAX = 240
+REFRESH_MIN, REFRESH_MAX = 1, 1440
+CLOCKS = ("", "12h", "24h")  # "" leaves the clock to the language
+WEEKDAYS = range(7)          # 0 = Monday ... 6 = Sunday
+TIMEZONE_MAX = 64
+
+
+def _whole(form, key: str, low: int, high: int):
+    """The field as an int when it is a plain whole number in range, else None."""
+    text = _text(form, key)
+    if len(text) <= 4 and text.isascii() and text.isdigit() and low <= int(text) <= high:
+        return int(text)
+    return None
+
+
+def _shown(text: str) -> str:
+    """A refused time zone is shown back only when it looks like one: never a pasted link."""
+    ok = len(text) <= TIMEZONE_MAX and all(c.isascii() and (c.isalnum() or c in "_+-/")
+                                           for c in text)
+    return text if ok else ""
+
+
+def screen_form(form, t: Translator, *, languages, timezones, language: str | None):
+    """(values, errors) for the screen settings form.
+
+    ``language`` is the language to keep when it is set at startup (--lang or INKDOOR_LANG): the
+    field is then ignored. On success every value has the type config.toml stores.
+    """
+    errors: dict[str, str] = {}
+    values: dict = {}
+    if language is None:
+        values["language"] = _text(form, "language")
+        if values["language"] not in languages:
+            errors["language"] = t("admin.error_language")
+    else:
+        values["language"] = language
+
+    timezone = _text(form, "timezone")
+    values["timezone"] = timezone
+    if timezone not in timezones:
+        errors["timezone"] = t("admin.error_timezone")
+        values["timezone"] = _shown(timezone)
+
+    values["clock"] = _text(form, "clock")
+    if values["clock"] not in CLOCKS:
+        errors["clock"] = t("admin.error_clock")
+
+    for key in ("workday_start", "workday_end"):
+        hour = _whole(form, key, 0, 24)
+        values[key] = hour if hour is not None else _text(form, key)[:8]
+        if hour is None:
+            errors[key] = t("admin.error_hour")
+    if not errors.keys() & {"workday_start", "workday_end"} and \
+            values["workday_start"] >= values["workday_end"]:
+        errors["workday_end"] = t("admin.error_workday_order")
+
+    days = form.getlist("workdays") if hasattr(form, "getlist") else []
+    picked = {int(d) for d in days if isinstance(d, str) and d in {str(i) for i in WEEKDAYS}}
+    values["workdays"] = sorted(picked)
+    if len(picked) != len(set(days)):
+        errors["workdays"] = t("admin.error_workdays")
+    elif not picked:
+        errors["workdays"] = t("admin.error_workdays_empty")
+
+    gap = _whole(form, "min_gap_minutes", 0, MIN_GAP_MAX)
+    values["min_gap_minutes"] = gap if gap is not None else _text(form, "min_gap_minutes")[:8]
+    if gap is None:
+        errors["min_gap_minutes"] = t("admin.error_min_gap", high=MIN_GAP_MAX)
+
+    refresh = _whole(form, "refresh_minutes", REFRESH_MIN, REFRESH_MAX)
+    values["refresh_minutes"] = refresh if refresh is not None else \
+        _text(form, "refresh_minutes")[:8]
+    if refresh is None:
+        errors["refresh_minutes"] = t("admin.error_refresh", low=REFRESH_MIN, high=REFRESH_MAX)
+    return values, errors

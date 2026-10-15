@@ -37,13 +37,22 @@ def generate_password() -> str:
     return "-".join(chars[i:i + _GROUP_SIZE] for i in range(0, len(chars), _GROUP_SIZE))
 
 
+def _strip(password: str) -> str:
+    return "".join(password.split()).replace("-", "")  # any whitespace, e.g. a no-break space
+
+
+def password_length(password: str) -> int:
+    """How many characters of the password count: dashes and whitespace are not checked."""
+    return len(_strip(password))
+
+
 def _normalize(password: str) -> bytes:
     """Removes dashes and whitespace, and lowercases passwords made only of ALPHABET characters.
 
     Phone keyboards capitalize the first letter, so a generated password is accepted in any case;
     a password the user chose with other characters stays case-sensitive.
     """
-    text = "".join(password.split()).replace("-", "")  # any whitespace, e.g. a no-break space
+    text = _strip(password)
     lowered = text.lower()
     if lowered and all(c in ALPHABET for c in lowered):
         text = lowered
