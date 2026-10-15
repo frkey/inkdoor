@@ -1,4 +1,5 @@
 import io
+import re
 import shutil
 import socket
 import ssl
@@ -8,6 +9,7 @@ import time
 
 import pytest
 import requests
+from urllib3.exceptions import ReadTimeoutError
 
 from inkdoor import net
 from inkdoor.net import FetchError, fetch, lan_address
@@ -356,6 +358,36 @@ def test_requests_timeout(monkeypatch):
     with pytest.raises(FetchError) as e:
         fetch("https://cal.example/x.ics")
     assert e.value.reason == "timeout"
+
+
+class TimingOutBody(io.BytesIO):
+    """A urllib3-like body whose read times out after the headers arrived."""
+
+    def stream(self, *args, **kwargs):
+        raise ReadTimeoutError(None, "/secret.ics", "Read timed out.")
+
+
+def test_body_read_timeout_is_a_timeout(monkeypatch):
+    resolve_to(monkeypatch, "203.0.113.10")
+    respond_sequence(monkeypatch, make_response(200, raw=TimingOutBody()))
+    with pytest.raises(FetchError) as e:
+        fetch("https://cal.example/secret.ics")
+    assert e.value.reason == "timeout"                  # requests wraps it in a ConnectionError
+    assert "secret" not in str(e.value) and e.value.__context__ is None
+
+
+def test_other_connection_errors_stay_unreachable(monkeypatch):
+    resolve_to(monkeypatch, "203.0.113.10")
+    respond_raises(monkeypatch, requests.ConnectionError("connection reset by peer"))
+    with pytest.raises(FetchError) as e:
+        fetch("https://cal.example/x.ics")
+    assert e.value.reason == "unreachable"
+
+
+def test_every_reason_raised_is_listed():
+    source = open(net.__file__, encoding="utf-8").read()
+    raised = set(re.findall(r'FetchError\("([a-z_]+)"', source))
+    assert "timeout" in raised and raised <= set(net.REASONS)
 
 
 # ------------------------------------------------------------ errors

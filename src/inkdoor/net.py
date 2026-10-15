@@ -33,9 +33,11 @@ from urllib.parse import urljoin, urlsplit
 
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.exceptions import ReadTimeoutError
 
 MAX_BYTES = 5_000_000
 DEADLINE = 30.0
+# Every FetchError.reason; callers map each one to a message of their own
 REASONS = ("blocked", "too_large", "timeout", "redirects", "http", "unreachable", "bad_link")
 
 _SCHEME = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*)://")
@@ -67,6 +69,10 @@ def fetch(url: str, *, max_bytes: int = MAX_BYTES, deadline: float = DEADLINE,
         error = FetchError("timeout")
     except _BAD_LINK_ERRORS:
         error = FetchError("bad_link")
+    except requests.ConnectionError as ex:
+        # A read timeout while streaming the body reaches us as a ConnectionError
+        timed_out = any(isinstance(arg, ReadTimeoutError) for arg in ex.args)
+        error = FetchError("timeout" if timed_out else "unreachable")
     except Exception:
         error = FetchError("unreachable")
     # Raised here, outside the handlers, so not even __context__ keeps the original exception
