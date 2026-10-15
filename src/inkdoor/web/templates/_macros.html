@@ -83,11 +83,12 @@
 {%- endmacro %}
 
 {% macro copy_field(id, label, value, help=None) -%}
-<div class="field">
-  <label for="{{ id }}">{{ label }}</label>
+{# a code block, not an input: it wraps, so a long address stays readable on a phone #}
+<div class="field copy-field">
+  <span class="label" id="{{ id }}-label">{{ label }}</span>
   <div class="copy-row">
-    <input id="{{ id }}" type="text" value="{{ value }}" readonly spellcheck="false"
-           autocapitalize="off" class="copy-value"{% if help %} aria-describedby="{{ id }}-help"{% endif %}>
+    <code id="{{ id }}" class="copy-value" aria-labelledby="{{ id }}-label"
+          {%- if help %} aria-describedby="{{ id }}-help"{% endif %}>{{ value }}</code>
     <button type="button" class="button-quiet" data-copy="{{ id }}"
             data-copied-label="{{ t('admin.copied') }}" hidden>{{ t("admin.copy") }}</button>
   </div>

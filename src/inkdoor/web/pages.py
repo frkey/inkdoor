@@ -97,6 +97,13 @@ def _apply_screen(data: dict, values: dict, keep_language: bool) -> None:
             data.setdefault(section, {})[key] = value
 
 
+def _nothing_configured(data: dict) -> bool:
+    """True when no calendar and no task list has a link: the door shows the setup screen."""
+    tasks = data.get("tasks") or {}
+    return not any(is_configured(c.get("url")) for c in data.get("calendar", [])) and \
+        not is_configured(tasks.get("url"))
+
+
 def _capitalized(text: str) -> str:
     return text[:1].upper() + text[1:]
 
@@ -487,7 +494,8 @@ def blueprint(state: ServerState) -> Blueprint:
             kindle_url=base + "/kindle.png" if base else None,
             port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
             using_defaults=state.using_defaults,
-            first_setup=missing and not broken,
+            # the door's own rule for its setup screen; a missing file is a first setup too
+            first_setup=not broken and raw is not None and _nothing_configured(raw.data),
             restore=restore_offer(raw, problem, warning))
 
     @bp.get("/status.json")

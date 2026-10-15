@@ -5,7 +5,7 @@
 <div class="alert banner" role="alert">
   <p><strong>{{ t("admin.config_broken") }}</strong>
     {{ t("admin.config_broken_defaults") if using_defaults else t("admin.config_broken_kept") }}</p>
-  {% if problem %}<p>{{ problem }}</p>{% endif %}
+  {% if problem %}<p>{{ t("admin.config_problem_detail", message=problem) }}</p>{% endif %}
   {% if restore %}{{ m.restore_form(restore) }}{% endif %}
 </div>
 {% elif first_setup %}

@@ -834,7 +834,7 @@ def test_status_json_needs_a_session_and_reports_the_last_render(app, logged, st
 def test_home_shows_the_kindle_url_with_a_copy_button(logged, monkeypatch):
     monkeypatch.setattr(net, "lan_address", lambda: "192.168.0.50")
     page = body(logged.get("/"))
-    assert 'value="http://192.168.0.50:8000/kindle.png"' in page
+    assert '>http://192.168.0.50:8000/kindle.png</code>' in page
     assert "data-copy=" in page
     monkeypatch.setattr(net, "lan_address", lambda: None)
     page = body(logged.get("/"))
@@ -856,6 +856,14 @@ def test_first_setup_banner_points_to_calendars(logged, state):
     page = body(logged.get("/"))
     assert EN("admin.first_setup") in page and 'href="/calendars/new"' in page
     add(logged, name="Work", url="https://calendar.example/work.ics")
+    assert EN("admin.first_setup") not in body(logged.get("/"))
+
+
+def test_first_setup_banner_while_nothing_has_a_link(logged, state):
+    write_config(state, '[admin]\nenabled = true\n[[calendar]]\nname = "Work"\n'
+                        'url = "PASTE_YOUR_LINK"\n')
+    assert EN("admin.first_setup") in body(logged.get("/"))
+    logged.post("/tasks", data=logged.csrf_data(name="T", url=TASKS_LINK, overdue_days="7"))
     assert EN("admin.first_setup") not in body(logged.get("/"))
 
 

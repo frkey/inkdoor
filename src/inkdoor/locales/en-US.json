@@ -358,6 +358,7 @@
     "generated_label": "New password",
     "generated_help": "Save it now, for example in a password manager: it will not be shown again. Other browsers were logged out.",
     "session_title": "This browser",
-    "session_help": "Log out when you are done on a shared computer."
+    "session_help": "Log out when you are done on a shared computer.",
+    "config_problem_detail": "Details: {message}"
   }
 }

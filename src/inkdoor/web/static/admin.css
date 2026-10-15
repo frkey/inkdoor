@@ -649,16 +649,34 @@ input[aria-invalid="true"] {
   margin: 0;
 }
 
+.copy-field {
+  margin-bottom: 0;
+}
+
+.copy-field .label {
+  font-weight: 600;
+}
+
 .copy-row {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
 
-.copy-row input {
+.copy-value {
   flex: 1;
   min-width: 0;
+  display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9375rem;
+  line-height: 1.5;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  -webkit-user-select: all;
+  user-select: all;
 }
 
 .copy-row button {
@@ -679,10 +697,6 @@ input[readonly] {
   color: var(--muted);
 }
 
-.copy-row input[readonly] {
-  color: var(--text);
-}
-
 .field-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -699,10 +713,6 @@ input[readonly] {
 
 .generated {
   border-color: var(--accent);
-}
-
-.generated .field {
-  margin-bottom: 0;
 }
 
 .account-hint {

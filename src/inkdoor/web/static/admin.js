@@ -4,7 +4,7 @@
 //   form[data-confirm]      asks before submitting (remove buttons)
 //   form[data-test-target]  runs a link test in the background and shows the result in the
 //                           element with that id; data-error is shown when the test cannot run
-//   button[data-copy]       copies the value of the input with that id (shown only with JS)
+//   button[data-copy]       copies the text of the element with that id (shown only with JS)
 //   [data-preview]          the home page's preview: with data-poll or after a notice, asks
 //                           /status.json every 3 s for a minute and shows the new screen
 (function () {
@@ -93,15 +93,12 @@
   }
 
   function copyButton(button) {
-    var input = document.getElementById(button.getAttribute("data-copy"));
-    if (!input) {
+    var source = document.getElementById(button.getAttribute("data-copy"));
+    if (!source || !window.getSelection || !document.createRange) {
       return;
     }
     var label = button.textContent;
     var timer = null;
-    input.addEventListener("focus", function () {
-      input.select();
-    });
 
     function copied() {
       button.textContent = button.getAttribute("data-copied-label") || label;
@@ -113,8 +110,11 @@
 
     function selectAndCopy() {
       // plain HTTP has no navigator.clipboard; the old command still works there
-      input.focus();
-      input.select();
+      var range = document.createRange();
+      var selection = window.getSelection();
+      range.selectNodeContents(source);
+      selection.removeAllRanges();
+      selection.addRange(range);
       try {
         if (document.execCommand("copy")) {
           copied();
@@ -126,7 +126,7 @@
 
     button.addEventListener("click", function () {
       if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(input.value).then(copied, selectAndCopy);
+        navigator.clipboard.writeText(source.textContent).then(copied, selectAndCopy);
       } else {
         selectAndCopy();
       }
