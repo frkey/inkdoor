@@ -424,7 +424,7 @@ def test_move_up_down_and_delete(logged, state):
     assert logged.digest() == before
     r = logged.post("/calendars/0/move", data=logged.csrf_data(direction="sideways"))
     assert r.status_code == 400 and logged.digest() == before
-    r = logged.post("/calendars/1/delete", data=logged.csrf_data())
+    r = logged.post("/calendars/1/delete", data=logged.csrf_data(confirmed="1"))
     assert r.status_code == 303 and names() == ["C", "B"]
     assert EN("admin.removed") in body(logged.get("/calendars"))
 
@@ -476,7 +476,7 @@ def test_tasks_create_edit_and_remove(logged, state):
     assert r.status_code == 303
     assert logged.raw()["tasks"] == {"name": "Chores", "url": TASKS_LINK, "overdue_days": 0}
     assert 'placeholder="tasks.example/pub/…"' in body(logged.get("/tasks"))
-    r = logged.post("/tasks/delete", data=logged.csrf_data())
+    r = logged.post("/tasks/delete", data=logged.csrf_data(confirmed="1"))
     assert r.status_code == 303 and logged.raw() == {}
 
 
@@ -521,13 +521,13 @@ def test_removing_last_busy_calendar_never_shows_free(logged, state, monkeypatch
     server.run_cycle(state, SourceCache())
     assert state.cfg["calendar"][0]["name"] == "Work"
 
-    assert logged.post("/calendars/0/delete", data=logged.csrf_data()).status_code == 303
+    assert logged.post("/calendars/0/delete", data=logged.csrf_data(confirmed="1")).status_code == 303
     server.run_cycle(state, SourceCache())
     assert state.last_render.word == EN("status.unknown")
     assert state.last_render.headline == EN("status.unknown_headline")
 
-    logged.post("/calendars/0/delete", data=logged.csrf_data())
-    logged.post("/tasks/delete", data=logged.csrf_data())
+    logged.post("/calendars/0/delete", data=logged.csrf_data(confirmed="1"))
+    logged.post("/tasks/delete", data=logged.csrf_data(confirmed="1"))
     assert logged.raw() == {"calendar": []}
     server.run_cycle(state, SourceCache())
     assert state.last_render.word == EN("status.setup")
@@ -1069,3 +1069,66 @@ def test_a_symlinked_config_is_never_replaced(logged, state, tmp_path):
     assert r.status_code == 303
     assert str(escape(EN("admin.error_link"))) in body(logged.get("/"))
     assert link.is_symlink() and real.read_text() == '[display]\nlanguage = "en-US"\n'
+
+
+# --- removal without JavaScript and preview polling --------------------------------------------
+
+def test_remove_without_javascript_asks_on_a_page_first(logged):
+    add(logged, name="Work", url=LINK)
+    r = logged.post("/calendars/0/delete", data=logged.csrf_data())
+    page = body(r)
+    assert r.status_code == 200 and logged.raw()["calendar"][0]["name"] == "Work"   # not removed
+    assert EN("admin.confirm_remove_calendar", name="Work") in page
+    assert 'action="/calendars/0/delete"' in page and 'name="confirmed" value="1"' in page
+    assert f'name="csrf" value="{logged.c.csrf}"' in page and logged.digest() in page
+    assert 'href="/calendars"' in page                                   # cancel goes back
+    r = logged.post("/calendars/0/delete", data=logged.csrf_data(confirmed="1"))
+    assert r.status_code == 303 and logged.raw().get("calendar", []) == []
+
+
+def test_remove_tasks_without_javascript_asks_first(logged):
+    logged.post("/tasks", data=logged.form(url=LINK, overdue_days="7"))
+    page = body(logged.post("/tasks/delete", data=logged.csrf_data()))
+    assert EN("admin.confirm_remove_tasks") in page and "tasks" in logged.raw()
+    assert logged.post("/tasks/delete", data=logged.csrf_data(confirmed="1")).status_code == 303
+    assert "tasks" not in logged.raw()
+
+
+def test_remove_buttons_carry_an_empty_confirmed_field_for_the_script(logged):
+    add(logged, name="Work", url=LINK)
+    page = body(logged.get("/calendars"))
+    assert 'data-confirm="' in page and '<input type="hidden" name="confirmed" value="">' in page
+
+
+def test_the_confirmation_post_needs_the_csrf_token(logged):
+    add(logged, name="Work", url=LINK)
+    r = logged.c.post("/calendars/0/delete", base_url=BASE,
+                      data={"digest": logged.digest(), "confirmed": "1"})
+    assert r.status_code == 403 and logged.raw()["calendar"][0]["name"] == "Work"
+
+
+def rendered_once(state):
+    state.render_event.clear()
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30, tzinfo=dt.timezone.utc),
+                                   "Free", "", [])
+
+
+def test_home_polls_once_after_a_save_or_update_now(logged, state):
+    rendered_once(state)
+    assert "data-poll" not in body(logged.get("/"))                      # nothing asked for
+    add(logged, name="Work", url=LINK)
+    rendered_once(state)                                                 # rendered already
+    assert "data-poll" in body(logged.get("/"))                          # still watches once
+    assert "data-poll" not in body(logged.get("/"))
+    logged.post("/render", data={"csrf": logged.c.csrf})
+    rendered_once(state)
+    assert "data-poll" in body(logged.get("/"))
+
+
+def test_first_setup_banner_does_not_start_polling(logged, state):
+    rendered_once(state)
+    page = body(logged.get("/"))
+    assert EN("admin.first_setup") in page and "data-poll" not in page
+    script = open(os.path.join(os.path.dirname(pages.__file__), "static", "admin.js"),
+                  encoding="utf-8").read()
+    assert ".notice" not in script                                       # notices never start it
