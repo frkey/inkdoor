@@ -58,7 +58,8 @@
     "setup_admin": "Abra {url} para adicionar suas agendas",
     "setup_file": "Adicione os links das suas agendas no config.toml",
     "host_headline": "endereço não permitido",
-    "host_detail": "Use o endereço IP ou adicione {host} em allowed_hosts, na seção [admin] do config.toml"
+    "host_detail": "Use o endereço IP ou adicione {host} em allowed_hosts, na seção [admin] do config.toml",
+    "host_detail_generic": "Use o endereço IP ou adicione este nome em allowed_hosts, na seção [admin] do config.toml"
   },
   "section": {
     "today": "Hoje",
@@ -225,6 +226,10 @@
     "login_expired": "Este formulário expirou. Tente de novo.",
     "bad_host": "Este endereço não é permitido. Abra o admin pelo IP do servidor ou adicione este nome em allowed_hosts, na seção [admin] do config.toml.",
     "log_host_rejected": "Imagem do Kindle recusada para um endereço não permitido: {host}",
+    "log_host_rejected_more": {
+      "one": "Imagem do Kindle recusada para mais {n} endereço não permitido no último minuto (sem registro um a um)",
+      "other": "Imagem do Kindle recusada para mais {n} endereços não permitidos no último minuto (sem registro um a um)"
+    },
     "log_error": "Falha na requisição: {error}",
     "home_title": "Porta",
     "last_update": "Última atualização: {date}, {time}",

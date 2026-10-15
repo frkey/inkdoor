@@ -93,7 +93,7 @@ def test_no_busy_never_says_free(cfg):
 
 def test_setup_and_host_screens_use_kindle_grays(cfg):
     for img in [render_setup(cfg, "http://192.168.100.200:65535"), render_setup(cfg, None),
-                render_host_rejected(cfg, "door.example.com")]:
+                render_host_rejected(cfg, "door.example.com"), render_host_rejected(cfg, None)]:
         assert img.size == (1072, 1448) and grays(img) <= KINDLE_GRAYS
 
 
@@ -102,6 +102,8 @@ def test_host_screen_points_to_allowed_hosts_in_the_config_file(language):
     """The admin has no allowed-hosts field, and this screen shows even with the admin off."""
     detail = Translator(language)("status.host_detail", host="door.example.com")
     assert "allowed_hosts" in detail and "config.toml" in detail and "door.example.com" in detail
+    generic = Translator(language)("status.host_detail_generic")
+    assert "allowed_hosts" in generic and "config.toml" in generic
 
 
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])

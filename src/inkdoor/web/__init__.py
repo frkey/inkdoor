@@ -42,6 +42,10 @@ SESSION_LIFETIME = 7 * 86400
 SAFE_METHODS = frozenset({"GET", "HEAD"})
 PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static"})
 HOST_IMAGE_CACHE = 16
+# Rejected hosts: renders of new names per second (the rest get one generic image per language),
+# and log lines per minute (the rest are counted in the next line)
+HOST_RENDERS_PER_SECOND = 2
+HOST_LOGS_PER_MINUTE = 1
 MAX_PASSWORD_LENGTH = 1024
 MAX_REQUEST_BYTES = 1024 * 1024
 
@@ -151,6 +155,32 @@ def _same_token(given, expected: str) -> bool:
     return hmac.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
+class _Budget:
+    """At most ``limit`` events in each window of ``period`` seconds; counts the refused ones."""
+
+    def __init__(self, limit: int, period: float, monotonic):
+        self._limit, self._period, self._monotonic = limit, period, monotonic
+        self._window_start: float | None = None
+        self._used = 0
+        self.refused = 0
+
+    def take(self) -> bool:
+        now = self._monotonic()
+        if self._window_start is None or now - self._window_start >= self._period:
+            self._window_start, self._used = now, 0
+        if self._used < self._limit:
+            self._used += 1
+            return True
+        self.refused += 1
+        return False
+
+
+def _png(image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
 class _App(Flask):
     def log_exception(self, exc_info) -> None:
         """Flask's last resort (an error handler or after_request raised): the type only, never
@@ -172,6 +202,9 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     watcher = auth.PasswordWatcher(password_file)
     watcher.changed()  # record the file as it is now, so the first change is noticed
     host_images: OrderedDict[tuple[str, str], bytes] = OrderedDict()
+    generic_host_images: dict[str, bytes] = {}            # per language, never evicted
+    host_renders = _Budget(HOST_RENDERS_PER_SECOND, 1.0, monotonic)
+    host_logs = _Budget(HOST_LOGS_PER_MINUTE, 60.0, monotonic)
     host_lock = threading.Lock()
     app.extensions["inkdoor"] = {"sessions": sessions, "limiter": limiter, "watcher": watcher,
                                  "host_images": host_images}
@@ -187,17 +220,34 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     # --- guards -------------------------------------------------------------------------------
 
     def host_image(raw_host: str) -> bytes:
+        """The error image for a rejected host. A client cycling Host values gets at most
+        HOST_RENDERS_PER_SECOND renders and HOST_LOGS_PER_MINUTE log lines; the Kindle's own
+        host is cached after its first request, so what it receives does not change."""
         shown = _printable(raw_host)
-        key = (t().language, shown)
+        language = t().language
+        key = (language, shown)
         with host_lock:
             png = host_images.get(key)
             if png is not None:
                 host_images.move_to_end(key)
                 return png
-        app.logger.warning(t()("admin.log_host_rejected", host=shown))
-        buffer = io.BytesIO()
-        render_host_rejected(state.cfg, shown).save(buffer, format="PNG", optimize=True)
-        png = buffer.getvalue()
+            render = host_renders.take()
+            log, skipped = host_logs.take(), host_logs.refused
+            if log:
+                host_logs.refused = 0
+            generic = None if render else generic_host_images.get(language)
+        if log:
+            if skipped:
+                app.logger.warning(t()("admin.log_host_rejected_more", n=skipped))
+            app.logger.warning(t()("admin.log_host_rejected", host=shown))
+        if generic is not None:
+            return generic
+        if not render:  # first generic image of this language
+            png = _png(render_host_rejected(state.cfg, None))
+            with host_lock:
+                generic_host_images[language] = png
+            return png
+        png = _png(render_host_rejected(state.cfg, shown))
         with host_lock:
             host_images[key] = png
             while len(host_images) > HOST_IMAGE_CACHE:
