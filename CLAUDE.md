@@ -140,6 +140,17 @@ Work is tracked in GitHub issues on `frkey/inkdoor` (use `gh issue ...`).
 GitHub's `good first issue`, `help wanted`, `duplicate`, `wontfix` and `question` labels stay
 available alongside these.
 
+## Pull requests
+
+- **Always run `/code-review` before opening a pull request.** Run the Claude Code skill on the
+  branch's changes once the work is committed and the tests pass, and again before pushing large
+  new changes to an open PR.
+- **Handle every finding before opening the PR**: fix it, or say in the PR description why it does
+  not apply. A real problem that is out of scope becomes an issue (see "Issues and labels") and the
+  PR links to it.
+- **Record it**: the PR's test plan has a checked line saying `/code-review` ran, with the number of
+  findings fixed and deferred.
+
 ## Privacy
 
 This is a public repository.
