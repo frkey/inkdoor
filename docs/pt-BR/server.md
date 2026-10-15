@@ -53,10 +53,13 @@ boot) e instala o inkdoor nele.
 
    O inkdoor está rodando.
      Admin:  http://192.168.1.50:3667  (entre com a senha mostrada acima)
+             ou http://inkdoor.local:3667 em computadores e celulares (o Kindle usa o IP)
      No Kindle, em inkdoor/config.sh:  URL="http://192.168.1.50:3667/kindle.png"
    ```
 
 5. Abra o endereço do admin num navegador da mesma rede e entre com essa senha.
+   Computadores e celulares também podem usar `http://inkdoor.local:3667` (o nome do container,
+   anunciado na rede); o Kindle não entende esse tipo de nome, então ele usa sempre o IP.
 6. Em **Agendas**, adicione os links das suas agendas ([onde encontrar](calendar-sources.md))
    e, depois de salvar, aperte **Testar link** em cada uma. A prévia em **Início** mostra a
    porta como o Kindle vai mostrar.
@@ -139,7 +142,8 @@ curl -fsSLO https://raw.githubusercontent.com/frkey/inkdoor/master/deploy/instal
 bash install.sh --lang pt-BR
 ```
 
-Ele instala o Python e o git pelo apt, baixa o inkdoor em `/opt/inkdoor` e cria o usuário
+Ele instala o Python, o git e o avahi (que anuncia a máquina como `<hostname>.local`) pelo apt,
+baixa o inkdoor em `/opt/inkdoor` e cria o usuário
 `inkdoor` e o serviço. Na primeira vez, cria o `/etc/inkdoor/config.toml` só com o `--lang`
 escolhido, o fuso horário da máquina e o admin ligado: as agendas você adiciona no admin (cada
 opção está explicada em `/opt/inkdoor/config.example.toml`). Depois gera uma senha do admin,

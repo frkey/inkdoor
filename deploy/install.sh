@@ -85,6 +85,7 @@ case "$LANGUAGE" in
 O inkdoor está rodando."
     MSG_ADMIN_NEW="  Admin:  %s  (entre com a senha mostrada acima)"
     MSG_ADMIN_URL="  Admin:  %s"
+    MSG_ADMIN_LOCAL="          ou http://%s.local:%s em computadores e celulares (o Kindle usa o IP)"
     MSG_PASSWORD_HINT="  Esqueceu a senha do admin? Rode: inkdoor password"
     MSG_ADMIN_OFF="  O admin pela web está desligado ([admin] enabled não está como true em %s)."
     MSG_ADMIN_TURN_ON="  Para ligar: coloque [admin] enabled = true nele e rode systemctl restart inkdoor."
@@ -114,6 +115,7 @@ O inkdoor está rodando."
 inkdoor is running."
     MSG_ADMIN_NEW="  Admin:  %s  (log in with the password above)"
     MSG_ADMIN_URL="  Admin:  %s"
+    MSG_ADMIN_LOCAL="          or http://%s.local:%s on computers and phones (the Kindle uses the IP)"
     MSG_PASSWORD_HINT="  Forgot the admin password? Run: inkdoor password"
     MSG_ADMIN_OFF="  The web admin is off ([admin] enabled is not true in %s)."
     MSG_ADMIN_TURN_ON="  To turn it on: set [admin] enabled = true there and run systemctl restart inkdoor."
@@ -145,7 +147,10 @@ command -v apt-get >/dev/null || die "$MSG_NEED_APT"
 say "$MSG_PACKAGES"
 export DEBIAN_FRONTEND=noninteractive DEBCONF_NOWARNINGS=yes
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends python3 python3-venv git ca-certificates tzdata >/dev/null
+# avahi-daemon announces this machine as <hostname>.local, so computers and phones can open the
+# admin by name (the Kindle cannot resolve .local names and keeps using the IP address)
+apt-get install -y -qq --no-install-recommends python3 python3-venv git ca-certificates tzdata \
+  avahi-daemon >/dev/null
 python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || die "$MSG_OLD_PYTHON"
 
 # valid_timezone NAME: a zone from the system's tz database, e.g. America/Sao_Paulo
@@ -300,6 +305,16 @@ systemctl is-active --quiet inkdoor || die "$MSG_FAILED"
 
 # "inkdoor url" says why on its own when this machine has no address on the local network
 ADMIN_URL="$("$WRAPPER" url "${CLI_LANG[@]}")" || ADMIN_URL="http://<ip>:<port>"
+
+# The .local name, only when avahi is really announcing it and the name and port look right
+systemctl enable --now --quiet avahi-daemon >/dev/null 2>&1 || true
+LOCAL_NAME=""
+LOCAL_PORT="${ADMIN_URL##*:}"
+if systemctl is-active --quiet avahi-daemon; then
+  LOCAL_NAME="$(hostname -s 2>/dev/null || true)"
+  case "$LOCAL_NAME" in ''|-*|*[!A-Za-z0-9-]*) LOCAL_NAME="" ;; esac
+  case "$LOCAL_PORT" in ''|*[!0-9]*) LOCAL_NAME="" ;; esac
+fi
 say "$MSG_RUNNING"
 case "$ADMIN" in
   off)
@@ -314,8 +329,9 @@ case "$ADMIN" in
       say "$MSG_ADMIN_NEW" "$ADMIN_URL"
     else
       say "$MSG_ADMIN_URL" "$ADMIN_URL"
-      say "$MSG_PASSWORD_HINT"
-    fi ;;
+    fi
+    [ -z "$LOCAL_NAME" ] || say "$MSG_ADMIN_LOCAL" "$LOCAL_NAME" "$LOCAL_PORT"
+    [ -n "$NEW_PASSWORD" ] || say "$MSG_PASSWORD_HINT" ;;
   *) ;;  # the config could not be read: the admin's state is unknown, so say nothing about it
 esac
 say "$MSG_KINDLE_URL" "$ADMIN_URL/kindle.png"
