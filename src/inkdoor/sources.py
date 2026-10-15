@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import re
+import threading
 import unicodedata
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
@@ -53,23 +55,35 @@ class Snapshot:
     tasks: list
     errors: list = field(default_factory=list)     # "Name: ErrorType" for sources that failed
     unknown: list = field(default_factory=list)    # busy calendars with no data at all right now
+    # What has a link: "nothing" (no calendar and no tasks), "no_busy" (something, but no busy
+    # calendar) or "busy" (at least one busy calendar). The renderer never says Free unless "busy".
+    configured: str = "busy"
+
+
+def cache_key(name: str, url: str) -> tuple[str, str]:
+    """Cache key for a source: its name plus a hash of its link (the link itself is never stored)."""
+    return (name, hashlib.sha256(url.encode("utf-8")).hexdigest())
 
 
 class SourceCache:
     """Last good data per source, reused when a fetch fails.
 
     A flaky calendar link must never flip the door to "Free" in the middle of a meeting, so
-    the server keeps the last successful read of each source for the current day.
+    the server keeps the last successful read of each source for the current day. Entries are
+    keyed by name and link, so a replaced link never falls back to the old link's data.
     """
 
     def __init__(self):
         self._data: dict = {}
+        self._lock = threading.Lock()
 
-    def put(self, name: str, day: dt.date, items: list) -> None:
-        self._data[name] = (day, items)
+    def put(self, key: tuple[str, str], day: dt.date, items: list) -> None:
+        with self._lock:
+            self._data[key] = (day, items)
 
-    def get(self, name: str, day: dt.date):
-        cached = self._data.get(name)
+    def get(self, key: tuple[str, str], day: dt.date):
+        with self._lock:
+            cached = self._data.get(key)
         return cached[1] if cached and cached[0] == day else None
 
 
@@ -190,18 +204,22 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
     window_end = day_start + dt.timedelta(days=2)
 
     events, errors, unknown = [], [], []
+    any_configured = busy_configured = False
     for calendar in cfg.get("calendar", []):
         if not is_configured(calendar.get("url")):
             continue
+        any_configured = True
+        busy_configured = busy_configured or bool(calendar.get("busy", True))
         name = calendar["name"]
+        key = cache_key(name, calendar["url"])
         try:
             fresh = read_calendar(calendar, day_start, window_end, tz)
             if cache is not None:
-                cache.put(name, today, fresh)
+                cache.put(key, today, fresh)
             events += fresh
         except Exception as ex:  # one broken calendar must not take the screen down
             errors.append(f"{name}: {ex.__class__.__name__}")
-            cached = cache.get(name, today) if cache is not None else None
+            cached = cache.get(key, today) if cache is not None else None
             if cached is not None:
                 events += cached
             elif calendar.get("busy", True):
@@ -210,18 +228,21 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
     tasks = []
     tasks_cfg = cfg.get("tasks")
     if tasks_cfg and is_configured(tasks_cfg.get("url")):
+        any_configured = True
         name = tasks_cfg.get("name", "TickTick")
+        key = cache_key("__tasks__", tasks_cfg["url"])
         try:
             tasks = read_tasks(tasks_cfg, today, tz)
             if cache is not None:
-                cache.put("__tasks__", today, tasks)
+                cache.put(key, today, tasks)
         except Exception as ex:
             errors.append(f"{name}: {ex.__class__.__name__}")
-            tasks = (cache.get("__tasks__", today) if cache is not None else None) or []
+            tasks = (cache.get(key, today) if cache is not None else None) or []
 
     events = deduplicate(events)
     today_events = [e for e in events if e.start < tomorrow_start and e.end > day_start]
     tomorrow_events = [e for e in events
                        if (e.all_day and e.start < window_end and e.end > tomorrow_start)
                        or (not e.all_day and tomorrow_start <= e.start < window_end)]
-    return Snapshot(now, today_events, tomorrow_events, tasks, errors, unknown)
+    configured = "busy" if busy_configured else "no_busy" if any_configured else "nothing"
+    return Snapshot(now, today_events, tomorrow_events, tasks, errors, unknown, configured)

@@ -10,6 +10,10 @@ FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 TZ = ZoneInfo("America/Sao_Paulo")
 
 
+def fixture(name: str) -> str:
+    return os.path.join(FIXTURES, name)
+
+
 @pytest.fixture
 def cfg():
     path = lambda name: os.path.join(FIXTURES, name)
