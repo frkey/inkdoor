@@ -1,6 +1,7 @@
 import pytest
 
 from inkdoor import config
+from inkdoor.i18n import Translator
 
 
 def write(tmp_path, text):
@@ -28,12 +29,29 @@ def test_defaults_and_language_override(tmp_path):
     ('[[calendar]]\nname = "A"\nstyle = "dotted"\n', "style"),
     ('[admin]\nenabled = "yes"\n', "admin_enabled"),
     ('[admin]\nallowed_hosts = "door.example"\n', "allowed_hosts"),
+    ('[admin]\nallowed_hosts = ["door.example:8000"]\n', "allowed_host"),
+    ('[admin]\nallowed_hosts = ["[fd00::1]:8000"]\n', "allowed_host"),
+    ('[admin]\nallowed_hosts = ["porta.exemplo-ç.com"]\n', "allowed_host"),
     ('admin = true\n', "section"),
 ])
 def test_invalid_values_are_explained(tmp_path, text, key):
     with pytest.raises(config.ConfigInvalid) as err:
         config.load(write(tmp_path, text))
     assert err.value.key == key
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_allowed_host_with_a_port_is_explained(tmp_path, language):
+    with pytest.raises(config.ConfigInvalid) as err:
+        config.load(write(tmp_path, '[admin]\nallowed_hosts = ["door.example:8000"]\n'))
+    message = Translator(language)(f"config_error.{err.value.key}", **err.value.details)
+    assert '"door.example:8000"' in message and "{" not in message
+
+
+def test_allowed_hosts_accepts_names_and_addresses(tmp_path):
+    hosts = '["door.example.com", "door.example.com.", "xn--prta-6qa.example", "fd00::1", "[fd00::1]"]'
+    cfg = config.load(write(tmp_path, f"[admin]\nallowed_hosts = {hosts}\n"))
+    assert len(cfg["admin"]["allowed_hosts"]) == 5
 
 
 def test_admin_is_off_by_default(tmp_path):

@@ -49,6 +49,8 @@ def test_clock_and_plurals():
     assert pt.duration(90) == "1h30" and en.duration(90) == "1h 30m"
     assert en.date_header(dt.date(2026, 10, 14)) == "Wednesday, Oct 14"
     assert pt.date_header(dt.date(2026, 10, 14)) == "Quarta, 14 de out"
+    assert en.date_short(dt.date(2026, 10, 4)) == "Oct 4"
+    assert pt.date_short(dt.date(2026, 10, 4)) == "04/10"
 
 
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])

@@ -1069,3 +1069,26 @@ def test_a_symlinked_config_is_never_replaced(logged, state, tmp_path):
     assert r.status_code == 303
     assert str(escape(EN("admin.error_link"))) in body(logged.get("/"))
     assert link.is_symlink() and real.read_text() == '[display]\nlanguage = "en-US"\n'
+
+
+# --- dates ------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("language, when, absent", [
+    ("en-US", r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2} \d{1,2}:\d{2} [AP]M\b",
+     r"\b\d{2}/\d{2}\b"),
+    ("pt-BR", r"\b\d{2}/\d{2} \d{1,2}:\d{2}\b", r"\b(Oct|out) \d"),
+])
+def test_admin_dates_follow_the_language(tmp_path, monkeypatch, language, when, absent):
+    state = make_state(tmp_path, display={"language": language})
+    with open(state.config_path, "w", encoding="utf-8") as f:
+        f.write(f'[display]\nlanguage = "{language}"\n\n[[calendar]]\nname = "Work"\nurl = "{LINK}"\n')
+    logged = Admin(make_app(state, FakeClock()), state)
+    t = Translator(language)
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30, tzinfo=dt.timezone.utc),
+                                   "Free", "", [])
+    home = body(logged.get("/"))
+    assert t("admin.last_update", date={"en-US": "Oct 14", "pt-BR": "14/10"}[language],
+             time=t.time(dt.time(16, 30))) in home
+    monkeypatch.setattr("inkdoor.net.fetch", lambda url, **kw: ics())
+    fragment = body(logged.post("/calendars/0/test", data=logged.csrf_data(), headers=XHR))
+    assert re.search(when, fragment) and not re.search(absent, fragment)

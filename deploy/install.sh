@@ -81,7 +81,9 @@ O inkdoor está rodando."
     MSG_ADMIN_NEW="  Admin:  %s  (entre com a senha mostrada acima)"
     MSG_ADMIN_URL="  Admin:  %s"
     MSG_PASSWORD_HINT="  Esqueceu a senha do admin? Rode: inkdoor password"
-    MSG_ADMIN_OFF="  O admin pela web está desligado ([admin] enabled = false em %s)."
+    MSG_ADMIN_OFF="  O admin pela web está desligado ([admin] enabled não está como true em %s)."
+    MSG_ADMIN_TURN_ON="  Para ligar: coloque [admin] enabled = true nele e rode systemctl restart inkdoor."
+    MSG_ADMIN_FIRST_PASSWORD="  Para ligar: coloque [admin] enabled = true nele, rode inkdoor password (cria a senha) e depois systemctl restart inkdoor."
     MSG_KINDLE_URL="  No Kindle, em inkdoor/config.sh:  URL=\"%s\""
     MSG_FAILED="O serviço não subiu. Veja: journalctl -u inkdoor -n 50"
     ;;
@@ -108,7 +110,9 @@ inkdoor is running."
     MSG_ADMIN_NEW="  Admin:  %s  (log in with the password above)"
     MSG_ADMIN_URL="  Admin:  %s"
     MSG_PASSWORD_HINT="  Forgot the admin password? Run: inkdoor password"
-    MSG_ADMIN_OFF="  The web admin is off ([admin] enabled = false in %s)."
+    MSG_ADMIN_OFF="  The web admin is off ([admin] enabled is not true in %s)."
+    MSG_ADMIN_TURN_ON="  To turn it on: set [admin] enabled = true there and run systemctl restart inkdoor."
+    MSG_ADMIN_FIRST_PASSWORD="  To turn it on: set [admin] enabled = true there, run inkdoor password (it makes the password), then systemctl restart inkdoor."
     MSG_KINDLE_URL="  On the Kindle, in inkdoor/config.sh:  URL=\"%s\""
     MSG_FAILED="The service did not start. See: journalctl -u inkdoor -n 50"
     ;;
@@ -216,9 +220,13 @@ print("none" if admin is None else "on" if admin.get("enabled") is True else "of
 EOF
 }
 
+# "on", "off" or "" (unknown: the file could not be read or does not parse)
 ADMIN=""
 if [ -L "$CONF" ]; then
   say "$MSG_CONFIG_LINK" "$CONF"
+  # Links are never written, only read: no [admin] table means the admin is off
+  ADMIN="$(admin_setting)"
+  [ "$ADMIN" != "none" ] || ADMIN="off"
 else
   if [ -f "$CONF" ]; then
     say "$MSG_CONFIG_KEPT" "$CONF"
@@ -270,9 +278,10 @@ systemctl enable --quiet inkdoor
 # Its messages in the same language as this script's (English without --lang)
 CLI_LANG=(--lang "${LANGUAGE:-en-US}")
 
-# The first password is made by inkdoor itself, as the inkdoor user, and printed once
+# The first password is made by inkdoor itself, as the inkdoor user, and printed once. Not while
+# the admin is off: "inkdoor password" makes one whenever it is turned on.
 NEW_PASSWORD=""
-if [ ! -e "$CONF_DIR/admin-password" ]; then
+if [ "$ADMIN" != "off" ] && [ ! -e "$CONF_DIR/admin-password" ]; then
   "$WRAPPER" password "${CLI_LANG[@]}"
   NEW_PASSWORD=1
 fi
@@ -284,12 +293,21 @@ systemctl is-active --quiet inkdoor || die "$MSG_FAILED"
 # "inkdoor url" says why on its own when this machine has no address on the local network
 ADMIN_URL="$("$WRAPPER" url "${CLI_LANG[@]}")" || ADMIN_URL="http://<ip>:<port>"
 say "$MSG_RUNNING"
-if [ "$ADMIN" = "off" ]; then
-  say "$MSG_ADMIN_OFF" "$CONF"
-elif [ -n "$NEW_PASSWORD" ]; then
-  say "$MSG_ADMIN_NEW" "$ADMIN_URL"
-else
-  say "$MSG_ADMIN_URL" "$ADMIN_URL"
-  say "$MSG_PASSWORD_HINT"
-fi
+case "$ADMIN" in
+  off)
+    say "$MSG_ADMIN_OFF" "$CONF"
+    if [ -e "$CONF_DIR/admin-password" ]; then
+      say "$MSG_ADMIN_TURN_ON"
+    else
+      say "$MSG_ADMIN_FIRST_PASSWORD"
+    fi ;;
+  on)
+    if [ -n "$NEW_PASSWORD" ]; then
+      say "$MSG_ADMIN_NEW" "$ADMIN_URL"
+    else
+      say "$MSG_ADMIN_URL" "$ADMIN_URL"
+      say "$MSG_PASSWORD_HINT"
+    fi ;;
+  *) ;;  # the config could not be read: the admin's state is unknown, so say nothing about it
+esac
 say "$MSG_KINDLE_URL" "$ADMIN_URL/kindle.png"

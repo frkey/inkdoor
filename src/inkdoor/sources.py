@@ -60,9 +60,10 @@ class Snapshot:
     configured: str = "busy"
 
 
-def cache_key(name: str, url: str) -> tuple[str, str]:
-    """Cache key for a source: its name plus a hash of its link (the link itself is never stored)."""
-    return (name, hashlib.sha256(url.encode("utf-8")).hexdigest())
+def cache_key(kind: str, name: str, url: str) -> tuple[str, str, str]:
+    """Cache key for a source: its kind ("calendar" or "tasks"), its name and a hash of its link
+    (the link itself is never stored). The kind keeps a calendar from sharing the tasks' key."""
+    return (kind, name, hashlib.sha256(url.encode("utf-8")).hexdigest())
 
 
 class SourceCache:
@@ -70,21 +71,27 @@ class SourceCache:
 
     A flaky calendar link must never flip the door to "Free" in the middle of a meeting, so
     the server keeps the last successful read of each source for the current day. Entries are
-    keyed by name and link, so a replaced link never falls back to the old link's data.
+    keyed by kind, name and link, so a replaced link never falls back to the old link's data, and
+    `keep` drops the entries of sources that are no longer in the config.
     """
 
     def __init__(self):
         self._data: dict = {}
         self._lock = threading.Lock()
 
-    def put(self, key: tuple[str, str], day: dt.date, items: list) -> None:
+    def put(self, key: tuple, day: dt.date, items: list) -> None:
         with self._lock:
             self._data[key] = (day, items)
 
-    def get(self, key: tuple[str, str], day: dt.date):
+    def get(self, key: tuple, day: dt.date):
         with self._lock:
             cached = self._data.get(key)
         return cached[1] if cached and cached[0] == day else None
+
+    def keep(self, keys: set) -> None:
+        """Drops every entry whose key is not in `keys`."""
+        with self._lock:
+            self._data = {key: value for key, value in self._data.items() if key in keys}
 
 
 # ---------------------------------------------------------------- reading
@@ -211,7 +218,7 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
     tomorrow_start = day_start + dt.timedelta(days=1)
     window_end = day_start + dt.timedelta(days=2)
 
-    events, errors, unknown = [], [], []
+    events, errors, unknown, keys = [], [], [], set()
     any_configured = busy_configured = False
     for calendar in cfg.get("calendar", []):
         if not is_configured(calendar.get("url")):
@@ -219,7 +226,8 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
         any_configured = True
         busy_configured = busy_configured or bool(calendar.get("busy", True))
         name = calendar["name"]
-        key = cache_key(name, calendar["url"])
+        key = cache_key("calendar", name, calendar["url"])
+        keys.add(key)
         try:
             fresh = read_calendar(calendar, day_start, window_end, tz)
             if cache is not None:
@@ -238,7 +246,8 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
     if tasks_cfg and is_configured(tasks_cfg.get("url")):
         any_configured = True
         name = tasks_cfg.get("name", "TickTick")
-        key = cache_key("__tasks__", tasks_cfg["url"])
+        key = cache_key("tasks", name, tasks_cfg["url"])
+        keys.add(key)
         try:
             tasks = read_tasks(tasks_cfg, today, tz)
             if cache is not None:
@@ -246,6 +255,9 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
         except Exception as ex:
             errors.append(f"{name}: {ex.__class__.__name__}")
             tasks = (cache.get(key, today) if cache is not None else None) or []
+
+    if cache is not None:
+        cache.keep(keys)                 # links replaced or removed since the last cycle
 
     events = deduplicate(events)
     today_events = [e for e in events if e.start < tomorrow_start and e.end > day_start]

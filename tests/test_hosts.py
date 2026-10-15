@@ -34,10 +34,24 @@ def test_rejected(host):
         "[door.lan]", "-bad.lan", "bad-.lan", "a..lan", ".lan", "door_x.lan", " door.lan",
         "door.lan\t", "exämple.lan", "a" * 64 + ".lan", ("a" * 60 + ".") * 5 + "lan",
         "999.1.1.1.evil.com", "door.lan.:", "door..", ".",
+        "door.lan:0", "door.lan:65536", "door.lan:99999", "[::1]:0", "[::1]:70000",
+        "\u212aitchen.lan", "door.\u212aitchen", "\u0130nkdoor.lan",
     ],
 )
 def test_malformed_or_lookalike_rejected(host):
     assert not host_allowed(host, extra=[])
+
+
+def test_port_range_edges():
+    assert host_name("door.lan:1") == "door.lan" and host_name("door.lan:65535") == "door.lan"
+    assert host_name("[::1]:65535") == "::1"
+
+
+def test_non_ascii_never_folds_into_an_allowed_name():
+    # "\u212a" (Kelvin sign) lowercases to "k"; the header must be rejected, not folded
+    assert host_name("\u212aitchen.lan") is None
+    assert not host_allowed("door.example.com", extra=["door.example.co\u212a"])
+    assert not host_allowed("\u212aitchen.example", extra=["kitchen.example"])
 
 
 def test_extra_is_exact_not_suffix():

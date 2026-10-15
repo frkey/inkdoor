@@ -130,13 +130,41 @@ def test_new_tasks_link_does_not_reuse_old_links_cache(cfg, monkeypatch):
     assert snap.tasks == [] and snap.errors
 
 
-def test_cache_is_keyed_by_name_and_link():
+def test_cache_is_keyed_by_kind_name_and_link():
     cache = SourceCache()
     day = dt.date(2026, 10, 14)
-    cache.put(("Work", "aaa"), day, [1])
-    assert cache.get(("Work", "aaa"), day) == [1]
-    assert cache.get(("Work", "bbb"), day) is None
-    assert cache.get(("Other", "aaa"), day) is None
+    cache.put(("calendar", "Work", "aaa"), day, [1])
+    assert cache.get(("calendar", "Work", "aaa"), day) == [1]
+    assert cache.get(("calendar", "Work", "bbb"), day) is None
+    assert cache.get(("calendar", "Other", "aaa"), day) is None
+    assert cache.get(("tasks", "Work", "aaa"), day) is None
+
+
+def test_calendar_and_tasks_never_share_a_cache_entry(cfg, monkeypatch):
+    # a calendar and the tasks with the same name and the same link
+    cfg["calendar"] = [{"name": "__tasks__", "url": fixture("tasks.ics")}]
+    cfg["tasks"] = {"name": "__tasks__", "url": fixture("tasks.ics"), "overdue_days": 7}
+    cache = SourceCache()
+    good = collect(cfg, now=at("12:00"), cache=cache)
+    assert good.tasks
+    monkeypatch.setattr(sources, "fetch", lambda url: (_ for _ in ()).throw(FetchError("unreachable")))
+    snap = collect(cfg, now=at("12:00"), cache=cache)
+    assert [t.title for t in snap.tasks] == [t.title for t in good.tasks]     # tasks, not events
+    assert snap.today == good.today and snap.unknown == []
+
+
+def test_replaced_and_removed_links_are_evicted(cfg):
+    cache = SourceCache()
+    collect(cfg, now=at("10:00"), cache=cache)
+    assert len(cache._data) == 4                                    # three calendars and the tasks
+    old_work = sources.cache_key("calendar", "Work", cfg["calendar"][0]["url"])
+    cfg["calendar"][0]["url"] = fixture("company.ics")              # replaced link
+    del cfg["calendar"][2]                                          # removed calendar
+    del cfg["tasks"]
+    collect(cfg, now=at("10:00"), cache=cache)
+    assert old_work not in cache._data
+    assert set(cache._data) == {sources.cache_key("calendar", c["name"], c["url"])
+                                for c in cfg["calendar"]}
 
 
 @pytest.mark.parametrize("lang", ["en-US", "pt-BR"])
