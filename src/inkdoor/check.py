@@ -19,6 +19,10 @@ FREE_BUSY_TITLES = {"busy", "ocupado", "tentative", "provisório", "free", "livr
 
 OK, WARN, FAIL = "  ✔", "  ⚠", "  ✖"
 
+# net.FetchError reasons with a message of their own; the rest read "could not reach"
+_FETCH_ERROR_KEYS = {"blocked": "check.blocked", "redirects": "check.redirects",
+                     "bad_link": "check.bad_link"}
+
 
 def check_link(url: str, t: Translator) -> tuple[bool, str]:
     """Downloads the link and makes sure it is a calendar. Returns (ok, message)."""
@@ -33,7 +37,11 @@ def check_link(url: str, t: Translator) -> tuple[bool, str]:
             if ex.status == 404:
                 return False, t("check.not_found")
             return False, t("check.http_error", status=ex.status)
-        return False, t("check.unreachable", error=ex.reason)
+        if ex.reason == "too_large":
+            return False, t("check.too_large", mb=net.MAX_BYTES // 1_000_000)
+        if ex.reason == "timeout":
+            return False, t("check.timeout", seconds=int(net.DEADLINE))
+        return False, t(_FETCH_ERROR_KEYS.get(ex.reason, "check.unreachable"))
     head = content[:2000]
     if b"BEGIN:VCALENDAR" not in head:
         return False, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")

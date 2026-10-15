@@ -129,7 +129,12 @@
   },
   "check": {
     "not_configured": "link not pasted into config.toml yet",
-    "unreachable": "could not reach the address ({error})",
+    "unreachable": "could not reach the address. Check the link and the internet connection.",
+    "blocked": "address not allowed: the link points to this computer or to a link-local address.",
+    "too_large": "the calendar is too big (more than {mb} MB).",
+    "timeout": "the server took too long to answer (more than {seconds} seconds).",
+    "redirects": "the link sends you through too many other addresses. Copy the final link from your calendar app.",
+    "bad_link": "this is not a valid link. It must start with https://, http:// or webcal://.",
     "denied": "access denied (HTTP {status}). Usually your company blocks published calendars, or the link was unpublished.",
     "not_found": "link not found (HTTP 404). Publish the calendar again and copy the ICS link.",
     "http_error": "the server answered with HTTP {status}",

@@ -3,7 +3,7 @@ import os
 import pytest
 from conftest import FIXTURES, at
 
-from inkdoor import check
+from inkdoor import check, net
 from inkdoor.check import check_link, run
 from inkdoor.i18n import Translator
 from inkdoor.net import FetchError
@@ -17,26 +17,44 @@ def test_check_output_matches_golden(cfg, capsys, language):
     assert capsys.readouterr().out == expected
 
 
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
 @pytest.mark.parametrize("error, key, kwargs", [
     (FetchError("http", 401), "check.denied", {"status": 401}),
     (FetchError("http", 403), "check.denied", {"status": 403}),
     (FetchError("http", 404), "check.not_found", {}),
     (FetchError("http", 500), "check.http_error", {"status": 500}),
-    (FetchError("blocked"), "check.unreachable", {"error": "blocked"}),
-    (FetchError("too_large"), "check.unreachable", {"error": "too_large"}),
+    (FetchError("blocked"), "check.blocked", {}),
+    (FetchError("too_large"), "check.too_large", {"mb": 5}),
+    (FetchError("timeout"), "check.timeout", {"seconds": 30}),
+    (FetchError("redirects"), "check.redirects", {}),
+    (FetchError("bad_link"), "check.bad_link", {}),
+    (FetchError("unreachable"), "check.unreachable", {}),
 ])
-def test_check_link_maps_fetch_errors(monkeypatch, error, key, kwargs):
+def test_check_link_maps_fetch_errors(monkeypatch, language, error, key, kwargs):
     def failing_fetch(url, **kw):
         raise error
     monkeypatch.setattr(check.net, "fetch", failing_fetch)
-    t = Translator("en-US")
-    assert check_link("https://cal.example/secret.ics", t) == (False, t(key, **kwargs))
+    t = Translator(language)
+    ok, message = check_link("https://cal.example/secret.ics", t)
+    assert (ok, message) == (False, t(key, **kwargs))
+    assert "{" not in message                             # every placeholder was filled
+    for reason in set(net.REASONS) - {"http"}:             # no raw identifiers ("HTTP 403" is fine)
+        assert reason not in message.lower()
+
+
+def test_each_reason_has_its_own_message():
+    for language in ["en-US", "pt-BR"]:
+        t = Translator(language)
+        keys = ["check.blocked", "check.too_large", "check.timeout", "check.redirects",
+                "check.bad_link", "check.unreachable"]
+        messages = {t(key, mb=5, seconds=30) for key in keys}
+        assert len(messages) == len(keys)
 
 
 def test_check_link_reports_missing_file(tmp_path):
     t = Translator("en-US")
     ok, message = check_link(str(tmp_path / "missing.ics"), t)
-    assert (ok, message) == (False, t("check.unreachable", error="unreachable"))
+    assert (ok, message) == (False, t("check.unreachable"))
 
 
 def test_check_link_still_inspects_the_content(monkeypatch):

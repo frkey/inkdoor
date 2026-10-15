@@ -129,7 +129,12 @@
   },
   "check": {
     "not_configured": "link ainda não foi colado no config.toml",
-    "unreachable": "não consegui acessar o endereço ({error})",
+    "unreachable": "não consegui acessar o endereço. Confira o link e a conexão com a internet.",
+    "blocked": "endereço não permitido: o link aponta para este computador ou para um endereço link-local.",
+    "too_large": "a agenda é grande demais (mais de {mb} MB).",
+    "timeout": "o servidor demorou demais para responder (mais de {seconds} segundos).",
+    "redirects": "o link passa por endereços demais até chegar à agenda. Copie o link final no seu aplicativo de agenda.",
+    "bad_link": "isto não é um link válido. Ele precisa começar com https://, http:// ou webcal://.",
     "denied": "acesso negado (HTTP {status}). Normalmente é a empresa bloqueando calendários publicados, ou o link foi despublicado.",
     "not_found": "link não encontrado (HTTP 404). Publique de novo e copie o link ICS.",
     "http_error": "o servidor respondeu com erro HTTP {status}",

@@ -1,5 +1,7 @@
 import io
 import socket
+import threading
+import time
 
 import pytest
 import requests
@@ -170,6 +172,114 @@ def test_deadline(monkeypatch):                     # fake clock passes 31 s bet
     with pytest.raises(FetchError) as e:
         fetch("https://cal.example/x.ics")
     assert e.value.reason == "timeout"
+
+
+def test_timeouts_clamped_to_remaining_budget(monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(net.time, "monotonic", lambda: clock[0])
+    resolve_to(monkeypatch, "203.0.113.10")
+    responses = [redirect("https://cal.example/a"), redirect("https://cal.example/b"),
+                 make_response(200, b"BEGIN:VCALENDAR")]
+    seen = []
+
+    def fake_get(self, url, **kwargs):
+        seen.append(kwargs["timeout"])
+        clock[0] += [22, 5, 0][len(seen) - 1]           # time spent on each hop
+        return responses.pop(0)
+    monkeypatch.setattr(requests.Session, "get", fake_get)
+    assert fetch("https://cal.example/x.ics") == b"BEGIN:VCALENDAR"
+    assert seen == [(5, 10), (5, 8), (3, 3)]
+
+
+def test_no_request_once_the_budget_is_spent(monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(net.time, "monotonic", lambda: clock[0])
+    resolve_to(monkeypatch, "203.0.113.10")
+    calls = []
+
+    def fake_get(self, url, **kwargs):
+        calls.append(url)
+        clock[0] += 30
+        return redirect("https://cal.example/next")
+    monkeypatch.setattr(requests.Session, "get", fake_get)
+    with pytest.raises(FetchError) as e:
+        fetch("https://cal.example/x.ics")
+    assert e.value.reason == "timeout"
+    assert len(calls) == 1
+
+
+class BlockingBody(io.RawIOBase):
+    """A body that never sends anything until the response is closed (like a stalled server)."""
+
+    def __init__(self):
+        self.released = threading.Event()
+
+    def read(self, *args):
+        self.released.wait(5)
+        return b""
+
+    def close(self):
+        self.released.set()
+
+
+def test_watchdog_stops_a_stalled_body(monkeypatch):
+    resolve_to(monkeypatch, "203.0.113.10")
+    body = BlockingBody()
+    respond_sequence(monkeypatch, make_response(200, raw=body))
+    started = time.monotonic()
+    with pytest.raises(FetchError) as e:
+        fetch("https://cal.example/x.ics", deadline=0.2)
+    assert e.value.reason == "timeout"                  # an empty read after the deadline is not success
+    assert time.monotonic() - started < 1.5
+    assert body.released.is_set()
+
+
+class TricklingServer:
+    """Local HTTP server that sends one byte every 50 ms, forever, to every client."""
+
+    def __init__(self, prefix):
+        self.prefix = prefix
+        self.stop = threading.Event()
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen()
+        self.port = self.listener.getsockname()[1]
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+        self.thread.start()
+
+    def _serve(self):
+        conn, _ = self.listener.accept()
+        with conn:
+            try:
+                conn.recv(65536)
+                conn.sendall(self.prefix)
+                while not self.stop.wait(0.05):
+                    conn.sendall(b"x")
+            except OSError:
+                pass
+
+    def close(self):
+        self.stop.set()
+        self.listener.close()
+        self.thread.join(2)
+
+
+@pytest.mark.parametrize("prefix", [
+    b"HTTP/1.1 200 OK\r\nContent-Type: text/calendar\r\n\r\n",     # slow body
+    b"HTTP/1.1 200 OK\r\nX-Slow: ",                                    # slow headers
+])
+def test_watchdog_stops_a_trickling_server(monkeypatch, prefix):
+    monkeypatch.setattr(net, "_refuse_blocked", lambda host, port: None)   # allow 127.0.0.1 here
+    server = TricklingServer(prefix)
+    try:
+        started = time.monotonic()
+        with pytest.raises(FetchError) as e:
+            fetch(f"http://127.0.0.1:{server.port}/x.ics", deadline=0.3)
+        elapsed = time.monotonic() - started
+    finally:
+        server.close()
+    assert e.value.reason == "timeout"
+    assert elapsed < 2
 
 
 def test_requests_timeout(monkeypatch):

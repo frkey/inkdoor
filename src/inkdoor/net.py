@@ -2,8 +2,12 @@
 
 Every calendar or task link is fetched through `fetch`, which:
 
-- caps the body (5 MB by default), enforces a total deadline (30 s) and follows at most
-  3 redirects, by hand, so every hop can be checked;
+- caps the body (5 MB by default) and follows at most 3 redirects, by hand, so every hop can
+  be checked;
+- enforces a total deadline (30 s by default): each request gets timeouts clamped to the time
+  left, and a watchdog shuts down the connection when time runs out, so a server that trickles
+  headers or body one byte at a time cannot hold a fetch past the deadline (DNS lookups cannot
+  be interrupted and are bounded by the system resolver's own timeout instead);
 - refuses hosts that resolve to loopback, link-local (including the cloud metadata address
   169.254.169.254) or unspecified addresses, on every hop. Private LAN addresses (RFC 1918,
   IPv6 ULA) stay allowed on purpose: a calendar on a LAN Nextcloud or Radicale is a real use,
@@ -12,24 +16,24 @@ Every calendar or task link is fetched through `fetch`, which:
   its messages, so every failure becomes a `FetchError` that only carries a short reason, raised
   outside the original handler and `from None` so no chained exception survives.
 
-Known limits, accepted:
-
-- The host is resolved and checked before each request, and `requests` resolves it again to
-  connect. A DNS server that answers differently the second time (DNS rebinding) can slip past
-  the check.
-- The deadline is checked between chunks. Each socket read has its own 10 s timeout, but a
-  server that trickles bytes slowly enough can stretch one 64 KB chunk past the deadline.
+Known limit, accepted: the host is resolved and checked before each request, and `requests`
+resolves it again to connect. A DNS server that answers differently the second time (DNS
+rebinding) can slip past the check.
 """
 from __future__ import annotations
 
 import ipaddress
 import re
 import socket
+import threading
 import time
 from urllib.parse import urljoin, urlsplit
 
 import requests
+from requests.adapters import HTTPAdapter
 
+MAX_BYTES = 5_000_000
+DEADLINE = 30.0
 REASONS = ("blocked", "too_large", "timeout", "redirects", "http", "unreachable", "bad_link")
 
 _SCHEME = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*)://")
@@ -50,7 +54,7 @@ class FetchError(Exception):
         self.status = status
 
 
-def fetch(url: str, *, max_bytes: int = 5_000_000, deadline: float = 30.0,
+def fetch(url: str, *, max_bytes: int = MAX_BYTES, deadline: float = DEADLINE,
           max_redirects: int = 3) -> bytes:
     """Downloads an http(s)/webcal link, or reads a local file when the value has no scheme."""
     try:
@@ -78,20 +82,35 @@ def _fetch(url: str, max_bytes: int, deadline: float, max_redirects: int) -> byt
     if scheme == "webcal":
         url = "https" + url[len(scheme):]
 
-    with requests.Session() as session:
-        for _ in range(max_redirects + 1):
-            host, port = _parse(url)
-            _refuse_blocked(host, port)
-            _check_deadline(started, deadline)
-            response = session.get(url, stream=True, allow_redirects=False, timeout=(5, 10),
-                                   headers=_HEADERS)
-            with response:
-                if response.is_redirect:
-                    url = urljoin(url, response.headers["Location"])
-                    continue
-                if response.status_code >= 400:
-                    raise FetchError("http", response.status_code)
-                return _read_body(response, started, deadline, max_bytes)
+    with _Watchdog(_remaining(started, deadline)) as watchdog, requests.Session() as session:
+        adapter = _WatchedAdapter(watchdog)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        try:
+            return _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes)
+        except FetchError:
+            raise
+        except Exception:
+            if watchdog.expired:            # the watchdog cut the connection
+                raise FetchError("timeout") from None
+            raise
+
+
+def _follow(session, watchdog, url, started, deadline, max_redirects, max_bytes) -> bytes:
+    for _ in range(max_redirects + 1):
+        host, port = _parse(url)
+        _refuse_blocked(host, port)
+        remaining = _remaining(started, deadline)
+        response = session.get(url, stream=True, allow_redirects=False,
+                               timeout=(min(5, remaining), min(10, remaining)), headers=_HEADERS)
+        watchdog.watch_response(response)
+        with response:
+            if response.is_redirect:
+                url = urljoin(url, response.headers["Location"])
+                continue
+            if response.status_code >= 400:
+                raise FetchError("http", response.status_code)
+            return _read_body(response, watchdog, started, deadline, max_bytes)
     raise FetchError("redirects")
 
 
@@ -117,12 +136,14 @@ def _refuse_blocked(host: str, port: int) -> None:
             raise FetchError("blocked")
 
 
-def _check_deadline(started: float, deadline: float) -> None:
-    if time.monotonic() - started > deadline:
+def _remaining(started: float, deadline: float) -> float:
+    remaining = deadline - (time.monotonic() - started)
+    if remaining <= 0:
         raise FetchError("timeout")
+    return remaining
 
 
-def _read_body(response, started: float, deadline: float, max_bytes: int) -> bytes:
+def _read_body(response, watchdog, started: float, deadline: float, max_bytes: int) -> bytes:
     length = response.headers.get("Content-Length", "")
     if length.isdigit() and int(length) > max_bytes:
         raise FetchError("too_large")
@@ -131,8 +152,107 @@ def _read_body(response, started: float, deadline: float, max_bytes: int) -> byt
         body += chunk
         if len(body) > max_bytes:
             raise FetchError("too_large")
-        _check_deadline(started, deadline)
+        _remaining(started, deadline)
+    if watchdog.expired:                    # a cut connection can look like a short, complete body
+        raise FetchError("timeout")
     return bytes(body)
+
+
+class _Watchdog:
+    """Enforces the total deadline while a request or read is blocked.
+
+    Socket timeouts apply to each read, so a server sending one byte every few seconds never
+    trips them. When time runs out, this shuts down every socket the fetch opened and closes the
+    current response; the blocked read returns and the fetch fails with "timeout".
+    """
+
+    def __init__(self, seconds: float):
+        self.expired = False
+        self._lock = threading.Lock()
+        self._sockets: list = []
+        self._response = None
+        self._timer = threading.Timer(seconds, self._expire)
+        self._timer.daemon = True
+
+    def __enter__(self):
+        self._timer.start()
+        return self
+
+    def __exit__(self, *exc_info):
+        self._timer.cancel()
+
+    def watch_socket(self, sock) -> None:
+        with self._lock:
+            self._sockets.append(sock)
+            expired = self.expired
+        if expired:
+            _shutdown(sock)
+
+    def watch_response(self, response) -> None:
+        with self._lock:
+            self._response = response
+            expired = self.expired
+        if expired:
+            _close(response)
+
+    def _expire(self) -> None:
+        with self._lock:
+            self.expired = True
+            sockets, response = list(self._sockets), self._response
+        for sock in sockets:
+            _shutdown(sock)
+        if response is not None:
+            _close(response)
+
+
+def _shutdown(sock) -> None:
+    try:
+        sock.shutdown(socket.SHUT_RDWR)     # wakes a read blocked in another thread
+    except OSError:
+        pass
+
+
+def _close(response) -> None:
+    try:
+        response.close()
+    except Exception:
+        pass
+
+
+class _WatchedAdapter(HTTPAdapter):
+    """Hands every socket urllib3 opens (directly or through a proxy) to the watchdog."""
+
+    def __init__(self, watchdog: _Watchdog):
+        self._watchdog = watchdog
+        super().__init__()
+
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self._watch(self.poolmanager)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        manager = super().proxy_manager_for(proxy, **proxy_kwargs)
+        self._watch(manager)
+        return manager
+
+    def _watch(self, manager) -> None:
+        if getattr(manager, "_inkdoor_watched", False):
+            return
+        manager.pool_classes_by_scheme = {
+            scheme: _watched_pool(pool_cls, self._watchdog)
+            for scheme, pool_cls in manager.pool_classes_by_scheme.items()
+        }
+        manager._inkdoor_watched = True
+
+
+def _watched_pool(pool_cls, watchdog: _Watchdog):
+    class Connection(pool_cls.ConnectionCls):
+        def _new_conn(self):
+            sock = super()._new_conn()
+            watchdog.watch_socket(sock)
+            return sock
+
+    return type(pool_cls.__name__, (pool_cls,), {"ConnectionCls": Connection})
 
 
 def _read_file(path: str, max_bytes: int) -> bytes:
