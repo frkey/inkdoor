@@ -45,7 +45,7 @@ status_label = "Busy"
 url = "PASTE_YOUR_GOOGLE_SECRET_ICAL_ADDRESS"
 
 # ---------- Tasks ----------
-# TickTick calendar subscription link (Premium feature).
+# TickTick task link: Settings > Integrations & Import > Subscribe to TickTick.
 # Shows tasks due today plus overdue ones.
 [tasks]
 name = "TickTick"
