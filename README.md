@@ -62,12 +62,9 @@ read by a small server in your home, and the image never leaves your LAN.
 
 ```mermaid
 flowchart LR
-    O["Outlook / Microsoft 365"] --> S
-    G["Google Calendar"] --> S
-    I["Any ICS link"] --> S
-    T["TickTick tasks"] --> S
-    S["<b>inkdoor serve</b><br/>on your server or laptop"] -- "1072×1448 PNG, every 5 min,<br/>on your local network" --> K["Kindle on the door"]
-    B["Your browser"] -- "web admin" --> S
+    C["Your calendars<br/>Outlook · Google · any ICS<br/>TickTick tasks"] -- "ICS links" --> S["<b>inkdoor serve</b><br/>your server or laptop"]
+    S -- "PNG every 5 min<br/>local network only" --> K["Kindle<br/>on the door"]
+    B["Your browser"] -. "web admin" .-> S
 ```
 
 - **The server** (`src/inkdoor`) is a small Python program. It reads the calendars, lays out the

@@ -62,12 +62,9 @@ pequeno na sua casa, e a imagem nunca sai da sua rede local.
 
 ```mermaid
 flowchart LR
-    O["Outlook / Microsoft 365"] --> S
-    G["Google Agenda"] --> S
-    I["Qualquer link ICS"] --> S
-    T["Tarefas do TickTick"] --> S
-    S["<b>inkdoor serve</b><br/>no seu servidor ou notebook"] -- "PNG 1072×1448, a cada 5 min,<br/>na sua rede local" --> K["Kindle na porta"]
-    B["Seu navegador"] -- "admin pela web" --> S
+    C["Suas agendas<br/>Outlook · Google · qualquer ICS<br/>tarefas do TickTick"] -- "links ICS" --> S["<b>inkdoor serve</b><br/>seu servidor ou notebook"]
+    S -- "PNG a cada 5 min<br/>só na rede local" --> K["Kindle<br/>na porta"]
+    B["Seu navegador"] -. "admin pela web" .-> S
 ```
 
 - **O servidor** (`src/inkdoor`) é um programa pequeno em Python. Ele lê as agendas, monta o dia
