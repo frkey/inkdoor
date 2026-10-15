@@ -1304,7 +1304,7 @@ def test_kindle_zip_has_the_scripts_with_this_server_filled_in(logged):
     archive = kindle_zip(r)
     assert sorted(archive.namelist()) == [
         "README.txt", "inkdoor/common.sh", "inkdoor/config.sh", "inkdoor/loop.sh",
-        "scriptlets/inkdoor-start.sh", "scriptlets/inkdoor-test.sh"]
+        "scriptlets/inkdoor-kpm.sh", "scriptlets/inkdoor-start.sh", "scriptlets/inkdoor-test.sh"]
     folder = kindle_files.find_dir()
     for name in ("inkdoor/common.sh", "inkdoor/loop.sh"):
         assert archive.read(name) == (folder / name).read_bytes()
@@ -1419,7 +1419,8 @@ def test_every_step_list_is_a_list_of_sentences(language):
         assert all(s.count("**") % 2 == 0 for s in steps), key            # bold markers pair up
 
 
-def test_home_shows_the_kpm_commands_with_this_server(logged):
+def test_home_explains_kpm_updates_without_add_repo(logged):
     page = body(logged.get("/"))
     assert howto(page, EN("admin.howto_kpm_title")) == '<details class="howto">'
-    assert ";kpm add-repo http://192.168.0.50:3667/kpm.json\n;kpm update\n;kpm install inkdoor" in page
+    assert "<strong>inkdoor - connect KPM</strong>" in page
+    assert ";kpm update\n;kpm upgrade" in page and "add-repo" not in page

@@ -2,8 +2,8 @@
 
 **English** · [Português (Brasil)](pt-BR/kindle.md)
 
-inkdoor runs on jailbroken Kindles. The Kindle side is small: two scriptlets that turn off the
-Kindle interface and show the image rendered by your computer.
+inkdoor runs on jailbroken Kindles. The Kindle side is small: a couple of scriptlets that turn
+off the Kindle interface and show the image rendered by your computer.
 
 ## 1. Jailbreak
 
@@ -16,37 +16,38 @@ Before you start, put the Kindle in **airplane mode** so it does not update its 
 
 ## 2. Install
 
-### From the Kindle, with KPM (no cable)
-
-Recent jailbreaks come with **KPM**, the Kindle Package Manager, and your inkdoor server works as
-a KPM repository. On the Kindle, tap the search bar and type each line, pressing Enter after each
-(the admin's **Home** page shows them with your server's address):
-
-```
-;kpm add-repo http://192.168.1.50:3667/kpm.json
-;kpm update
-;kpm install inkdoor
-```
-
-The package already points at your server and uses the admin's language. To update the Kindle
-after updating the server, type `;kpm update` and then `;kpm upgrade`: your `config.sh` settings
-are kept. To remove inkdoor, type `;kpm uninstall inkdoor`.
-
-If the server's address changes, install again from the new one: `;kpm uninstall inkdoor` and
-`;kpm remove-repo inkdoor`, then the three lines above with the new address (this resets
-`config.sh`; reserving the server's address on your router avoids it).
-
-### Without KPM: download the files from the admin
+### Download the files from the admin
 
 On the admin's **Home** page, press **Download the Kindle files**. The `.zip` already has your
 server's address and your language in `inkdoor/config.sh`. With the Kindle connected over USB:
 
 1. Unzip it.
 2. Copy the `inkdoor` folder to the root of the Kindle, next to its `documents` folder.
-3. Copy the two files in `scriptlets` into the Kindle's `documents` folder. Copy the files, not
-   the folder: replacing `documents` would remove your books.
+3. Copy the files in `scriptlets` into the Kindle's `documents` folder. Copy the files, not the
+   folder: replacing `documents` would remove your books.
 
 The `README.txt` inside the zip has the same steps.
+
+### Updates through KPM (optional)
+
+Recent jailbreaks come with **KPM**, the Kindle Package Manager, and your inkdoor server works as
+a KPM repository. Once the files above are on the Kindle, open **inkdoor - connect KPM** in the
+library, once: it adds your server to KPM and installs inkdoor from it, keeping your `config.sh`
+settings. From then on, to update the Kindle after updating the server, type in the Kindle's
+search bar, pressing Enter after each line:
+
+```
+;kpm update
+;kpm upgrade
+```
+
+To remove inkdoor, type `;kpm uninstall inkdoor`.
+
+The server cannot be added with `;kpm add-repo` from the search bar: the Kindle drops any
+search command whose text has a `.` or a `:`, so an address never reaches KPM
+([KindleModding/KPM#5](https://github.com/KindleModding/KPM/issues/5)). That is why the
+scriptlet does it. If the server's address changes, download the zip again, copy it over the
+old files and open **inkdoor - connect KPM** again.
 
 ### By hand
 
@@ -56,7 +57,8 @@ From a copy of this repository, with the Kindle connected over USB:
 Kindle/
 ├── documents/
 │   ├── inkdoor-start.sh       ← from kindle/documents/
-│   └── inkdoor-test.sh        ← from kindle/documents/
+│   ├── inkdoor-test.sh        ← from kindle/documents/
+│   └── inkdoor-kpm.sh         ← from kindle/documents/ (optional, for KPM updates)
 └── inkdoor/                   ← the whole kindle/inkdoor/ folder
     ├── common.sh
     ├── config.sh
@@ -81,6 +83,7 @@ Eject the Kindle. The library now shows:
 - **inkdoor - test connection**: turns on Wi-Fi, downloads the image once and reports the
   result. Changes nothing on the Kindle.
 - **inkdoor - start display**: turns off the Kindle interface and starts showing your day.
+- **inkdoor - connect KPM**: only needed once, for [updates through KPM](#updates-through-kpm-optional).
 
 **To get the normal Kindle back, restart it** (hold the power button). The display does not
 start by itself after a restart.

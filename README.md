@@ -148,16 +148,14 @@ paste each ICS link and press **Test link**. **Home** shows the door exactly as 
 
 ### 3. Put it on the Kindle
 
-If your Kindle has **KPM** (recent jailbreaks do), your server is a KPM repository: on the Kindle,
-type in the search bar `;kpm add-repo http://<server>:3667/kpm.json`, `;kpm update` and
-`;kpm install inkdoor` (the admin's **Home** page shows them with your address). Without KPM:
-
 1. On the admin's **Home** page, press **Download the Kindle files**: a `.zip` with your
    server's address and your language already set.
-2. Unzip it. Copy the `inkdoor` folder to the root of the Kindle and the two files in
-   `scriptlets` into its `documents` folder.
+2. Unzip it. Copy the `inkdoor` folder to the root of the Kindle and the files in `scriptlets`
+   into its `documents` folder.
 
 Then, in the Kindle's library, open **inkdoor - test connection**, then **inkdoor - start display**.
+If your Kindle has **KPM** (recent jailbreaks do), open **inkdoor - connect KPM** once, and later
+updates are `;kpm update` and `;kpm upgrade` in the search bar, with no cable.
 
 Step by step, with tips on power and Wi-Fi: [docs/kindle.md](docs/kindle.md).
 

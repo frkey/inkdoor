@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import tarfile
+from pathlib import Path
 
 import pytest
 
@@ -36,7 +37,8 @@ def test_package_has_the_manifest_hooks_and_scripts():
     assert archive.getnames() == [
         "manifest.json", "install.sh", "uninstall.sh",
         "payload/inkdoor/common.sh", "payload/inkdoor/loop.sh", "payload/inkdoor/config.sh",
-        "payload/documents/inkdoor-start.sh", "payload/documents/inkdoor-test.sh"]
+        "payload/documents/inkdoor-start.sh", "payload/documents/inkdoor-test.sh",
+        "payload/documents/inkdoor-kpm.sh"]
     manifest = json.load(archive.extractfile("manifest.json"))
     assert manifest["id"] == "inkdoor" and manifest["version"] == list(kindle_files.KINDLE_VERSION)
     assert manifest["manifest_version"] == 2 and manifest["supported_platforms"] is None
@@ -72,7 +74,7 @@ def test_install_puts_the_scripts_where_a_manual_install_does(tmp_path):
     hook(unpack(tmp_path, "v1"), "install.sh", root)
     for name in ("common.sh", "loop.sh", "config.sh"):
         assert (root / "inkdoor" / name).is_file()
-    for name in ("inkdoor-start.sh", "inkdoor-test.sh"):
+    for name in ("inkdoor-start.sh", "inkdoor-test.sh", "inkdoor-kpm.sh"):
         assert (root / "documents" / name).read_bytes() == (FOLDER / "documents" / name).read_bytes()
     assert f'URL="{URL}"' in (root / "inkdoor/config.sh").read_text()
 
@@ -103,3 +105,53 @@ def test_uninstall_removes_inkdoor_and_nothing_else(tmp_path):
     hook(folder, "uninstall.sh", root)
     assert not (root / "inkdoor").exists()
     assert sorted(p.name for p in (root / "documents").iterdir()) == ["book.azw3"]
+
+
+# --- "inkdoor - connect KPM", with KPM and the Kindle's Wi-Fi replaced by stubs ------------------
+
+def connect_kpm(tmp_path, url=URL, kpm_works=True, kpm_present=True):
+    """Runs the scriptlet with /mnt/us and /var/local/kmc/bin pointed at temporary folders."""
+    root, bin_dir, calls = tmp_path / "us", tmp_path / "bin", tmp_path / "calls"
+    (root / "inkdoor").mkdir(parents=True)
+    bin_dir.mkdir()
+    for name in ("inkdoor/common.sh", "inkdoor/config.sh", "documents/inkdoor-kpm.sh"):
+        text = (FOLDER / name).read_text().replace("/mnt/us", str(root)).replace(
+            "/var/local/kmc/bin", str(bin_dir))
+        if name == "inkdoor/config.sh":
+            text = kindle_files.config_sh(text, url, "en-US") if url.startswith("http://") else \
+                text.replace('URL="http://192.168.0.10:3667/kindle.png"', f'URL="{url}"')
+        (root / name).parent.mkdir(exist_ok=True)
+        (root / name).write_text(text)
+    stubs = {"lipc-get-prop": "echo CONNECTED", "lipc-set-prop": "true"}
+    if kpm_present:
+        stubs[str(bin_dir / "kpm")] = f'echo "$@" >> "{calls}"; ' + (
+            "true" if kpm_works else '[ "$2" != install ]')
+    for name, body in stubs.items():
+        path = bin_dir / name if "/" not in name else Path(name)
+        path.write_text(f"#!/bin/sh\n{body}\n")
+        path.chmod(0o755)
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "TMPDIR": str(tmp_path)}
+    run = subprocess.run(["sh", str(root / "documents/inkdoor-kpm.sh")], env=env,
+                         capture_output=True, text=True)
+    lines = calls.read_text().splitlines() if calls.exists() else []
+    return run, lines
+
+
+def test_connect_kpm_adds_this_server_and_installs(tmp_path):
+    run, calls = connect_kpm(tmp_path)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert calls == ["-y remove-repo inkdoor", "-y add-repo http://192.168.0.50:3667/kpm.json",
+                     "-y install inkdoor"]
+    assert "OK! To update later" in run.stdout
+
+
+def test_connect_kpm_reports_a_failed_install(tmp_path):
+    run, calls = connect_kpm(tmp_path, kpm_works=False)
+    assert run.returncode == 1 and "FAILED: KPM could not install inkdoor." in run.stdout
+
+
+def test_connect_kpm_needs_kpm_and_an_image_address(tmp_path):
+    run, calls = connect_kpm(tmp_path / "a", kpm_present=False)
+    assert run.returncode == 1 and "KPM is not installed" in run.stdout and calls == []
+    run, calls = connect_kpm(tmp_path / "b", url="http://192.168.0.50:3667/other")
+    assert run.returncode == 1 and "must be http://.../kindle.png" in run.stdout and calls == []
