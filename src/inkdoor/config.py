@@ -15,6 +15,18 @@ DEFAULT_PATH = "config.toml"
 PLACEHOLDER_PREFIX = "PASTE_"
 STYLES = ("solid", "striped", "outline")
 
+# Kindle screens, portrait (width, height); the admin names the models of each in its language
+SCREENS = {
+    "600x800": (600, 800),
+    "758x1024": (758, 1024),
+    "1072x1448": (1072, 1448),
+    "1236x1648": (1236, 1648),
+    "1264x1680": (1264, 1680),
+    "1272x1696": (1272, 1696),
+    "1860x2480": (1860, 2480),
+}
+DEFAULT_SCREEN = "1072x1448"
+
 DISPLAY_DEFAULTS = {
     "language": "en-US",
     "timezone": "America/Sao_Paulo",
@@ -22,6 +34,7 @@ DISPLAY_DEFAULTS = {
     "workday_end": 19,
     "workdays": [0, 1, 2, 3, 4],
     "min_gap_minutes": 30,
+    "screen": DEFAULT_SCREEN,
 }
 SERVER_DEFAULTS = {"port": 3667, "refresh_minutes": 5}
 ADMIN_DEFAULTS = {"enabled": False, "allowed_hosts": []}
@@ -120,6 +133,8 @@ def validate(cfg: dict) -> dict:
         raise ConfigInvalid("workdays")
     if display.get("clock") not in (None, "12h", "24h"):
         raise ConfigInvalid("clock", value=display["clock"])
+    if not isinstance(display["screen"], str) or display["screen"] not in SCREENS:
+        raise ConfigInvalid("screen", value=display["screen"])
     if not _is_int(server["refresh_minutes"], 1, 1440):
         raise ConfigInvalid("refresh", value=server["refresh_minutes"])
     if not _is_int(server["port"], 1, 65535):

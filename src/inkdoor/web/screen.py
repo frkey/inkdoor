@@ -1,4 +1,4 @@
-"""The Screen page: language, time zone, clock, workday and refresh settings."""
+"""The Screen page: the Kindle model, language, time zone, clock, workday and refresh settings."""
 from __future__ import annotations
 
 import copy
@@ -8,14 +8,14 @@ from zoneinfo import available_timezones
 from flask import Blueprint, render_template, request
 
 from .. import i18n
-from ..config import DISPLAY_DEFAULTS, SERVER_DEFAULTS
+from ..config import DISPLAY_DEFAULTS, SCREENS, SERVER_DEFAULTS
 from . import forms
 from .editing import Editor
 
 # the keys the screen form owns, and the defaults that are not written when left unchanged
 SCREEN_KEYS = [("display", key, DISPLAY_DEFAULTS[key])
-               for key in ("language", "timezone", "workday_start", "workday_end", "workdays",
-                           "min_gap_minutes")]
+               for key in ("screen", "language", "timezone", "workday_start", "workday_end",
+                           "workdays", "min_gap_minutes")]
 SCREEN_KEYS += [("display", "clock", ""), ("server", "refresh_minutes",
                                             SERVER_DEFAULTS["refresh_minutes"])]
 
@@ -39,6 +39,7 @@ def _screen_values(data: dict) -> dict:
               if section == "display"}
     values["language"] = i18n.normalize(str(values["language"]))
     values["clock"] = values["clock"] if values["clock"] in forms.CLOCKS else ""
+    values["screen"] = values["screen"] if values["screen"] in SCREENS else DISPLAY_DEFAULTS["screen"]
     days = values["workdays"] if isinstance(values["workdays"], list) else []
     values["workdays"] = [d for d in forms.WEEKDAYS if d in days]
     values["refresh_minutes"] = server.get("refresh_minutes", SERVER_DEFAULTS["refresh_minutes"])
@@ -77,6 +78,7 @@ def register(bp: Blueprint, ed: Editor) -> None:
             context.update(values={**current, **(values or {})}, errors=errors or {},
                            digest=raw.digest, warning=warning, form_error=form_error,
                            languages=languages(), timezones=timezones(),
+                           screens=[(key, *size) for key, size in SCREENS.items()],
                            port=current["port"])
         context["restore"] = ed.restore_offer(raw, problem, context.get("warning"))
         if context["locked"]:

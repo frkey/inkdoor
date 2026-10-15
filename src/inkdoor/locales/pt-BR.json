@@ -149,6 +149,7 @@
       "check": "testa os links das agendas",
       "demo": "gera prévias com dados fictícios",
       "hours": "uma ou mais horas, ex.: 10:20 15:20",
+      "screen": "tamanho da tela do Kindle a desenhar (padrão: o do config, ou 1072x1448)",
       "password": "cria uma nova senha do admin e mostra na tela",
       "url": "mostra o endereço do admin para outros aparelhos da rede"
     }
@@ -195,6 +196,7 @@
     "hour": "{key} precisa ser uma hora cheia de 0 a 24 (veio {value}).",
     "workdays": "workdays precisa ser uma lista de números de 0 (segunda) a 6 (domingo).",
     "clock": "clock precisa ser \"12h\" ou \"24h\" (veio {value}).",
+    "screen": "screen precisa ser um tamanho de tela de Kindle, como \"1072x1448\" (veio {value}).",
     "refresh": "refresh_minutes precisa ser de 1 a 1440 (veio {value}).",
     "port": "port precisa ser de 1 a 65535 (veio {value}).",
     "calendar_name": "a agenda nº {index} precisa de um name.",
@@ -342,6 +344,11 @@
     "restore_failed": "A versão anterior também não pode ser usada: {message}",
     "screen_title": "Tela",
     "screen_intro": "Como a porta mostra o seu dia. As mudanças aparecem no Kindle na próxima atualização.",
+    "field_screen": "Modelo do Kindle",
+    "field_screen_help": "Escolha o seu Kindle para a imagem ocupar a tela inteira.",
+    "field_screen_more": "Qual é o meu?",
+    "field_screen_anchor": "qual-é-o-meu-kindle",
+    "screen_option": "{models} ({width} × {height})",
     "field_language": "Idioma",
     "language_overridden": "O idioma é definido ao iniciar o servidor (--lang ou INKDOOR_LANG), então não pode ser mudado aqui.",
     "field_timezone": "Fuso horário",
@@ -363,6 +370,7 @@
     "error_language": "Escolha um dos idiomas.",
     "error_timezone": "Escolha um fuso horário da lista, como America/Sao_Paulo.",
     "error_clock": "Escolha uma das opções de relógio.",
+    "error_screen": "Escolha um dos modelos de Kindle.",
     "error_hour": "Digite uma hora cheia de 0 a 24.",
     "error_workday_order": "O expediente precisa terminar depois de começar.",
     "error_workdays": "Escolha dias da lista.",
@@ -438,5 +446,14 @@
   "kpm": {
     "repo_name": "inkdoor (este servidor)",
     "description": "Mostra suas agendas no Kindle como uma placa de porta, a partir do seu servidor inkdoor."
+  },
+  "screens": {
+    "600x800": "Kindle 2014, 2016, 2019",
+    "758x1024": "Kindle Paperwhite 1 e 2",
+    "1072x1448": "Kindle Paperwhite 3 e 4, Voyage, Oasis 2016, Kindle 2022 e 2024",
+    "1236x1648": "Kindle Paperwhite 5 e Signature Edition (2021)",
+    "1264x1680": "Kindle Oasis 2017 e 2019",
+    "1272x1696": "Kindle Paperwhite 2024, Colorsoft",
+    "1860x2480": "Kindle Scribe 2022 e 2024"
   }
 }

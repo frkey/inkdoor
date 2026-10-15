@@ -149,6 +149,7 @@
       "check": "test the calendar links",
       "demo": "render previews with fictional data",
       "hours": "one or more times, e.g. 10:20 15:20",
+      "screen": "Kindle screen size to draw (default: the config's, or 1072x1448)",
       "password": "create a new admin password and print it",
       "url": "print the admin address for other devices on the network"
     }
@@ -195,6 +196,7 @@
     "hour": "{key} must be a whole hour from 0 to 24 (got {value}).",
     "workdays": "workdays must be a list of numbers from 0 (Monday) to 6 (Sunday).",
     "clock": "clock must be \"12h\" or \"24h\" (got {value}).",
+    "screen": "screen must be a Kindle screen size, such as \"1072x1448\" (got {value}).",
     "refresh": "refresh_minutes must be from 1 to 1440 (got {value}).",
     "port": "port must be from 1 to 65535 (got {value}).",
     "calendar_name": "calendar #{index} needs a name.",
@@ -342,6 +344,11 @@
     "restore_failed": "The previous version cannot be used either: {message}",
     "screen_title": "Screen",
     "screen_intro": "How the door shows your day. Changes appear on the Kindle at its next refresh.",
+    "field_screen": "Kindle model",
+    "field_screen_help": "Pick your Kindle so the image fills its screen.",
+    "field_screen_more": "Which one do I have?",
+    "field_screen_anchor": "which-kindle-do-i-have",
+    "screen_option": "{models} ({width} × {height})",
     "field_language": "Language",
     "language_overridden": "The language is set when the server starts (--lang or INKDOOR_LANG), so it cannot be changed here.",
     "field_timezone": "Time zone",
@@ -363,6 +370,7 @@
     "error_language": "Choose one of the languages.",
     "error_timezone": "Choose a time zone from the list, like America/New_York.",
     "error_clock": "Choose one of the clock options.",
+    "error_screen": "Choose one of the Kindle models.",
     "error_hour": "Enter a whole hour from 0 to 24.",
     "error_workday_order": "The workday must end after it starts.",
     "error_workdays": "Choose days from the list.",
@@ -438,5 +446,14 @@
   "kpm": {
     "repo_name": "inkdoor (this server)",
     "description": "Shows your calendars on the Kindle as a door sign, from your inkdoor server."
+  },
+  "screens": {
+    "600x800": "Kindle 2014, 2016, 2019",
+    "758x1024": "Kindle Paperwhite 1 and 2",
+    "1072x1448": "Kindle Paperwhite 3 and 4, Voyage, Oasis 2016, Kindle 2022 and 2024",
+    "1236x1648": "Kindle Paperwhite 5 and Signature Edition (2021)",
+    "1264x1680": "Kindle Oasis 2017 and 2019",
+    "1272x1696": "Kindle Paperwhite 2024, Colorsoft",
+    "1860x2480": "Kindle Scribe 2022 and 2024"
   }
 }

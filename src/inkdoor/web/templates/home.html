@@ -68,7 +68,7 @@
     <h2>{{ t("admin.preview_title") }}</h2>
     <div class="preview-frame" data-preview data-at="{{ at }}"{% if poll %} data-poll{% endif %}>
       {% if preview %}
-      <img src="/kindle.png?t={{ preview }}" alt="{{ t('admin.preview_alt') }}" width="1072" height="1448">
+      <img src="/kindle.png?t={{ preview }}" alt="{{ t('admin.preview_alt') }}" width="{{ screen[0] }}" height="{{ screen[1] }}">
       {% else %}
       <p class="muted">{{ t("admin.not_rendered") }}</p>
       {% endif %}

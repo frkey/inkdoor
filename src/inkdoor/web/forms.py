@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from ..config import STYLES
+from ..config import SCREENS, STYLES
 from ..i18n import Translator
 from . import links
 
@@ -148,6 +148,10 @@ def screen_form(form, t: Translator, *, languages, timezones, language: str | No
     values["clock"] = _text(form, "clock")
     if values["clock"] not in CLOCKS:
         errors["clock"] = t("admin.error_clock")
+
+    values["screen"] = _text(form, "screen")
+    if values["screen"] not in SCREENS:
+        errors["screen"] = t("admin.error_screen")
 
     for key in ("workday_start", "workday_end"):
         hour = _whole(form, key, 0, 24)

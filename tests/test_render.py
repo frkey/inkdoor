@@ -1,11 +1,14 @@
+import math
+
 import pytest
 from helpers import at
+from PIL import Image
 
-from inkdoor.config import with_defaults
+from inkdoor.config import SCREENS, with_defaults
 from inkdoor.demo import demo_config, demo_snapshot
 from inkdoor.i18n import Translator
-from inkdoor.render import (H, W, compute_status, render, render_error, render_host_rejected,
-                            render_setup, translator_for)
+from inkdoor.render import (H, W, M, compute_status, render, render_error, render_host_rejected,
+                            render_setup, screen_size, translator_for)
 from inkdoor.sources import Snapshot, collect
 
 KINDLE_GRAYS = {i * 17 for i in range(16)}
@@ -223,3 +226,42 @@ def test_docs_images_script_draws_the_screens():
     for language in ("en-US", "pt-BR"):
         sheet = module.screens(language)
         assert sheet.size == (3 * (W // 2 + 56) + 2 * 40, H // 2 + 56)
+
+
+# --- other Kindle screens --------------------------------------------------------------------
+
+@pytest.mark.parametrize("screen", sorted(SCREENS))
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("hour", ["7:30", "10:20", "16:50"])
+def test_demo_renders_at_every_kindle_screen(screen, language, hour):
+    cfg = demo_config(language)
+    cfg["display"]["screen"] = screen
+    img = render(demo_snapshot(cfg, hour), cfg)
+    assert img.size == SCREENS[screen] and img.mode == "L" and grays(img) <= KINDLE_GRAYS
+    # nothing past the right edge of the current event's box, the widest thing on screen
+    scale = img.width / W
+    edge = img.crop((math.ceil((W - M + 24) * scale), 0, img.width, img.height))
+    assert grays(edge) == {255}, screen
+
+
+@pytest.mark.parametrize("screen", sorted(SCREENS))
+def test_notice_screens_follow_the_screen(screen):
+    cfg = with_defaults({"display": {"language": "pt-BR", "screen": screen}})
+    for img in [render_setup(cfg, "http://192.168.100.200:65535"), render_error(cfg, "RuntimeError"),
+                render_host_rejected(cfg, "door.example.com")]:
+        assert img.size == SCREENS[screen] and grays(img) <= KINDLE_GRAYS
+
+
+def test_text_is_drawn_with_fonts_sized_for_the_screen():
+    # a small screen gets a smaller font, not a shrunk picture: the same text measures the same
+    # in layout units, within the rounding of whole font sizes
+    from inkdoor.render import Canvas, font
+    big = Canvas(Image.new("L", (1072, 1448)))
+    small = Canvas(Image.new("L", (600, 800)))
+    f = font("SemiBold", 36)
+    assert big.scale == 1 and big.height == 1448 and small.height == 1429
+    assert abs(small.textlength("Q4 roadmap review", f) - big.textlength("Q4 roadmap review", f)) < 8
+
+
+def test_unknown_screen_falls_back_to_the_default():
+    assert screen_size({"display": {"screen": "1x1"}}) == screen_size(None) == (1072, 1448)

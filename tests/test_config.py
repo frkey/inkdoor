@@ -33,6 +33,8 @@ def test_defaults_and_language_override(tmp_path):
     ('[admin]\nallowed_hosts = ["[fd00::1]:8000"]\n', "allowed_host"),
     ('[admin]\nallowed_hosts = ["porta.exemplo-ç.com"]\n', "allowed_host"),
     ('admin = true\n', "section"),
+    ('[display]\nscreen = "1080x1440"\n', "screen"),
+    ('[display]\nscreen = 1072\n', "screen"),
 ])
 def test_invalid_values_are_explained(tmp_path, text, key):
     with pytest.raises(config.ConfigInvalid) as err:

@@ -167,7 +167,7 @@ Depois de entrar, você pode:
   links estão falhando; atualizar na hora; copiar o endereço para o Kindle.
 - **Agendas** e **Tarefas**: adicionar, editar, reordenar e remover agendas e o link do
   TickTick, e testar cada link. Um link salvo nunca volta a aparecer inteiro, só o começo dele.
-- **Tela**: idioma, fuso horário, relógio, horário e dias do expediente, a menor folga a
+- **Tela**: o modelo do Kindle, idioma, fuso horário, relógio, horário e dias do expediente, a menor folga a
   listar, intervalo de atualização. A porta aparece só para leitura: para mudá-la, edite o
   `config.toml` e reinicie o serviço.
 - **Conta**: trocar a senha, sair.
