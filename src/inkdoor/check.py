@@ -5,8 +5,8 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 import icalendar
-import requests
 
+from . import net
 from .config import is_configured
 from .i18n import Translator
 from .render import translator_for
@@ -24,38 +24,21 @@ def check_link(url: str, t: Translator) -> tuple[bool, str]:
     """Downloads the link and makes sure it is a calendar. Returns (ok, message)."""
     if not is_configured(url):
         return False, t("check.not_configured")
-    if not url.startswith(("http://", "https://", "webcal://")):
-        return _check_file(url, t)
-    if url.startswith("webcal://"):
-        url = "https://" + url[len("webcal://"):]
     try:
-        response = requests.get(url, timeout=30, headers={"User-Agent": "inkdoor"})
-    except requests.RequestException as ex:
-        return False, t("check.unreachable", error=ex.__class__.__name__)
-    if response.status_code in (401, 403):
-        return False, t("check.denied", status=response.status_code)
-    if response.status_code == 404:
-        return False, t("check.not_found")
-    if response.status_code >= 400:
-        return False, t("check.http_error", status=response.status_code)
-    head = response.content[:2000]
+        content = net.fetch(url)
+    except net.FetchError as ex:
+        if ex.reason == "http":
+            if ex.status in (401, 403):
+                return False, t("check.denied", status=ex.status)
+            if ex.status == 404:
+                return False, t("check.not_found")
+            return False, t("check.http_error", status=ex.status)
+        return False, t("check.unreachable", error=ex.reason)
+    head = content[:2000]
     if b"BEGIN:VCALENDAR" not in head:
         return False, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")
     try:
-        icalendar.Calendar.from_ical(response.content)
-    except Exception:
-        return False, t("check.invalid")
-    return True, t("check.ok", kb=len(response.content) // 1024 or 1)
-
-
-def _check_file(path: str, t: Translator) -> tuple[bool, str]:
-    """Local .ics files (handy for testing) are accepted like links."""
-    try:
-        with open(path, "rb") as f:
-            content = f.read()
         icalendar.Calendar.from_ical(content)
-    except OSError as ex:
-        return False, t("check.unreachable", error=ex.__class__.__name__)
     except Exception:
         return False, t("check.invalid")
     return True, t("check.ok", kb=len(content) // 1024 or 1)

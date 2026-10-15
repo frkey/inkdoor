@@ -9,8 +9,8 @@ from zoneinfo import ZoneInfo
 
 import icalendar
 import recurring_ical_events
-import requests
 
+from . import net
 from .config import is_configured
 
 # Online-meeting locations only add noise on the screen
@@ -76,14 +76,8 @@ class SourceCache:
 # ---------------------------------------------------------------- reading
 
 def fetch(url: str) -> bytes:
-    if url.startswith("webcal://"):
-        url = "https://" + url[len("webcal://"):]
-    if url.startswith("http"):
-        response = requests.get(url, timeout=30, headers={"User-Agent": "inkdoor"})
-        response.raise_for_status()
-        return response.content
-    with open(url, "rb") as f:      # local file, handy for tests
-        return f.read()
+    """Downloads a link (or reads a local file) through the capped, SSRF-aware helper."""
+    return net.fetch(url)
 
 
 def _to_local(value, tz):
