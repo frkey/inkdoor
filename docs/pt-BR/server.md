@@ -147,7 +147,7 @@ Proxmox, acima.
 Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão nova do mesmo
 repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config e sua senha do admin
 nunca são sobrescritas; numa instalação de antes do admin existir, ele liga o admin uma vez e
-mostra a primeira senha.
+mostra a primeira senha. Sem `--lang`, as mensagens saem no `language` da sua config.
 
 Opções: `--lang en-US|pt-BR`, `--timezone Area/Cidade` (para uma config nova),
 `--ref BRANCH_OU_TAG`.

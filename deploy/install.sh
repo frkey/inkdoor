@@ -43,7 +43,16 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Without --lang, follow the system locale
+# Without --lang, an update follows the language of the existing config. The config folder
+# belongs to the inkdoor user, so it is read as that user; only a known language is taken.
+if [ -z "$LANGUAGE" ] && [ -f "$CONF" ] && id inkdoor >/dev/null 2>&1; then
+  CONF_LANGUAGE="$( (cd / && runuser -u inkdoor -- sed -n -E \
+    's/^[[:space:]]*language[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$CONF") 2>/dev/null |
+    head -n 1 || true)"
+  case "$CONF_LANGUAGE" in en-US|pt-BR) LANGUAGE="$CONF_LANGUAGE" ;; esac
+fi
+
+# Otherwise, follow the system locale
 if [ -z "$LANGUAGE" ]; then
   case "${LC_ALL:-${LANG:-}}" in pt*) LANGUAGE="pt-BR" ;; esac
 fi
