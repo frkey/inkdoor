@@ -1,12 +1,13 @@
 // inkdoor admin: small enhancements. Every page works without this file.
 // The Content-Security-Policy forbids inline scripts and handlers, so behavior is attached here
 // to elements marked with data attributes:
-//   form[data-confirm]      asks before submitting (remove buttons)
+//   form[data-confirm]      asks before submitting (remove buttons) and marks the form's
+//                           "confirmed" field, so the server does not ask again
 //   form[data-test-target]  runs a link test in the background and shows the result in the
 //                           element with that id; data-error is shown when the test cannot run
 //   button[data-copy]       copies the text of the element with that id (shown only with JS)
-//   [data-preview]          the home page's preview: with data-poll or after a notice, asks
-//                           /status.json every 3 s for a minute and shows the new screen
+//   [data-preview]          the home page's preview: with data-poll (after a save or Update now),
+//                           asks /status.json every 3 s for a minute and shows the new screen
 (function () {
   "use strict";
 
@@ -16,6 +17,11 @@
     form.addEventListener("submit", function (event) {
       if (!window.confirm(form.getAttribute("data-confirm"))) {
         event.preventDefault();
+        return;
+      }
+      var field = form.querySelector("input[name=confirmed]");
+      if (field) {
+        field.value = "1";
       }
     });
   }
@@ -164,7 +170,7 @@
     if (!window.fetch || !window.JSON) {
       return;
     }
-    if (!frame.hasAttribute("data-poll") && !document.querySelector(".notice")) {
+    if (!frame.hasAttribute("data-poll")) {
       return;
     }
     var at = frame.getAttribute("data-at");
@@ -198,7 +204,8 @@
         .then(function (response) {
           var type = response.headers.get("Content-Type") || "";
           if (!response.ok || type.indexOf("application/json") !== 0) {
-            throw new Error("not a status");  // e.g. the session ended: the login page
+            stop();  // not a status (e.g. the session ended: the login page): asking again won't help
+            return null;
           }
           return response.json();
         })
@@ -209,7 +216,9 @@
             show(data);
           }
         })
-        .catch(stop);
+        .catch(function () {
+          // a network hiccup: keep asking until the minute is over
+        });
     }
   }
 

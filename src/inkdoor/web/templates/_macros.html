@@ -48,6 +48,8 @@
 <form method="post" action="{{ path }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
   {{ form_fields(digest) }}
   {% if name %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
+  {# set to 1 by admin.js once the browser asked; without JavaScript the server asks instead #}
+  {% if confirm %}<input type="hidden" name="confirmed" value="">{% endif %}
   <button type="submit"{% if class %} class="{{ class }}"{% endif %}>{{ label }}</button>
 </form>
 {%- endmacro %}

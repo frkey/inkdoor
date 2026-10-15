@@ -191,6 +191,7 @@ def blueprint(state: ServerState) -> Blueprint:
         except OSError as ex:
             return None, t()("admin.error_write", error=type(ex).__name__)
         state.request_render()
+        g.session.flags.add("watch_render")
         add_notice(g.session, t()(notice))
         return redirect(target, 303), None
 
@@ -352,6 +353,16 @@ def blueprint(state: ServerState) -> Blueprint:
                 return response
         return calendar_form_page(raw, index, values, errors, form_error)
 
+    def confirm_page(question: str, label: str, back: str, active: str):
+        """Asks before a removal when the browser did not (no JavaScript); posts back to the
+        same address with ``confirmed=1``, under the same CSRF token and file digest."""
+        return render_template("confirm.html", active=active, question=question, label=label,
+                               back=back, action=request.path,
+                               digest=request.form.get("digest", "")), 200
+
+    def confirmed() -> bool:
+        return request.form.get("confirmed") == "1"
+
     @bp.post("/calendars/<int:index>/delete")
     def calendar_delete(index: int):
         raw, response = fresh("/calendars")
@@ -361,6 +372,10 @@ def blueprint(state: ServerState) -> Blueprint:
         existing = data.get("calendar", [])
         if index >= len(existing):
             return changed("/calendars")
+        if not confirmed():
+            name = str(existing[index].get("name", ""))
+            return confirm_page(t()("admin.confirm_remove_calendar", name=name),
+                                t()("admin.remove"), "/calendars", "calendars")
         del existing[index]
         return save_action(raw, data, "/calendars", "admin.removed")
 
@@ -449,6 +464,9 @@ def blueprint(state: ServerState) -> Blueprint:
         data = copy.deepcopy(raw.data)
         if "tasks" not in data:
             return redirect("/tasks", 303)
+        if not confirmed():
+            return confirm_page(t()("admin.confirm_remove_tasks"), t()("admin.remove_tasks"),
+                                "/tasks", "tasks")
         del data["tasks"]
         return save_action(raw, data, "/tasks", "admin.removed")
 
@@ -481,6 +499,8 @@ def blueprint(state: ServerState) -> Blueprint:
     @bp.get("/")
     def home():
         last = state.last_render
+        watch_render = "watch_render" in g.session.flags
+        g.session.flags.discard("watch_render")
         raw, problem = read()
         warning = invalid(raw.data) if raw is not None else None
         # from the file as it is now: state.config_problem lags until the next render, so a
@@ -491,8 +511,9 @@ def blueprint(state: ServerState) -> Blueprint:
         return render_template(
             "home.html", active="home", last=last, updated=updated_text(last),
             preview=preview_token(last), at=last.at.isoformat() if last is not None else "",
-            # keep checking for the new screen while a render is pending or none happened yet
-            poll=state.render_event.is_set() or last is None,
+            # watch for the new screen after a save or "Update now", while a render is pending,
+            # or while none happened yet
+            poll=watch_render or state.render_event.is_set() or last is None,
             kindle_url=base + "/kindle.png" if base else None,
             port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
             using_defaults=state.using_defaults,
@@ -511,8 +532,10 @@ def blueprint(state: ServerState) -> Blueprint:
 
     @bp.post("/render")
     def render_now():
-        key = "admin.update_requested" if state.request_render(manual=True) \
-            else "admin.update_throttled"
+        requested = state.request_render(manual=True)
+        if requested:
+            g.session.flags.add("watch_render")
+        key = "admin.update_requested" if requested else "admin.update_throttled"
         add_notice(g.session, t()(key))
         return redirect("/", 303)
 
@@ -532,6 +555,7 @@ def blueprint(state: ServerState) -> Blueprint:
             add_notice(g.session, t()("admin.error_write", error=type(ex).__name__))
             return redirect("/", 303)
         state.request_render()
+        g.session.flags.add("watch_render")
         add_notice(g.session, t()("admin.restored"))
         return redirect("/", 303)
 
