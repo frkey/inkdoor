@@ -40,6 +40,17 @@
     {{ m.link_field(errors, link, index is none,
                     t("admin.field_link_help_new") if index is none else t("admin.field_link_help_edit"),
                     repaste) }}
+    {% call m.howto(t("admin.howto_link_title"), open=index is none) %}
+    <h3>{{ t("admin.howto_outlook_title") }}</h3>
+    {{ m.steps("admin.howto_outlook") }}
+    <p class="help">{{ t("admin.howto_outlook_note") | emphasis }}</p>
+    <h3>{{ t("admin.howto_google_title") }}</h3>
+    {{ m.steps("admin.howto_google") }}
+    <h3>{{ t("admin.howto_other_title") }}</h3>
+    <p>{{ t("admin.howto_other") | emphasis }}</p>
+    <p class="help">{{ t("admin.howto_secret") }}
+      <a href="{{ docs_url('calendar-sources.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_more") }}</a></p>
+    {% endcall %}
     <div class="form-actions">
       <button type="submit">{{ t("admin.save") }}</button>
       <a class="button button-quiet" href="/calendars">{{ t("admin.cancel") }}</a>

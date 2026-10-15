@@ -97,3 +97,21 @@
   {% if help %}<p class="help" id="{{ id }}-help">{{ help }}</p>{% endif %}
 </div>
 {%- endmacro %}
+
+{# Step-by-step help that stays out of the way: a <details> block, open when it is most needed #}
+{% macro howto(title, open=False) -%}
+<details class="howto"{% if open %} open{% endif %}>
+  <summary>{{ title }}</summary>
+  <div class="howto-body">
+    {{ caller() }}
+  </div>
+</details>
+{%- endmacro %}
+
+{# Numbered steps from a catalog list; **menu names** come out in bold, everything else escaped #}
+{% macro steps(key) -%}
+<ol class="steps">
+  {% for step in t.get(key) %}<li>{{ step | emphasis }}</li>{% endfor %}
+</ol>
+{%- endmacro %}
+

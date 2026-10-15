@@ -452,8 +452,10 @@ def test_pages_have_no_inline_scripts_or_styles(app, rendered):
         assert html.count("<script") == 1
         assert "style=" not in html and "<style" not in html
         assert not re.search(r"<[^>]*\son[a-z]+=", html, re.I)  # no inline handlers
-        # no external resources
-        assert not re.search(r"""(src|href|action)=["']?(https?:)?//""", html, re.I)
+        # no external resources; the only outside links are anchors to the project's own docs
+        for tag, url in re.findall(r"""<([a-z]+)\b[^>]*\s(?:src|href|action)=["']?(?:https?:)?//([^"' >]*)""",
+                                   html, re.I):
+            assert tag.lower() == "a" and url.startswith("github.com/frkey/inkdoor/blob/master/docs/"), url
 
 
 def test_home_shows_status_and_preview(app, state, rendered):

@@ -1357,3 +1357,63 @@ def test_config_sh_only_changes_url_and_language():
     template = '# URL="not this"\nURL="old"\nINTERVAL=300\nLANGUAGE="en-US"\n'
     assert kindle_files.config_sh(template, KINDLE_URL, "pt-BR") == (
         f'# URL="not this"\nURL="{KINDLE_URL}"\nINTERVAL=300\nLANGUAGE="pt-BR"\n')
+
+
+# --- step-by-step help -----------------------------------------------------------------------
+
+def howto(page, title):
+    """The <details> tag of the how-to with this title, or None."""
+    match = re.search(r'(<details class="howto"[^>]*>)\s*<summary>' + re.escape(str(escape(title))), page)
+    return match.group(1) if match else None
+
+
+def test_calendar_form_explains_where_to_find_the_link(logged):
+    page = body(logged.get("/calendars/new"))
+    assert howto(page, EN("admin.howto_link_title")) == '<details class="howto" open>'
+    assert "<strong>outlook.office.com</strong>" in page and EN("admin.howto_google_title") in page
+    assert 'href="https://github.com/frkey/inkdoor/blob/master/docs/calendar-sources.md"' in page
+    add(logged, name="Work", url=LINK)
+    page = body(logged.get("/calendars/0"))
+    assert howto(page, EN("admin.howto_link_title")) == '<details class="howto">'   # closed
+
+
+def test_tasks_page_explains_the_ticktick_link_until_it_is_set_up(logged):
+    page = body(logged.get("/tasks"))
+    assert howto(page, EN("admin.howto_ticktick_title")) == '<details class="howto" open>'
+    assert "<strong>Subscribe to TickTick</strong>" in page
+    logged.post("/tasks", data=logged.form(url=LINK, overdue_days="7"))
+    assert howto(body(logged.get("/tasks")), EN("admin.howto_ticktick_title")) == '<details class="howto">'
+
+
+def test_home_explains_the_kindle_install_next_to_the_download(logged, monkeypatch):
+    from inkdoor import kindle_files
+    page = body(logged.get("/"))
+    assert howto(page, EN("admin.howto_kindle_title")) == '<details class="howto">'
+    assert "<strong>scriptlets</strong>" in page and 'href="https://github.com/frkey/inkdoor/blob/master/docs/kindle.md"' in page
+    monkeypatch.setattr(kindle_files, "find_dir", lambda: None)
+    assert howto(body(logged.get("/")), EN("admin.howto_kindle_title")) is None
+
+
+def test_howtos_follow_the_language(tmp_path):
+    state = make_state(tmp_path, display={"language": "pt-BR"})
+    logged = Admin(make_app(state, FakeClock()), state)
+    pt = Translator("pt-BR")
+    page = body(logged.get("/calendars/new"))
+    assert howto(page, pt("admin.howto_link_title")) and "docs/pt-BR/calendar-sources.md" in page
+    assert "docs/pt-BR/kindle.md" in body(logged.get("/"))
+
+
+def test_emphasis_escapes_everything_but_the_bold_markers():
+    from inkdoor.web import emphasis
+    assert str(emphasis("Open **Settings → <Calendar>** & copy")) == \
+        "Open <strong>Settings → &lt;Calendar&gt;</strong> &amp; copy"
+    assert str(emphasis("<script>x()</script>")) == "&lt;script&gt;x()&lt;/script&gt;"
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_every_step_list_is_a_list_of_sentences(language):
+    t = Translator(language)
+    for key in ("admin.howto_outlook", "admin.howto_google", "admin.howto_ticktick", "admin.howto_kindle"):
+        steps = t.get(key)
+        assert isinstance(steps, list) and steps and all(isinstance(s, str) and s for s in steps)
+        assert all(s.count("**") % 2 == 0 for s in steps), key            # bold markers pair up

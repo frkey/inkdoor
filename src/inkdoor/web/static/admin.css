@@ -757,3 +757,43 @@ input[readonly] {
 .kindle-download .help {
   margin: 8px 0 0;
 }
+
+/* Step-by-step help (a <details> block): quiet when closed, readable when open */
+.howto {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0 0 20px;
+  padding: 0 16px;
+}
+
+.howto summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0;
+}
+
+.howto[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.howto-body {
+  padding: 4px 0 14px;
+}
+
+.howto h3 {
+  font-size: 0.95rem;
+  margin: 14px 0 6px;
+}
+
+.howto p {
+  margin: 8px 0 0;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.steps li {
+  margin: 6px 0;
+}
