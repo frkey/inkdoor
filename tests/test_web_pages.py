@@ -14,10 +14,9 @@ from inkdoor.i18n import Translator
 from inkdoor.sources import SourceCache
 from inkdoor.state import RenderInfo
 from inkdoor.web import auth, links, pages
-from test_web_core import (BASE, PASSWORD, FakeClock, client, logged_in, login_token,
-                           make_app, make_state)
-
-from conftest import fixture
+from helpers import fixture
+from web_helpers import (BASE, PASSWORD, FakeClock, client, logged_in, login_token, make_app,
+                         make_state)
 
 EN = Translator("en-US")
 CANARY = "c4n4ryT0K3Nzz"
@@ -1242,3 +1241,42 @@ def test_a_successful_login_still_resets_the_backoff(app):
     app.test_clock.advance(1)
     r = c.post("/login", base_url=BASE, data={"csrf": token, "password": PASSWORD})
     assert r.status_code == 302 and "127.0.0.1" not in limiter._failures
+
+
+# --- save errors and the test slots -----------------------------------------------------------
+
+def test_a_problem_elsewhere_in_the_file_refuses_the_save(logged, state):
+    with open(state.config_path, "w", encoding="utf-8") as f:
+        f.write("[server]\nrefresh_minutes = 0\n")              # invalid, but not in this form
+    before = open(state.config_path, "rb").read()
+    r = logged.post("/calendars/new", data=logged.form(name="Home", url=LINK))
+    page = body(r)
+    assert r.status_code == 200
+    assert str(escape(EN("admin.error_config", message=EN("config_error.refresh", value=0)))) in page
+    assert open(state.config_path, "rb").read() == before
+
+
+def test_a_write_error_is_reported_and_changes_nothing(logged, state, monkeypatch):
+    add(logged, name="Work", url=LINK)
+    before = open(state.config_path, "rb").read()
+
+    def refuse(path, data):
+        raise PermissionError("read-only folder")
+    monkeypatch.setattr(config_edit, "write_private", refuse)
+    r = logged.post("/calendars/new", data=logged.form(name="Home", url=LINK))
+    assert r.status_code == 200 and EN("admin.error_write", error="PermissionError") in body(r)
+    assert open(state.config_path, "rb").read() == before
+
+
+def test_the_test_slot_is_released_when_a_check_crashes(logged, monkeypatch):
+    add(logged, name="Work", url=LINK)
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("not a fetch error")
+    monkeypatch.setattr(pages.checker, "check_calendar", crash)
+    for _ in range(3):                                          # more than the two slots
+        r = logged.post("/calendars/0/test", data=logged.csrf_data(), headers=XHR)
+        assert r.status_code == 500
+    assert pages.TESTS.acquire(blocking=False) and pages.TESTS.acquire(blocking=False)
+    pages.TESTS.release()
+    pages.TESTS.release()

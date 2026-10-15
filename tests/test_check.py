@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from conftest import FIXTURES, at
+from helpers import FIXTURES, at
 
 from inkdoor import check, net
 from inkdoor.check import SourceReport, check_calendar, check_link, check_tasks, run
