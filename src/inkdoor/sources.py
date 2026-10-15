@@ -108,7 +108,11 @@ def _occurrences(cal, start, end, components=("VEVENT",)):
 
 
 def read_calendar(calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
-    cal = icalendar.Calendar.from_ical(fetch(calendar["url"]))
+    return parse_events(icalendar.Calendar.from_ical(fetch(calendar["url"])), calendar, start, end, tz)
+
+
+def parse_events(cal, calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
+    """Events of an already downloaded calendar between start and end."""
     events = []
     for item in _occurrences(cal, start, end):
         if str(item.get("STATUS", "")).upper() == "CANCELLED":
@@ -141,7 +145,11 @@ def read_calendar(calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> l
 
 
 def read_tasks(tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
-    cal = icalendar.Calendar.from_ical(fetch(tasks_cfg["url"]))
+    return parse_tasks(icalendar.Calendar.from_ical(fetch(tasks_cfg["url"])), tasks_cfg, today, tz)
+
+
+def parse_tasks(cal, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
+    """Tasks of an already downloaded calendar that are due today or overdue."""
     overdue_days = int(tasks_cfg.get("overdue_days", 7))
     start = dt.datetime.combine(today - dt.timedelta(days=overdue_days), dt.time.min, tz)
     end = dt.datetime.combine(today + dt.timedelta(days=1), dt.time.min, tz)
