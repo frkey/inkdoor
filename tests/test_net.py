@@ -442,6 +442,47 @@ def test_bad_links(url):
     assert e.value.reason == "bad_link"
 
 
+@pytest.mark.parametrize("url", ["https:/cal.example/x.ics", "mailto:someone@example.com",
+                                 "HTTPS//cal.example/x.ics", "webcal//cal.example/x.ics"])
+def test_mistyped_links_are_bad_links_not_files(url):
+    with pytest.raises(FetchError) as e:
+        fetch(url)
+    assert e.value.reason == "bad_link"
+
+
+def test_a_drive_letter_path_is_still_a_file():
+    with pytest.raises(FetchError) as e:
+        fetch("C:\\inkdoor-missing\\cal.ics")
+    assert e.value.reason == "unreachable"                # read as a (missing) file
+
+
+def test_a_trailing_dot_host_is_fetched(monkeypatch):
+    resolve_to(monkeypatch, "203.0.113.10")
+    calls = respond(monkeypatch, 200, b"BEGIN:VCALENDAR")
+    assert fetch("https://cal.example./x.ics") == b"BEGIN:VCALENDAR"
+    assert calls[0][0] == "https://cal.example./x.ics"
+
+
+def test_netrc_credentials_are_never_sent(tmp_path, monkeypatch):
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine cal.example login someone password not-a-real-secret\n")
+    netrc.chmod(0o600)
+    monkeypatch.setenv("NETRC", str(netrc))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    resolve_to(monkeypatch, "203.0.113.10")
+    sent = []
+
+    def fake_send(self, request, **kwargs):
+        sent.append(request)
+        response = make_response(200, b"BEGIN:VCALENDAR")
+        response.request = request
+        return response
+    monkeypatch.setattr(requests.Session, "send", fake_send)
+    assert fetch("https://cal.example/x.ics") == b"BEGIN:VCALENDAR"
+    assert "Authorization" not in sent[0].headers
+    assert requests.utils.get_netrc_auth("https://cal.example/x.ics") is not None   # it was there
+
+
 # ------------------------------------------------------------ local files and webcal
 
 def test_local_file_and_webcal(tmp_path, monkeypatch):

@@ -146,6 +146,21 @@ def test_clean_rejects_everything_but_web_links(value):
         links.clean(value)
 
 
+@pytest.mark.parametrize("value", ["https:/calendar.example/a.ics", "https//calendar.example/a.ics",
+                                   "mailto:someone@example.com", "webcal:/calendar.example/a.ics"])
+def test_clean_rejects_mistyped_links(value):
+    with pytest.raises(ValueError):
+        links.clean(value)
+
+
+def test_a_trailing_dot_in_the_host_is_accepted():
+    assert links.clean("https://calendar.example./ical/a.ics") == "https://calendar.example./ical/a.ics"
+    assert links.mask("https://calendar.example./ical/a.ics") == "calendar.example./ical/…"
+    for url in ("https://calendar.example../a.ics", "https://./a.ics"):
+        with pytest.raises(ValueError):
+            links.clean(url)
+
+
 BAD_HOSTS = [
     "https://cal.example\\SECRETTOKEN/a/b.ics", "https://cal.example;SECRETTOKEN/a/b.ics",
     "https://cal.example:99999/a/b", "https://cal.example:0/a/b", "https://cal.example:/a/b",

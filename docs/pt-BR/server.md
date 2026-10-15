@@ -231,3 +231,8 @@ em que você não confia.
   endereços de loopback (`127.0.0.1`, `localhost`) e link-local são recusados. É assim que
   funciona uma agenda num servidor da rede, como um Nextcloud, e esse risco é aceito, então
   guarde bem a senha.
+- Os links das agendas são baixados pelo proxy configurado no ambiente do inkdoor, se houver
+  (`HTTPS_PROXY`, `NO_PROXY`; no macOS, também o proxy do sistema), então ele funciona em redes
+  que só chegam à internet por um proxy. A verificação de loopback e link-local acima usa o
+  endereço da agenda como esta máquina o vê. Logins de um arquivo `.netrc` nunca vão junto com
+  um link.
