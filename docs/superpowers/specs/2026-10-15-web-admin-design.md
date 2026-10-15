@@ -126,8 +126,10 @@ config writes. `SourceCache` gets its own lock.
 `serve` must always come up, otherwise the restore button is unreachable and the door is stuck:
 
 1. Try `config.toml`; if it fails, try `config.toml.bak`; if that fails, use defaults (port 8000).
-2. The door shows the error screen (broken file) or the setup screen (missing file), and the
-   admin opens in "broken file" or "first setup" mode.
+2. When `.bak` loads, the door keeps working from it and the admin shows the "broken file" banner
+   with the restore option. When only defaults are left, the door shows the error screen (broken
+   file) or the setup screen (missing file), and the admin opens in "broken file" or "first
+   setup" mode.
 3. The render loop keeps today's rule: it reloads each cycle and keeps the last valid config when
    the file breaks later.
 
@@ -209,8 +211,10 @@ All link fetches (render loop, `inkdoor check`, admin "Test") go through one hel
   on every redirect hop. Private LAN addresses (RFC 1918, ULA) stay allowed: a calendar on a
   LAN Nextcloud or Radicale is a real use. This residual SSRF to the LAN is accepted and
   documented.
-- Admin "Test" runs in a dedicated executor that allows at most 2 concurrent tests, and Waitress
-  gets `threads=8`, so tests can never starve `/kindle.png`.
+- Admin "Test" allows at most 2 concurrent tests (a non-blocking semaphore; a third gets a "busy,
+  try again" answer), and Waitress gets `threads=8`, so tests can never starve `/kindle.png`.
+- `[admin] enabled` is read at startup; changing it needs a restart. `allowed_hosts` is read from
+  the last valid config on every request.
 - "Update now" is limited to once every 30 seconds.
 
 ## Source cache
