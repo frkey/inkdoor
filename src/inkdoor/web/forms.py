@@ -19,6 +19,19 @@ DEFAULT_OVERDUE = 7
 DEFAULT_TASKS_NAME = "TickTick"
 
 
+def link_field(link: str | None, old: dict) -> dict:
+    """{"url": ...} with the new link, else the one already saved; {} when there is none."""
+    url = link or old.get("url")
+    return {} if url is None else {"url": url}
+
+
+def keep_unknown(entry: dict, old: dict, managed=frozenset()) -> dict:
+    """``entry`` as the form built it, plus every key of ``old`` the form does not manage, so keys
+    added to config.toml by hand survive a save from the admin."""
+    entry.update((k, v) for k, v in old.items() if k not in entry and k not in managed)
+    return entry
+
+
 def _text(form, key: str) -> str:
     value = form.get(key, "")
     return value.strip() if isinstance(value, str) else ""
