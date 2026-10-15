@@ -14,6 +14,7 @@ eips -c
 count=0
 failures=0
 while true; do
+  pause=$INTERVAL
   if ensure_wifi && download; then
     if [ $((count % FULL_REFRESH_EVERY)) -eq 0 ]; then
       eips -f -g "$IMG"
@@ -22,11 +23,12 @@ while true; do
     fi
     count=$((count + 1))
     failures=0
+    pause="$(next_wait)"    # sooner when the server renders again soon (a meeting starts or ends)
   else
     failures=$((failures + 1))
     log "download failed ($failures in a row)"
     # after 3 failures, show a small notice in the corner
     [ $failures -ge 3 ] && eips 1 1 "$MSG_NO_CONNECTION"
   fi
-  sleep "$INTERVAL"
+  sleep "$pause"
 done

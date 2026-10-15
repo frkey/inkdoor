@@ -69,7 +69,7 @@ Edit `inkdoor/config.sh`:
 
 ```sh
 URL="http://192.168.0.10:3667/kindle.png"   # IP of the computer running "inkdoor serve"
-INTERVAL=300                                # seconds between updates
+INTERVAL=300                                # longest wait between updates, in seconds
 FULL_REFRESH_EVERY=6                        # every N updates, a full refresh (flashes, clears ghosting)
 LANGUAGE="en-US"                            # messages on the Kindle: en-US or pt-BR
 ```
@@ -95,6 +95,10 @@ start by itself after a restart.
 - **Fixed IP**: reserve an IP for your computer on the router; otherwise the address changes
   and the display stops updating. A home server avoids this and never sleeps
   ([docs/server.md](server.md)).
+- **On time**: the server redraws the door right when a meeting starts or ends and tells the
+  Kindle when to come back, so the status changes within seconds. `INTERVAL` is only the
+  longest wait between updates; this needs the Kindle scripts from version 1.2 (`;kpm upgrade`
+  or a new zip).
 - **Single instance**: tapping "start display" twice does not start two loops.
 - **No connection**: after 3 failures in a row, "cannot reach the computer" appears in the
   corner of the screen. The history is in `inkdoor/log.txt`, and

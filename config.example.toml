@@ -15,7 +15,8 @@ min_gap_minutes = 30        # only show "free · 45 min" for gaps at least this 
 
 [server]
 port = 3667
-refresh_minutes = 5
+refresh_minutes = 5         # re-read the calendars on the clock (10:00, 10:05...); the door
+                            # also redraws right when a meeting starts or ends
 
 # ---------- Calendars ----------
 # Add one [[calendar]] block per calendar.

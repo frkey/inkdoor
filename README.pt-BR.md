@@ -192,7 +192,7 @@ opção está explicada no [`config.example.toml`](config.example.toml):
 
 | Comando | O que faz |
 |---|---|
-| `inkdoor serve` | Gera a tela a cada `refresh_minutes` e a serve, junto com o admin, na `port`. Relê a config a cada ciclo. |
+| `inkdoor serve` | Gera a tela a cada `refresh_minutes` (no relógio: 10:00, 10:05…) e na hora em que um compromisso começa ou termina, e a serve, junto com o admin, na `port`. Relê a config a cada ciclo. |
 | `inkdoor check` | Testa cada link: se responde, quantos compromissos, se os títulos aparecem ou só "Ocupado". |
 | `inkdoor render` | Gera `output/kindle.png` uma vez. |
 | `inkdoor demo 10:20 16:50` | Gera prévias com dados fictícios; não precisa de agendas. |

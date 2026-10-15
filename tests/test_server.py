@@ -1,4 +1,5 @@
 """The render loop, one render cycle and the startup fallback of `inkdoor serve`."""
+import datetime as dt
 import os
 import threading
 
@@ -12,7 +13,7 @@ from inkdoor.render import render, render_error, render_setup
 from inkdoor.sources import SourceCache, collect
 from inkdoor.state import IMAGE_NAME, ServerState
 
-from helpers import at
+from helpers import TZ, at
 
 EN = Translator("en-US")
 CANARY = "c4n4ry7Zq9"
@@ -376,6 +377,8 @@ def test_refresh_minutes_is_read_again_before_every_wait(state, monkeypatch):
                 stop.set()
 
     monkeypatch.setattr(server, "run_cycle", lambda st, cache: None)
+    # 7:00 sits on a tick of both intervals, so each wait is one whole interval
+    monkeypatch.setattr(server, "_now", lambda cfg: dt.datetime(2026, 10, 14, 7, 0, tzinfo=TZ))
     state.render_event = RecordingEvent()
     state.cfg["server"]["refresh_minutes"] = 7
     server.render_loop(state, SourceCache(), stop)
@@ -394,6 +397,52 @@ def test_render_log_line_uses_plurals(cfg, tmp_path, monkeypatch, capsys, langua
     monkeypatch.setattr(server, "collect", lambda cfg, cache=None: Snapshot(
         at("10:00"), ["event"] * n, [], ["task"] * n))
     monkeypatch.setattr(server, "compose", lambda snap, cfg, url: (None, "word", "headline"))
+    monkeypatch.setattr(server, "next_change", lambda snap, cfg: None)
     monkeypatch.setattr(server, "save", lambda img, path: None)
     server.render_once(cfg, str(tmp_path))
     assert expected in capsys.readouterr().out
+
+
+# --- when the loop renders next ----------------------------------------------------------------
+
+@pytest.mark.parametrize("now, minutes, expected", [
+    ("10:00", 5, 300), ("10:02", 5, 180), ("10:04", 5, 60), ("23:58", 5, 120), ("23:57", 7, 180),
+])
+def test_ticks_follow_the_clock_from_midnight(now, minutes, expected):
+    assert server._until_tick(at(now), minutes) == expected
+
+
+def test_the_loop_wakes_just_after_a_meeting_starts(state, monkeypatch):
+    from inkdoor.state import RenderInfo
+    monkeypatch.setattr(server, "_now", lambda cfg: at("9:58"))
+    state.last_render = RenderInfo(at("9:58"), "Free", "until 9:59 AM", [], at("9:59"))
+    assert server._wait_seconds(state) == 60 + server.CHANGE_DELAY       # before the 10:00 tick
+    state.last_render = RenderInfo(at("9:58"), "Free", "until 1:00 PM", [], at("13:00"))
+    assert server._wait_seconds(state) == 120                             # the tick comes first
+    state.last_render = RenderInfo(at("9:58"), "Free", "until 1:00 PM", [], at("9:57"))
+    assert server._wait_seconds(state) == 1                               # never busy-loops
+
+
+def test_a_render_records_the_next_change(cfg, tmp_path):
+    from inkdoor.render import next_change
+    info = server._render_snapshot(cfg, str(tmp_path / "kindle.png"), None, None)
+    assert info.next_change == next_change(collect(cfg, info.at), cfg)
+
+
+def test_the_loop_publishes_when_it_renders_next(state, monkeypatch):
+    stop = threading.Event()
+
+    class OneWait:
+        def clear(self):
+            pass
+
+        def wait(self, timeout):
+            OneWait.timeout = timeout
+            stop.set()
+
+    monkeypatch.setattr(server, "run_cycle", lambda st, cache: None)
+    monkeypatch.setattr(server, "_now", lambda cfg: at("10:01"))
+    monkeypatch.setattr(server.time, "time", lambda: 5000.0)
+    state.render_event = OneWait()
+    server.render_loop(state, SourceCache(), stop)
+    assert OneWait.timeout == 240 and state.next_render_at == 5240.0

@@ -2,7 +2,8 @@
 # Address of the image served by "inkdoor serve" (use your computer's IP on the local network)
 URL="http://192.168.0.10:3667/kindle.png"
 
-# Seconds between screen updates
+# Longest wait between screen updates, in seconds. The server asks for an earlier one when the
+# door is about to change (a meeting starts or ends), so this rarely needs to be shorter.
 INTERVAL=300
 
 # Every N updates, do a full refresh (the screen flashes once and clears ghosting)

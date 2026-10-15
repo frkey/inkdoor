@@ -26,6 +26,7 @@ EVENT_ROW = 96               # height of an event row
 # is taller; the text keeps the position it has in any other row.
 CURRENT_ROW = 110
 BLACK, DARK, GRAY, LIGHT, WHITE = 0, 68, 119, 187, 255
+SOON_MINUTES = 15            # a busy event this close is "in 12 min" instead of "at 10:00"
 
 _FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 _font_cache: dict = {}
@@ -98,7 +99,7 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
         nxt = upcoming[0]
         minutes = int((nxt.start - now).total_seconds() // 60)
         title = nxt.title or t("untitled")
-        detail = (t("status.next_in", title=title, duration=t.duration(minutes)) if minutes <= 15
+        detail = (t("status.next_in", title=title, duration=t.duration(minutes)) if minutes <= SOON_MINUTES
                   else t("status.next_at", title=title, time=t.time(nxt.start)))
         return Status(False, t("status.free"), t("status.until", time=t.time(nxt.start)), detail)
 
@@ -108,6 +109,25 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
                   else t("status.tomorrow_empty"))
         return Status(False, t("status.free"), t("status.after_hours"), detail)
     return Status(False, t("status.free"), t("status.rest_of_day"), t("status.no_more_today"))
+
+
+def next_change(snap: Snapshot, cfg: dict) -> dt.datetime | None:
+    """The next moment the screen changes with the clock alone, from what ``snap`` holds: an
+    event starts or ends, a busy event comes within SOON_MINUTES, the workday starts or ends, or
+    the day turns. None when nothing is ahead (calendar changes are caught by the refresh)."""
+    now = snap.now
+    moments = []
+    for e in snap.today + snap.tomorrow:
+        if not e.all_day:
+            moments += [e.start, e.end]
+            if e.busy:
+                moments.append(e.start - dt.timedelta(minutes=SOON_MINUTES))
+    midnight = dt.datetime.combine(now.date(), dt.time.min, now.tzinfo)
+    display = cfg["display"]
+    moments += [midnight + dt.timedelta(hours=display["workday_start"]),
+                midnight + dt.timedelta(hours=display["workday_end"]),
+                midnight + dt.timedelta(days=1)]
+    return min((m for m in moments if m > now), default=None)
 
 
 # ---------------------------------------------------------------- drawing helpers
