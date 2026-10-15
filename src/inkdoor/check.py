@@ -11,7 +11,7 @@ from . import net
 from .config import is_configured
 from .i18n import Translator
 from .render import translator_for
-from .sources import read_calendar, read_tasks
+from .sources import parse_events, parse_tasks
 
 # Titles that mean the link only publishes free/busy, without details
 FREE_BUSY_TITLES = {"busy", "ocupado", "tentative", "provisório", "free", "livre",
@@ -42,30 +42,36 @@ class SourceReport:
 
 def check_link(url: str, t: Translator) -> tuple[bool, str]:
     """Downloads the link and makes sure it is a calendar. Returns (ok, message)."""
+    cal, message = load_link(url, t)
+    return cal is not None, message
+
+
+def load_link(url: str, t: Translator) -> tuple[icalendar.Calendar | None, str]:
+    """Downloads the link once and parses it. Returns (calendar, message); None when it failed."""
     if not is_configured(url):
-        return False, t("check.not_configured")
+        return None, t("check.not_configured")
     try:
         content = net.fetch(url)
     except net.FetchError as ex:
         if ex.reason == "http":
             if ex.status in (401, 403):
-                return False, t("check.denied", status=ex.status)
+                return None, t("check.denied", status=ex.status)
             if ex.status == 404:
-                return False, t("check.not_found")
-            return False, t("check.http_error", status=ex.status)
+                return None, t("check.not_found")
+            return None, t("check.http_error", status=ex.status)
         if ex.reason == "too_large":
-            return False, t("check.too_large", mb=net.MAX_BYTES // 1_000_000)
+            return None, t("check.too_large", mb=net.MAX_BYTES // 1_000_000)
         if ex.reason == "timeout":
-            return False, t("check.timeout", seconds=int(net.DEADLINE))
-        return False, t(_FETCH_ERROR_KEYS.get(ex.reason, "check.unreachable"))
+            return None, t("check.timeout", seconds=int(net.DEADLINE))
+        return None, t(_FETCH_ERROR_KEYS.get(ex.reason, "check.unreachable"))
     head = content[:2000]
     if b"BEGIN:VCALENDAR" not in head:
-        return False, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")
+        return None, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")
     try:
-        icalendar.Calendar.from_ical(content)
+        cal = icalendar.Calendar.from_ical(content)
     except Exception:
-        return False, t("check.invalid")
-    return True, t("check.ok", kb=len(content) // 1024 or 1)
+        return None, t("check.invalid")
+    return cal, t("check.ok", kb=len(content) // 1024 or 1)
 
 
 def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
@@ -74,13 +80,13 @@ def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     start = dt.datetime.combine(now.date(), dt.time.min, tz)
     end = start + dt.timedelta(days=14)
     report = SourceReport(calendar["name"], "calendar")
-    ok, message = check_link(calendar.get("url", ""), t)
-    report.lines.append(("ok" if ok else "fail", message))
-    if not ok:
+    cal, message = load_link(calendar.get("url", ""), t)
+    report.lines.append(("fail" if cal is None else "ok", message))
+    if cal is None:
         report.ok = False
         return report
     try:
-        found = read_calendar(calendar, start, end, tz)
+        found = parse_events(cal, calendar, start, end, tz)
     except Exception as ex:
         report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
         report.ok = False
@@ -111,13 +117,13 @@ def check_tasks(tasks_cfg: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     t = translator_for(cfg)
     tz = ZoneInfo(cfg["display"]["timezone"])
     report = SourceReport(tasks_cfg["name"], "tasks")
-    ok, message = check_link(tasks_cfg.get("url", ""), t)
-    report.lines.append(("ok" if ok else "fail", message))
-    if not ok:
+    cal, message = load_link(tasks_cfg.get("url", ""), t)
+    report.lines.append(("fail" if cal is None else "ok", message))
+    if cal is None:
         report.ok = False
         return report
     try:
-        tasks = read_tasks(tasks_cfg, now.date(), tz)
+        tasks = parse_tasks(cal, tasks_cfg, now.date(), tz)
     except Exception as ex:
         report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
         report.ok = False
