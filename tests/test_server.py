@@ -12,7 +12,7 @@ from inkdoor.render import render, render_error, render_setup
 from inkdoor.sources import SourceCache, collect
 from inkdoor.state import IMAGE_NAME, ServerState
 
-from conftest import at
+from helpers import at
 
 EN = Translator("en-US")
 CANARY = "c4n4ry7Zq9"
@@ -354,3 +354,29 @@ def test_last_render_is_the_error_even_when_the_error_screen_cannot_be_saved(sta
         server.run_cycle(state, SourceCache())
     assert state.last_render.word == EN("status.unknown")
     assert state.last_render.headline == EN("status.error_headline")
+
+
+def test_refresh_minutes_is_read_again_before_every_wait(state, monkeypatch):
+    waits, stop = [], threading.Event()
+
+    class RecordingEvent:
+        def clear(self):
+            pass
+
+        def is_set(self):
+            return False
+
+        def set(self):
+            pass
+
+        def wait(self, timeout):
+            waits.append(timeout)
+            state.cfg["server"]["refresh_minutes"] = 2           # a save changes it meanwhile
+            if len(waits) == 2:
+                stop.set()
+
+    monkeypatch.setattr(server, "run_cycle", lambda st, cache: None)
+    state.render_event = RecordingEvent()
+    state.cfg["server"]["refresh_minutes"] = 7
+    server.render_loop(state, SourceCache(), stop)
+    assert waits == [7 * 60, 2 * 60]

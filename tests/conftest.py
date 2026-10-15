@@ -1,14 +1,9 @@
-import datetime as dt
 import os
-from zoneinfo import ZoneInfo
 
 import pytest
+from helpers import FAKE_LAN_ADDRESS, FIXTURES
 
 from inkdoor.config import with_defaults
-
-FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
-TZ = ZoneInfo("America/Sao_Paulo")
-FAKE_LAN_ADDRESS = "192.168.0.50"  # fictional; tests never look up this machine's host name
 
 
 def pytest_configure(config):
@@ -21,10 +16,6 @@ def fake_lan_address(request, monkeypatch):
     if request.node.get_closest_marker("real_lan_address") is None:
         from inkdoor import net
         monkeypatch.setattr(net, "lan_address", lambda: FAKE_LAN_ADDRESS)
-
-
-def fixture(name: str) -> str:
-    return os.path.join(FIXTURES, name)
 
 
 @pytest.fixture
@@ -40,8 +31,3 @@ def cfg():
         ],
         "tasks": {"name": "TickTick", "url": path("tasks.ics"), "overdue_days": 7},
     })
-
-
-def at(hhmm: str, day: int = 14) -> dt.datetime:
-    h, m = map(int, hhmm.split(":"))
-    return dt.datetime(2026, 10, day, h, m, tzinfo=TZ)

@@ -213,6 +213,22 @@ def test_no_request_once_the_budget_is_spent(monkeypatch):
     assert len(calls) == 1
 
 
+def test_the_deadline_runs_across_redirect_hops(monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(net.time, "monotonic", lambda: clock[0])
+    resolve_to(monkeypatch, "203.0.113.10")
+    calls = []
+
+    def fake_get(self, url, **kwargs):
+        calls.append(url)
+        clock[0] += 16                                      # each hop is slow, none is over 30 s
+        return redirect(f"https://cal.example/hop{len(calls)}")
+    monkeypatch.setattr(requests.Session, "get", fake_get)
+    with pytest.raises(FetchError) as e:
+        fetch("https://cal.example/x.ics")
+    assert e.value.reason == "timeout" and len(calls) == 2   # 32 s spent: no third request
+
+
 class LateBody(io.RawIOBase):
     """A body that ends (empty read) only after the deadline, like a connection that was cut."""
 
@@ -598,7 +614,7 @@ def test_lan_address_survives_resolver_errors(monkeypatch):
 
 def test_tests_never_resolve_this_machine():
     """conftest replaces net.lan_address, so no test looks up the real host name."""
-    from conftest import FAKE_LAN_ADDRESS
+    from helpers import FAKE_LAN_ADDRESS
 
     from inkdoor.config import with_defaults
     assert net.lan_address() == FAKE_LAN_ADDRESS

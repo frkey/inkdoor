@@ -7,7 +7,7 @@ import threading
 import time
 
 import pytest
-from conftest import FAKE_LAN_ADDRESS
+from helpers import FAKE_LAN_ADDRESS
 from PIL import Image
 
 from inkdoor import net, server
@@ -169,7 +169,19 @@ def test_port_in_use(tmp_path, monkeypatch):
     assert not (tmp_path / "out" / "kindle.png").exists()   # nothing rendered for a dead server
 
 
-def test_serve_warns_when_the_admin_has_no_password(tmp_path, monkeypatch, capsys):
+class FakeServer:
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def no_bind(monkeypatch):
+    """serve without a socket (it would listen on 0.0.0.0, every interface of this machine)."""
+    import waitress
+    monkeypatch.setattr(waitress, "create_server", lambda app, **kwargs: FakeServer())
+
+
+def test_serve_warns_when_the_admin_has_no_password(tmp_path, monkeypatch, capsys, no_bind):
     monkeypatch.delenv("INKDOOR_LANG", raising=False)
     port = free_port()
     (tmp_path / "config.toml").write_text(f"[server]\nport = {port}\n\n[admin]\nenabled = true\n")
@@ -183,7 +195,8 @@ def test_serve_warns_when_the_admin_has_no_password(tmp_path, monkeypatch, capsy
 
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])
 @pytest.mark.parametrize("address", [FAKE_LAN_ADDRESS, None])
-def test_serve_prints_the_lan_address(tmp_path, monkeypatch, capsys, language, address):
+def test_serve_prints_the_lan_address(tmp_path, monkeypatch, capsys, language, address,
+                                      no_bind):
     monkeypatch.delenv("INKDOOR_LANG", raising=False)
     monkeypatch.setattr(net, "lan_address", lambda: address)
     monkeypatch.setattr(server, "_run", lambda httpd: None)
@@ -198,7 +211,8 @@ def test_serve_prints_the_lan_address(tmp_path, monkeypatch, capsys, language, a
     assert f"http://{shown}:{port}/kindle.png" in t("cli.serving", address=shown, port=port)
 
 
-def test_serve_does_not_warn_with_a_password_or_without_the_admin(tmp_path, monkeypatch, capsys):
+def test_serve_does_not_warn_with_a_password_or_without_the_admin(tmp_path, monkeypatch, capsys,
+                                                                  no_bind):
     from inkdoor.web import auth
     monkeypatch.delenv("INKDOOR_LANG", raising=False)
     monkeypatch.setattr(server, "_run", lambda httpd: None)
@@ -213,18 +227,6 @@ def test_serve_does_not_warn_with_a_password_or_without_the_admin(tmp_path, monk
     server.serve(str(config_path), str(tmp_path / "out"), None)
     out = capsys.readouterr().out
     assert EN("cli.no_password") not in out and "test-pass-not-real-1" not in out
-
-
-class FakeServer:
-    def close(self):
-        pass
-
-
-@pytest.fixture
-def no_bind(monkeypatch):
-    """serve without a socket: the defaults would bind port 3667."""
-    import waitress
-    monkeypatch.setattr(waitress, "create_server", lambda app, **kwargs: FakeServer())
 
 
 def started_state(monkeypatch, config_path, out):

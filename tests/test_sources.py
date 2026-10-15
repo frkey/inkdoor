@@ -1,7 +1,7 @@
 import datetime as dt
 
 import pytest
-from conftest import TZ, at, fixture
+from helpers import TZ, at, fixture
 
 from inkdoor import sources
 from inkdoor.demo import demo_config, demo_snapshot
@@ -89,6 +89,13 @@ def test_configured_states(cfg):
     assert collect(cfg, now=at("10:00")).configured == "no_busy"
     cfg["calendar"][0]["url"] = fixture("work.ics")
     assert collect(cfg, now=at("10:00")).configured == "busy"
+
+
+def test_a_busy_calendar_that_fails_is_still_configured_busy(cfg):
+    cfg["calendar"] = [{"name": "Work", "busy": True, "url": "/does/not/exist.ics"}]
+    del cfg["tasks"]
+    snap = collect(cfg, now=at("10:00"))
+    assert snap.configured == "busy" and snap.unknown == ["Work"]   # "Knock first", never Free
 
 
 def test_only_non_busy_calendars_is_no_busy(cfg):
