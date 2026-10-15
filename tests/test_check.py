@@ -4,7 +4,7 @@ import pytest
 from conftest import FIXTURES, at
 
 from inkdoor import check, net
-from inkdoor.check import check_link, run
+from inkdoor.check import SourceReport, check_calendar, check_link, check_tasks, run
 from inkdoor.i18n import Translator
 from inkdoor.net import FetchError
 
@@ -115,3 +115,65 @@ def test_check_link_still_inspects_the_content(monkeypatch):
     assert check_link("https://cal.example/x.ics", t) == (False, t("check.html_page"))
     monkeypatch.setattr(check.net, "fetch", lambda url, **kw: b"BEGIN:VCALENDAR\r\nnot really")
     assert check_link("https://cal.example/x.ics", t) == (False, t("check.invalid"))
+
+
+def test_check_calendar_returns_a_structured_report(cfg):
+    t = Translator("en-US")
+    calendar = cfg["calendar"][0]
+    report = check_calendar(calendar, cfg, at("09:00"))
+    assert isinstance(report, SourceReport)
+    assert (report.name, report.kind, report.ok) == ("Work", "calendar", True)
+    assert report.lines == [("ok", t("check.ok", kb=1)), ("ok", t("check.events_found", n=12))]
+    assert [title for _, title in report.upcoming] == ["Daily"] * 3
+    assert report.upcoming[0][0] == at("09:00")
+
+
+def test_check_calendar_reports_an_unconfigured_link(cfg):
+    t = Translator("en-US")
+    report = check_calendar({"name": "Work", "url": "PASTE_X"}, cfg, at("09:00"))
+    assert (report.ok, report.upcoming) == (False, [])
+    assert report.lines == [("fail", t("check.not_configured"))]
+
+
+def test_check_calendar_warns_but_stays_ok(cfg, tmp_path):
+    t = Translator("en-US")
+    empty = _ics(tmp_path, "empty.ics", [])
+    report = check_calendar({"name": "Empty", "url": empty}, cfg, at("09:00"))
+    assert report.ok is True
+    assert report.lines[-1] == ("warn", t("check.no_events"))
+    busy = _ics(tmp_path, "busy.ics", [("Busy", "20261014T100000")])
+    report = check_calendar({"name": "Busy", "url": busy}, cfg, at("09:00"))
+    assert ("warn", t("check.busy_only")) in report.lines
+
+
+def test_check_calendar_fails_without_leaking_details(cfg, monkeypatch):
+    def broken(*args, **kwargs):
+        raise ValueError("https://cal.example/secret.ics")
+    monkeypatch.setattr(check, "read_calendar", broken)
+    report = check_calendar(cfg["calendar"][0], cfg, at("09:00"))
+    t = Translator("en-US")
+    assert report.ok is False
+    assert report.lines[-1] == ("fail", t("check.read_failed", error="ValueError"))
+    assert "secret" not in repr(report)
+
+
+def test_check_report_never_contains_the_link(cfg, tmp_path):
+    link = str(tmp_path / "secret-token.ics")
+    report = check_calendar({"name": "Secret", "url": link}, cfg, at("09:00"))
+    assert "secret-token" not in repr(report)
+
+
+def test_check_tasks_returns_the_tasks(cfg):
+    t = Translator("en-US")
+    report = check_tasks(cfg["tasks"], cfg, at("09:00"))
+    assert (report.name, report.kind, report.ok) == ("TickTick", "tasks", True)
+    assert report.lines == [("ok", t("check.ok", kb=1)), ("ok", t("check.tasks_found", n=2))]
+    assert [title for _, title in report.upcoming] == [
+        t("check.overdue_prefix") + "Overdue task", "Call the bank"]
+
+
+def test_check_tasks_reports_a_failing_link(cfg, tmp_path):
+    tasks = dict(cfg["tasks"], url=str(tmp_path / "missing.ics"))
+    report = check_tasks(tasks, cfg, at("09:00"))
+    assert (report.ok, report.upcoming) == (False, [])
+    assert report.lines == [("fail", Translator("en-US")("check.unreachable"))]
