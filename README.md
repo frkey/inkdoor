@@ -148,11 +148,16 @@ paste each ICS link and press **Test link**. **Home** shows the door exactly as 
 
 ### 3. Put it on the Kindle
 
+If your Kindle has **KPM** (recent jailbreaks do), your server is a KPM repository: on the Kindle,
+type in the search bar `;kpm add-repo http://<server>:3667/kpm.json`, `;kpm update` and
+`;kpm install inkdoor` (the admin's **Home** page shows them with your address). Without KPM:
+
 1. On the admin's **Home** page, press **Download the Kindle files**: a `.zip` with your
    server's address and your language already set.
 2. Unzip it. Copy the `inkdoor` folder to the root of the Kindle and the two files in
    `scriptlets` into its `documents` folder.
-3. In the Kindle's library, open **inkdoor - test connection**, then **inkdoor - start display**.
+
+Then, in the Kindle's library, open **inkdoor - test connection**, then **inkdoor - start display**.
 
 Step by step, with tips on power and Wi-Fi: [docs/kindle.md](docs/kindle.md).
 
@@ -215,9 +220,10 @@ language? See [Contributing](CONTRIBUTING.md#translations).
 
 - **Keep it on your local network.** Never forward its port on your router: the image shows
   your schedule. The admin uses plain HTTP, so use it only on a network you trust.
-- Only `/kindle.png` and the login page are public; every other page needs the admin login,
-  which has a rate limit and CSRF protection. The server answers only to IP addresses and local network names, which
-  blocks DNS rebinding.
+- Only `/kindle.png`, the login page and the Kindle's KPM repository (the Kindle scripts and the
+  server's address, no secrets) are public; every other page needs the admin login, which has a
+  rate limit and CSRF protection. The server answers only to IP addresses and local network
+  names, which blocks DNS rebinding.
 - Links are fetched with a size cap and a deadline, and never to this machine's own loopback or
   link-local addresses.
 

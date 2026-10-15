@@ -51,7 +51,7 @@ def rule_path(rule):
 # --- routing ----------------------------------------------------------------------------------
 
 def test_route_inventory_requires_session(app):
-    public = {"kindle", "login", "static"}
+    public = {"kindle", "login", "static", "kpm_index", "kpm_package"}
     checked = 0
     for rule in app.url_map.iter_rules():
         if rule.endpoint in public:
@@ -630,3 +630,32 @@ def test_state_has_no_unused_write_lock():
     """Config writes are serialized inside config_edit (its own lock), not by the state."""
     import dataclasses
     assert "write_lock" not in {f.name for f in dataclasses.fields(ServerState)}
+
+
+# --- KPM repository ---------------------------------------------------------------------------
+
+def test_kpm_repository_is_public_and_points_at_the_address_the_kindle_used(app):
+    import json
+    import tarfile
+    r = get(client(app), "/kpm.json")
+    assert r.status_code == 200 and r.mimetype == "application/json"
+    assert json.loads(r.data)["packages"]["inkdoor"]["artifacts"][0]["url"] == "kpm/inkdoor.kpkg"
+    r = client(app).get("/kpm/inkdoor.kpkg", base_url="http://192.168.0.77:3667")
+    assert r.status_code == 200 and r.mimetype == "application/gzip"
+    assert r.headers["Cache-Control"] == "no-store"
+    archive = tarfile.open(fileobj=io.BytesIO(r.data))
+    config_sh = archive.extractfile("payload/inkdoor/config.sh").read().decode()
+    assert 'URL="http://192.168.0.77:3667/kindle.png"' in config_sh
+
+
+def test_kpm_repository_needs_an_allowed_host_and_the_admin(app, app_disabled):
+    assert get(client(app), "/kpm.json", headers={"Host": "evil.example"}).status_code == 400
+    for path in ("/kpm.json", "/kpm/inkdoor.kpkg"):
+        assert get(client(app_disabled), path).status_code == 404
+
+
+def test_kpm_repository_is_absent_without_the_kindle_scripts(app, monkeypatch):
+    from inkdoor import kindle_files
+    monkeypatch.setattr(kindle_files, "find_dir", lambda: None)
+    for path in ("/kpm.json", "/kpm/inkdoor.kpkg"):
+        assert get(client(app), path).status_code == 404

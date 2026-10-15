@@ -1417,3 +1417,9 @@ def test_every_step_list_is_a_list_of_sentences(language):
         steps = t.get(key)
         assert isinstance(steps, list) and steps and all(isinstance(s, str) and s for s in steps)
         assert all(s.count("**") % 2 == 0 for s in steps), key            # bold markers pair up
+
+
+def test_home_shows_the_kpm_commands_with_this_server(logged):
+    page = body(logged.get("/"))
+    assert howto(page, EN("admin.howto_kpm_title")) == '<details class="howto">'
+    assert ";kpm add-repo http://192.168.0.50:3667/kpm.json\n;kpm update\n;kpm install inkdoor" in page

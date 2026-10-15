@@ -34,6 +34,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: ShellCheck
         working-directory: kindle
-        run: shellcheck inkdoor/*.sh documents/*.sh
+        run: shellcheck inkdoor/*.sh documents/*.sh kpm/*.sh
       - name: ShellCheck (deploy)
         run: shellcheck deploy/*.sh deploy/proxmox/*.sh

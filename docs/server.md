@@ -224,7 +224,9 @@ do not trust.
 
 - **Keep it on your local network.** Never forward the port on your router: the image shows
   your schedule. If the server has a firewall, allow the port only from your LAN.
-- Only `/kindle.png` is public; every other page needs the admin login. The service runs as an
+- Only `/kindle.png` and the Kindle's KPM repository (`/kpm.json`, `/kpm/inkdoor.kpkg`: the
+  Kindle scripts and this server's address) are public; every other page needs the admin login.
+  The service runs as an
   unprivileged user in a systemd sandbox that can only write to `/var/lib/inkdoor` and
   `/etc/inkdoor`.
 - `config.toml` holds secret calendar links: anyone who has them can read your calendars. On a

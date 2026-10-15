@@ -797,3 +797,17 @@ input[readonly] {
 .steps li {
   margin: 6px 0;
 }
+
+/* Commands to type on the Kindle (KPM), one per line */
+.commands {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0 0;
+  overflow-x: auto;
+  white-space: pre;
+}

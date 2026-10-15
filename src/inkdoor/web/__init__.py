@@ -5,8 +5,8 @@ Every request goes through one guard (``_guard``), in this order:
 1. unknown path, a known path with the wrong method, or OPTIONS -> 404, never a redirect;
 2. admin disabled -> only ``/kindle.png`` exists;
 3. Host allowlist (DNS rebinding): ``/kindle.png`` gets a 200 error image, anything else a 400;
-4. public endpoints (``kindle``, ``login``, ``static``) pass; any method other than GET/HEAD
-   must pass the Origin check;
+4. public endpoints (``kindle``, ``login``, ``static``, and the KPM repository ``kpm_index``
+   and ``kpm_package``) pass; any method other than GET/HEAD must pass the Origin check;
 5. a changed password file logs everyone out;
 6. a session is required: GET/HEAD redirect to the login page, anything else gets 401;
 7. any method other than GET/HEAD: the Origin check and the session's CSRF token.
@@ -31,6 +31,7 @@ from flask import Flask, abort, g, redirect, render_template, request, send_from
 from markupsafe import Markup, escape
 from werkzeug.exceptions import HTTPException
 
+from .. import kindle_files
 from ..i18n import Translator
 from ..render import render_host_rejected
 from ..state import IMAGE_NAME, ServerState
@@ -41,7 +42,9 @@ SESSION_COOKIE = "inkdoor_session"
 LOGIN_COOKIE = "inkdoor_login"
 SESSION_LIFETIME = 7 * 86400
 SAFE_METHODS = frozenset({"GET", "HEAD"})
-PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static"})
+# kpm_*: the KPM repository for the Kindle (no secrets: the Kindle scripts and this server's
+# address), which KPM fetches without a login
+PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static", "kpm_index", "kpm_package"})
 HOST_IMAGE_CACHE = 16
 # Rejected hosts: renders of new names per second (the rest get one generic image per language),
 # and log lines per minute (the rest are counted in the next line)
@@ -369,6 +372,29 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
             return app.response_class(t()("admin.not_rendered") + "\n", status=503,
                                       mimetype="text/plain", headers={"Cache-Control": "no-store"})
         return app.response_class(body, mimetype="image/png", headers={"Cache-Control": "no-store"})
+
+    # --- KPM repository: ";kpm add-repo http://<server>/kpm.json" on the Kindle ----------------
+
+    @app.get("/kpm.json", endpoint="kpm_index")
+    def kpm_index():
+        if kindle_files.find_dir() is None:
+            abort(404)
+        body = kindle_files.repository_index(t()("kpm.repo_name"), t()("kpm.description"))
+        return app.response_class(body, mimetype="application/json")
+
+    @app.get("/kpm/inkdoor.kpkg", endpoint="kpm_package")
+    def kpm_package():
+        """The package, with config.sh pointing at the address the Kindle used to reach this
+        server (the guard has already checked that Host against the allowlist)."""
+        folder = kindle_files.find_dir()
+        if folder is None:
+            abort(404)
+        try:
+            data = kindle_files.build_kpkg(folder, f"http://{request.host}/kindle.png",
+                                           t().language, t()("kpm.description"))
+        except ValueError:  # an address that cannot be written into config.sh
+            abort(404)
+        return app.response_class(data, mimetype="application/gzip")
 
     @app.get("/static/<path:filename>", endpoint="static")
     def static(filename: str):

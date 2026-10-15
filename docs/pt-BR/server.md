@@ -228,7 +228,9 @@ em que você não confia.
 
 - **Deixe tudo na rede local.** Nunca abra a porta no roteador (port forward): a imagem mostra a
   sua agenda. Se o servidor tem firewall, libere a porta só para a sua rede.
-- Só o `/kindle.png` é público; todas as outras páginas pedem o login do admin. O serviço roda
+- Só o `/kindle.png` e o repositório KPM do Kindle (`/kpm.json`, `/kpm/inkdoor.kpkg`: os scripts
+  do Kindle e o endereço deste servidor) são públicos; todas as outras páginas pedem o login do
+  admin. O serviço roda
   com um usuário sem privilégios, num sandbox do systemd que só pode gravar em
   `/var/lib/inkdoor` e `/etc/inkdoor`.
 - O `config.toml` guarda links secretos: quem tem esses links consegue ler suas agendas. Num

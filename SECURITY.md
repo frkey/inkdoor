@@ -22,7 +22,9 @@ Within that model:
   messages or `inkdoor check` output.
 - **The admin requires a login.** The password is stored as a scrypt hash, sessions live only in
   the server's memory, logins are rate limited per address, and every form is protected against
-  CSRF. Only `/kindle.png`, the login page and the admin's static files are public.
+  CSRF. Only `/kindle.png`, the login page, the admin's static files and, while the admin is
+  on, the KPM repository for the Kindle (`/kpm.json` and `/kpm/inkdoor.kpkg`: the Kindle scripts
+  and the server's own address, nothing else) are public.
 - **DNS rebinding is blocked.** The server only answers requests whose `Host` is an IP address,
   a local network name or a name listed in `allowed_hosts`.
 - **Fetching is constrained.** Links are fetched with a size cap, a total deadline and a
