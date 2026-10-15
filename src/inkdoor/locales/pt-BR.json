@@ -162,6 +162,10 @@
       "one": "{n} compromisso nos próximos 14 dias",
       "other": "{n} compromissos nos próximos 14 dias"
     },
+    "all_day_found": {
+      "one": "{n} compromisso de dia inteiro nos próximos 14 dias",
+      "other": "{n} compromissos de dia inteiro nos próximos 14 dias"
+    },
     "busy_only": "o link só mostra 'Ocupado', sem os títulos das reuniões.\n     Publique de novo com a permissão 'Pode ver todos os detalhes'.\n     Se essa opção não existir, a empresa limita a publicação: o status da\n     porta funciona, mas a lista vai mostrar só 'Ocupado'.",
     "timezone": "muitos compromissos de madrugada: talvez o fuso esteja errado.\n     Confira se os horários acima batem com o seu aplicativo de agenda.",
     "tasks_found": {

@@ -27,6 +27,10 @@
   ⚠ many events in the middle of the night: the time zone may be wrong.
      Check that the times above match your calendar app.
 
+■ Holidays
+  ✔ calendar reachable (1 KB)
+  ✔ 2 all-day events in the next 14 days
+
 ■ TickTick
   ✖ could not reach the address. Check the link and the internet connection.
 

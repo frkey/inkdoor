@@ -162,6 +162,10 @@
       "one": "{n} event in the next 14 days",
       "other": "{n} events in the next 14 days"
     },
+    "all_day_found": {
+      "one": "{n} all-day event in the next 14 days",
+      "other": "{n} all-day events in the next 14 days"
+    },
     "busy_only": "the link only shows 'Busy', without meeting titles.\n     Publish it again with 'Can view all details'.\n     If that option is missing, your organization limits publishing: the door status\n     still works, but the list will only say 'Busy'.",
     "timezone": "many events in the middle of the night: the time zone may be wrong.\n     Check that the times above match your calendar app.",
     "tasks_found": {
