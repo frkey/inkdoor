@@ -179,7 +179,7 @@
     "fix_errors": "Fix the items marked with ✖ and run the check again.",
     "read_failed": "could not read the events ({error})"
   },
-  "date_short": "{month:02d}/{day:02d}",
+  "date_short": "{month_name} {day}",
   "config_error": {
     "syntax": "config.toml has a syntax error: {error}",
     "timezone": "unknown timezone '{value}'. Use a name like America/New_York.",

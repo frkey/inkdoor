@@ -269,3 +269,9 @@ def test_check_prints_each_source_before_the_next_is_checked(cfg, capsys, monkey
 def test_counts_use_plurals(language, key, one, other):
     t = Translator(language)
     assert t(key, n=1) == one and t(key, n=12) == other
+
+
+def test_upcoming_times_stay_in_one_column(capsys):
+    report = SourceReport("Work", "calendar", upcoming=[(at("09:00", day=4), "A"), (at("14:00"), "B")])
+    check._print_upcoming(report, Translator("en-US"))
+    assert capsys.readouterr().out == "     Oct 4   9:00 AM  A\n     Oct 14  2:00 PM  B\n"

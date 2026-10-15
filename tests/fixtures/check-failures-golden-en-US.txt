@@ -17,13 +17,13 @@
      Publish it again with 'Can view all details'.
      If that option is missing, your organization limits publishing: the door status
      still works, but the list will only say 'Busy'.
-     10/14 10:00 AM  Busy
-     10/15 10:00 AM  Tentative
+     Oct 14 10:00 AM  Busy
+     Oct 15 10:00 AM  Tentative
 
 ■ Night
   ✔ calendar reachable (1 KB)
   ✔ 3 events in the next 14 days
-     10/15  2:00 PM  Planning
+     Oct 15  2:00 PM  Planning
   ⚠ many events in the middle of the night: the time zone may be wrong.
      Check that the times above match your calendar app.
 
