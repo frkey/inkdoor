@@ -383,9 +383,16 @@ def test_save_keeps_calendars_as_table_blocks_in_file_order(tmp_path):
     {"top": 1, "calendar": []},
     {"calendar": [{"name": "A", "url": "x"}], "display": {"language": "pt-BR"}},
     {"weird key": [{"a": 1}], "nested": [{"a": {"b": 1}}], "x": {"y": {"z": [1, 2]}}},
+    {"calendar": [{"name": "A", "tags": ["x", "y"]}], "deep": [{"a": [{"b": 1}]}]},
 ])
 def test_dumps_round_trips(data):
     assert config.tomllib.loads(config_edit.dumps(data)) == data
+
+
+def test_lists_of_values_stay_inside_their_table_block():
+    text = config_edit.dumps({"display": {"language": "en-US"},
+                              "calendar": [{"name": "A", "tags": ["x"]}]})
+    assert text.index("[display]") < text.index("[[calendar]]\nname")
 
 
 @posix_only

@@ -82,11 +82,14 @@ def _key(key: str) -> str:
     return key if _BARE_KEY.fullmatch(key) else tomli_w.dumps({"k": key})[4:].strip()
 
 
+def _is_table(value) -> bool:
+    return isinstance(value, dict) or (isinstance(value, list) and any(isinstance(v, dict) for v in value))
+
+
 def _is_table_list(value) -> bool:
-    """A non-empty list of flat tables, which can be written as [[name]] blocks."""
+    """A non-empty list of tables without sub-tables, which can be written as [[name]] blocks."""
     return (isinstance(value, list) and bool(value) and all(
-        isinstance(item, dict) and not any(isinstance(v, (dict, list)) for v in item.values())
-        for item in value))
+        isinstance(item, dict) and not any(_is_table(v) for v in item.values()) for item in value))
 
 
 def dumps(data: dict) -> str:
