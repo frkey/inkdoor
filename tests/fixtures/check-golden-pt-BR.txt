@@ -1,0 +1,25 @@
+
+■ Work
+  ✔ agenda acessível (1 KB)
+  ✔ 12 compromissos nos próximos 14 dias
+     14/10     9:00  Daily
+     15/10     9:00  Daily
+     16/10     9:00  Daily
+
+■ Company
+  ✔ agenda acessível (1 KB)
+  ✔ 1 compromisso nos próximos 14 dias
+     14/10    13:30  Roadmap review
+
+■ Personal
+  ✔ agenda acessível (1 KB)
+  ✔ 1 compromisso nos próximos 14 dias
+     14/10    18:00  Gym
+
+■ TickTick
+  ✔ agenda acessível (1 KB)
+  ✔ 2 tarefas para hoje ou atrasadas
+     [atrasada] Overdue task
+     Call the bank
+
+Tudo certo! Pode rodar: inkdoor serve

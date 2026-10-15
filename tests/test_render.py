@@ -4,7 +4,8 @@ from conftest import at
 from inkdoor.config import with_defaults
 from inkdoor.demo import demo_config, demo_snapshot
 from inkdoor.i18n import Translator
-from inkdoor.render import H, W, compute_status, render, render_error
+from inkdoor.render import (H, W, compute_status, render, render_error, render_host_rejected,
+                            render_setup, translator_for)
 from inkdoor.sources import Snapshot, collect
 
 KINDLE_GRAYS = {i * 17 for i in range(16)}
@@ -82,3 +83,37 @@ def test_empty_day():
 def test_error_screen():
     img = render_error(None, "ValueError: something went wrong " * 10)
     assert img.size == (W, H) and grays(img) <= KINDLE_GRAYS
+
+
+def test_no_busy_never_says_free(cfg):
+    snap = Snapshot(at("10:00"), [], [], [], configured="no_busy")
+    st = compute_status(snap, cfg, translator_for(cfg))
+    assert st.busy and st.word == "Knock first"
+
+
+def test_setup_and_host_screens_use_kindle_grays(cfg):
+    for img in [render_setup(cfg, "http://192.168.100.200:65535"), render_setup(cfg, None),
+                render_host_rejected(cfg, "door.example.com")]:
+        assert img.size == (1072, 1448) and grays(img) <= KINDLE_GRAYS
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_host_screen_points_to_allowed_hosts_in_the_config_file(language):
+    """The admin has no allowed-hosts field, and this screen shows even with the admin off."""
+    detail = Translator(language)("status.host_detail", host="door.example.com")
+    assert "allowed_hosts" in detail and "config.toml" in detail and "door.example.com" in detail
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_host_screen_fits_a_60_character_host(language):
+    from PIL import Image, ImageDraw
+
+    from inkdoor.render import M, _wrap, font
+    host = "a" * 20 + ".very-long-subdomain." + "b" * 14 + ".example"
+    assert len(host) == 63
+    detail = Translator(language)("status.host_detail", host=host[:60])
+    d = ImageDraw.Draw(Image.new("L", (W, H)))
+    f = font("Medium", 36)
+    lines = _wrap(d, detail, f, W - 2 * M)
+    assert len(lines) <= 8                       # _render_notice draws at most 8 lines
+    assert all(d.textlength(line, font=f) <= W - 2 * M for line in lines)

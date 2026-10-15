@@ -1,5 +1,7 @@
 # Personal config: contains the secret calendar links
 config.toml
+config.toml.*
+admin-password
 
 # Rendered images
 output/

@@ -4,6 +4,8 @@
     inkdoor render           render once (output/kindle.png)
     inkdoor check            test every calendar link
     inkdoor demo [HH:MM...]  render previews with fictional data
+    inkdoor password         create a new admin password next to config.toml and print it
+    inkdoor url              print the admin address for other devices on the network
 """
 from __future__ import annotations
 
@@ -40,7 +42,35 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     commands.add_parser("check", parents=[common], help=t("cli.help.check"))
     demo = commands.add_parser("demo", parents=[common], help=t("cli.help.demo"))
     demo.add_argument("hours", nargs="*", default=["16:50"], help=t("cli.help.hours"))
+    commands.add_parser("password", parents=[common], help=t("cli.help.password"))
+    commands.add_parser("url", parents=[common], help=t("cli.help.url"))
     return parser
+
+
+def _config_language(config_path: str | None, language: str | None) -> str | None:
+    """--lang, else the config's language (which honors INKDOOR_LANG), else INKDOOR_LANG."""
+    try:
+        return config.load(config_path, language)["display"]["language"]
+    except (config.ConfigMissing, config.ConfigInvalid):
+        return language or os.environ.get("INKDOOR_LANG")
+
+
+def _new_password(config_path: str, language: str | None) -> int:
+    from .web.auth import generate_password, password_path, set_password
+    t = Translator(_config_language(config_path, language))
+    path = password_path(config_path)
+    folder = os.path.dirname(path)
+    if not os.path.isdir(folder):
+        print(t("cli.password_no_folder", folder=folder), file=sys.stderr)
+        return 1
+    password = generate_password()
+    try:
+        set_password(path, password)
+    except OSError as ex:
+        print(t("cli.password_write_failed", path=path, error=type(ex).__name__), file=sys.stderr)
+        return 1
+    print(t("cli.password_new", password=password, path=path))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,6 +98,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(t("cli.preview", path=path))
             return 0
 
+        if args.command == "password":
+            return _new_password(config.resolve_path(config_path), language)
+
         if args.command == "check":
             from .check import run
             return 0 if run(config.load(config_path, language)) else 1
@@ -77,7 +110,20 @@ def main(argv: list[str] | None = None) -> int:
             render_once(config.load(config_path, language), output)
             return 0
 
+        if args.command == "url":
+            from . import net
+            from .render import translator_for
+            from .server import load_for_serve
+            cfg, _ = load_for_serve(config_path, language)  # a broken file still has a port
+            url = net.admin_url(cfg)
+            if url is None:
+                print(translator_for(cfg)("cli.no_address"), file=sys.stderr)
+                return 1
+            print(url)
+            return 0
+
         if args.command == "serve":
+            # a missing or broken config does not stop serve: it falls back on its own
             from .server import PortInUse, serve
             try:
                 serve(config_path, output, language)

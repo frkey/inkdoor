@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
 import icalendar
-import requests
 
+from . import net
 from .config import is_configured
 from .i18n import Translator
 from .render import translator_for
@@ -17,101 +18,147 @@ FREE_BUSY_TITLES = {"busy", "ocupado", "tentative", "provisório", "free", "livr
                     "away", "ausente", "working elsewhere", "trabalhando em outro lugar",
                     "out of office", "fora do escritório"}
 
-OK, WARN, FAIL = "  ✔", "  ⚠", "  ✖"
+PREFIXES = {"ok": "  ✔", "warn": "  ⚠", "fail": "  ✖"}
+
+# net.FetchError reasons with a message of their own; the rest read "could not reach"
+_FETCH_ERROR_KEYS = {"blocked": "check.blocked", "redirects": "check.redirects",
+                     "bad_link": "check.bad_link"}
+
+
+@dataclass
+class SourceReport:
+    """What the check found for one calendar or task list, in translated words only.
+
+    Messages never contain the link, so a report is safe to show on a web page.
+    """
+    name: str
+    kind: str                                   # "calendar" | "tasks"
+    lines: list[tuple[str, str]] = field(default_factory=list)   # ("ok" | "warn" | "fail", message)
+    upcoming: list[tuple[dt.datetime | None, str]] = field(default_factory=list)  # (start or None, title)
+    ok: bool = True
+    # Where `upcoming` is printed among `lines`; None means after all of them
+    upcoming_at: int | None = None
 
 
 def check_link(url: str, t: Translator) -> tuple[bool, str]:
     """Downloads the link and makes sure it is a calendar. Returns (ok, message)."""
     if not is_configured(url):
         return False, t("check.not_configured")
-    if not url.startswith(("http://", "https://", "webcal://")):
-        return _check_file(url, t)
-    if url.startswith("webcal://"):
-        url = "https://" + url[len("webcal://"):]
     try:
-        response = requests.get(url, timeout=30, headers={"User-Agent": "inkdoor"})
-    except requests.RequestException as ex:
-        return False, t("check.unreachable", error=ex.__class__.__name__)
-    if response.status_code in (401, 403):
-        return False, t("check.denied", status=response.status_code)
-    if response.status_code == 404:
-        return False, t("check.not_found")
-    if response.status_code >= 400:
-        return False, t("check.http_error", status=response.status_code)
-    head = response.content[:2000]
+        content = net.fetch(url)
+    except net.FetchError as ex:
+        if ex.reason == "http":
+            if ex.status in (401, 403):
+                return False, t("check.denied", status=ex.status)
+            if ex.status == 404:
+                return False, t("check.not_found")
+            return False, t("check.http_error", status=ex.status)
+        if ex.reason == "too_large":
+            return False, t("check.too_large", mb=net.MAX_BYTES // 1_000_000)
+        if ex.reason == "timeout":
+            return False, t("check.timeout", seconds=int(net.DEADLINE))
+        return False, t(_FETCH_ERROR_KEYS.get(ex.reason, "check.unreachable"))
+    head = content[:2000]
     if b"BEGIN:VCALENDAR" not in head:
         return False, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")
     try:
-        icalendar.Calendar.from_ical(response.content)
-    except Exception:
-        return False, t("check.invalid")
-    return True, t("check.ok", kb=len(response.content) // 1024 or 1)
-
-
-def _check_file(path: str, t: Translator) -> tuple[bool, str]:
-    """Local .ics files (handy for testing) are accepted like links."""
-    try:
-        with open(path, "rb") as f:
-            content = f.read()
         icalendar.Calendar.from_ical(content)
-    except OSError as ex:
-        return False, t("check.unreachable", error=ex.__class__.__name__)
     except Exception:
         return False, t("check.invalid")
     return True, t("check.ok", kb=len(content) // 1024 or 1)
 
 
-def run(cfg: dict) -> bool:
+def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     t = translator_for(cfg)
     tz = ZoneInfo(cfg["display"]["timezone"])
-    now = dt.datetime.now(tz)
     start = dt.datetime.combine(now.date(), dt.time.min, tz)
     end = start + dt.timedelta(days=14)
-    all_ok = True
+    report = SourceReport(calendar["name"], "calendar")
+    ok, message = check_link(calendar.get("url", ""), t)
+    report.lines.append(("ok" if ok else "fail", message))
+    if not ok:
+        report.ok = False
+        return report
+    try:
+        events = [e for e in read_calendar(calendar, start, end, tz) if not e.all_day]
+    except Exception as ex:
+        report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
+        report.ok = False
+        return report
+    if not events:
+        report.lines.append(("warn", t("check.no_events")))
+        return report
+    report.lines.append(("ok", t("check.events_found", n=len(events))))
+    titles = {e.title.strip().lower() for e in events}
+    if titles and titles <= FREE_BUSY_TITLES:
+        report.lines.append(("warn", t("check.busy_only")))
+    report.upcoming = [(e.start, e.title or t("untitled")) for e in events if e.end > now][:3]
+    report.upcoming_at = len(report.lines)
+    # many events before 6 AM usually means a wrong time zone
+    if len([e for e in events if e.start.hour < 6]) > len(events) / 3:
+        report.lines.append(("warn", t("check.timezone")))
+    return report
 
-    for calendar in cfg.get("calendar", []):
-        print(f"\n■ {calendar['name']}")
-        ok, message = check_link(calendar.get("url", ""), t)
-        print(OK if ok else FAIL, message)
-        if not ok:
-            all_ok = False
-            continue
-        try:
-            events = [e for e in read_calendar(calendar, start, end, tz) if not e.all_day]
-        except Exception as ex:
-            print(FAIL, t("check.read_failed", error=ex.__class__.__name__))
-            all_ok = False
-            continue
-        if not events:
-            print(WARN, t("check.no_events"))
-            continue
-        print(OK, t("check.events_found", n=len(events)))
-        titles = {e.title.strip().lower() for e in events}
-        if titles and titles <= FREE_BUSY_TITLES:
-            print(WARN, t("check.busy_only"))
-        for e in [e for e in events if e.end > now][:3]:
-            print(f"     {t.date_short(e.start)} {t.time(e.start):>8}  {e.title or t('untitled')}")
-        # many events before 6 AM usually means a wrong time zone
-        if len([e for e in events if e.start.hour < 6]) > len(events) / 3:
-            print(WARN, t("check.timezone"))
 
-    tasks_cfg = cfg.get("tasks")
-    if tasks_cfg:
-        print(f"\n■ {tasks_cfg['name']}")
-        ok, message = check_link(tasks_cfg.get("url", ""), t)
-        print(OK if ok else FAIL, message)
-        if ok:
-            try:
-                tasks = read_tasks(tasks_cfg, now.date(), tz)
-            except Exception as ex:
-                print(FAIL, t("check.read_failed", error=ex.__class__.__name__))
-                tasks, all_ok = None, False
-            if tasks is not None:
-                print(OK, t("check.tasks_found", n=len(tasks)))
-                for task in tasks[:3]:
-                    print(f"     {t('check.overdue_prefix') if task.overdue else ''}{task.title or t('untitled')}")
+def check_tasks(tasks_cfg: dict, cfg: dict, now: dt.datetime) -> SourceReport:
+    t = translator_for(cfg)
+    tz = ZoneInfo(cfg["display"]["timezone"])
+    report = SourceReport(tasks_cfg["name"], "tasks")
+    ok, message = check_link(tasks_cfg.get("url", ""), t)
+    report.lines.append(("ok" if ok else "fail", message))
+    if not ok:
+        report.ok = False
+        return report
+    try:
+        tasks = read_tasks(tasks_cfg, now.date(), tz)
+    except Exception as ex:
+        report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
+        report.ok = False
+        return report
+    report.lines.append(("ok", t("check.tasks_found", n=len(tasks))))
+    report.upcoming = [(None, f"{t('check.overdue_prefix') if task.overdue else ''}{task.title or t('untitled')}")
+                       for task in tasks[:3]]
+    return report
+
+
+def _print_upcoming(report: SourceReport, t: Translator) -> None:
+    for start, title in report.upcoming:
+        if start is None:
+            print(f"     {title}")
         else:
-            all_ok = False
+            print(f"     {t.date_short(start)} {t.time(start):>8}  {title}")
 
+
+def _print_header(name: str) -> None:
+    # flush: a slow link must show which source is being tested, even when output is piped
+    print(f"\n■ {name}", flush=True)
+
+
+def _print_report(report: SourceReport, t: Translator) -> None:
+    upcoming_at = len(report.lines) if report.upcoming_at is None else report.upcoming_at
+    for index, (level, message) in enumerate(report.lines):
+        if index == upcoming_at:
+            _print_upcoming(report, t)
+        print(PREFIXES[level], message)
+    if upcoming_at >= len(report.lines):
+        _print_upcoming(report, t)
+    print(end="", flush=True)
+
+
+def run(cfg: dict, now: dt.datetime | None = None) -> bool:
+    t = translator_for(cfg)
+    tz = ZoneInfo(cfg["display"]["timezone"])
+    now = now or dt.datetime.now(tz)
+    reports = []
+    # Header before the (possibly slow) check, report as soon as it is built
+    for calendar in cfg.get("calendar", []):
+        _print_header(calendar["name"])
+        reports.append(check_calendar(calendar, cfg, now))
+        _print_report(reports[-1], t)
+    if cfg.get("tasks"):
+        _print_header(cfg["tasks"]["name"])
+        reports.append(check_tasks(cfg["tasks"], cfg, now))
+        _print_report(reports[-1], t)
+    all_ok = all(report.ok for report in reports)
     print("\n" + (t("check.all_good") if all_ok else t("check.fix_errors")))
     return all_ok

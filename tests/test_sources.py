@@ -1,7 +1,11 @@
 import datetime as dt
 
-from conftest import TZ, at
+import pytest
+from conftest import TZ, at, fixture
 
+from inkdoor import sources
+from inkdoor.demo import demo_config, demo_snapshot
+from inkdoor.net import FetchError
 from inkdoor.sources import SourceCache, collect
 
 
@@ -60,18 +64,85 @@ def test_unreachable_calendar_without_cache_is_unknown(cfg):
     assert snap.today   # the other calendars still render
 
 
-def test_unreachable_calendar_reuses_todays_cache(cfg):
+def test_unreachable_calendar_reuses_todays_cache(cfg, tmp_path):
+    # the same link works first and fails later, so the cache entry for that link applies
+    link = tmp_path / "work.ics"
+    link.write_bytes(open(fixture("work.ics"), "rb").read())
+    cfg["calendar"][0]["url"] = str(link)
     cache = SourceCache()
     collect(cfg, at("12:00"), cache=cache)
-    good_url = cfg["calendar"][0]["url"]
-    cfg["calendar"][0]["url"] = "/does/not/exist.ics"
+    link.unlink()
     snap = collect(cfg, at("13:45"), cache=cache)
     assert snap.errors and snap.unknown == []
     assert ("13:30", "Roadmap review", "Work") in rows(snap.today)
     # yesterday's data is never reused
     snap = collect(cfg, at("09:00", day=15), cache=cache)
     assert snap.unknown == ["Work"]
-    cfg["calendar"][0]["url"] = good_url
+
+
+def test_configured_states(cfg):
+    for c in cfg["calendar"]:
+        c["url"] = "PASTE_X"
+    cfg["tasks"]["url"] = "PASTE_Y"
+    assert collect(cfg, now=at("10:00")).configured == "nothing"
+    cfg["tasks"]["url"] = fixture("tasks.ics")
+    assert collect(cfg, now=at("10:00")).configured == "no_busy"
+    cfg["calendar"][0]["url"] = fixture("work.ics")
+    assert collect(cfg, now=at("10:00")).configured == "busy"
+
+
+def test_only_non_busy_calendars_is_no_busy(cfg):
+    for c in cfg["calendar"]:
+        c["busy"] = False
+    assert collect(cfg, now=at("10:00")).configured == "no_busy"
+
+
+def test_missing_tasks_section_counts_as_not_configured(cfg):
+    del cfg["tasks"]
+    for c in cfg["calendar"]:
+        c["url"] = "PASTE_X"
+    assert collect(cfg, now=at("10:00")).configured == "nothing"
+
+
+def test_new_link_does_not_reuse_old_links_cache(cfg, monkeypatch):
+    cache = SourceCache()
+    collect(cfg, now=at("10:00"), cache=cache)                    # fills the cache for work.ics
+    real_fetch = sources.fetch
+
+    def fake_fetch(url):
+        if url.startswith("https://"):
+            raise FetchError("unreachable")
+        return real_fetch(url)
+
+    monkeypatch.setattr(sources, "fetch", fake_fetch)
+    cfg["calendar"][0]["url"] = "https://broken.calendar.example/new.ics"
+    snap = collect(cfg, now=at("10:00"), cache=cache)
+    assert "Work" in snap.unknown                                 # not the old link's events
+    assert not any(e.source == "Work" for e in snap.today)
+
+
+def test_new_tasks_link_does_not_reuse_old_links_cache(cfg, monkeypatch):
+    cache = SourceCache()
+    assert collect(cfg, now=at("12:00"), cache=cache).tasks
+    monkeypatch.setattr(sources, "fetch", lambda url: (_ for _ in ()).throw(FetchError("unreachable")))
+    cfg["tasks"]["url"] = "https://broken.calendar.example/tasks.ics"
+    snap = collect(cfg, now=at("12:00"), cache=cache)
+    assert snap.tasks == [] and snap.errors
+
+
+def test_cache_is_keyed_by_name_and_link():
+    cache = SourceCache()
+    day = dt.date(2026, 10, 14)
+    cache.put(("Work", "aaa"), day, [1])
+    assert cache.get(("Work", "aaa"), day) == [1]
+    assert cache.get(("Work", "bbb"), day) is None
+    assert cache.get(("Other", "aaa"), day) is None
+
+
+@pytest.mark.parametrize("lang", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("hour", ["7:30", "10:20", "15:20", "16:50", "21:10"])
+def test_demo_snapshot_is_never_unconfigured(lang, hour):
+    assert demo_snapshot(demo_config(lang), hour).configured == "busy"
 
 
 def test_events_crossing_midnight_and_multi_day(cfg, tmp_path):

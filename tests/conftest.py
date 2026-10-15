@@ -8,6 +8,23 @@ from inkdoor.config import with_defaults
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 TZ = ZoneInfo("America/Sao_Paulo")
+FAKE_LAN_ADDRESS = "192.168.0.50"  # fictional; tests never look up this machine's host name
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_lan_address: keep the real net.lan_address")
+
+
+@pytest.fixture(autouse=True)
+def fake_lan_address(request, monkeypatch):
+    """Every test gets a fixed private address unless it is marked ``real_lan_address``."""
+    if request.node.get_closest_marker("real_lan_address") is None:
+        from inkdoor import net
+        monkeypatch.setattr(net, "lan_address", lambda: FAKE_LAN_ADDRESS)
+
+
+def fixture(name: str) -> str:
+    return os.path.join(FIXTURES, name)
 
 
 @pytest.fixture
