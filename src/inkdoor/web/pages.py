@@ -374,8 +374,8 @@ def blueprint(state: ServerState) -> Blueprint:
             return changed("/calendars")
         if not confirmed():
             name = str(existing[index].get("name", ""))
-            return confirm_page(t()("admin.confirm_remove_calendar", name=name), t()("admin.remove"),
-                                "/calendars", "calendars")
+            return confirm_page(t()("admin.confirm_remove_calendar", name=name),
+                                t()("admin.remove"), "/calendars", "calendars")
         del existing[index]
         return save_action(raw, data, "/calendars", "admin.removed")
 
@@ -535,7 +535,8 @@ def blueprint(state: ServerState) -> Blueprint:
         requested = state.request_render(manual=True)
         if requested:
             g.session.flags.add("watch_render")
-        add_notice(g.session, t()("admin.update_requested" if requested else "admin.update_throttled"))
+        key = "admin.update_requested" if requested else "admin.update_throttled"
+        add_notice(g.session, t()(key))
         return redirect("/", 303)
 
     @bp.post("/restore")
