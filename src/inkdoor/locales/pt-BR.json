@@ -181,5 +181,47 @@
     "allowed_hosts": "[admin] allowed_hosts precisa ser uma lista de nomes de host, como [\"door.example\"].",
     "unreadable": "Não consegui ler {path} ({error}).",
     "permission": "Não consegui ler {path}: o arquivo precisa pertencer ao usuário inkdoor (chown inkdoor)"
+  },
+  "admin": {
+    "title": "Admin do inkdoor",
+    "nav": {
+      "home": "Início",
+      "calendars": "Agendas",
+      "tasks": "Tarefas",
+      "screen": "Tela",
+      "account": "Conta",
+      "label": "Menu principal"
+    },
+    "logout": "Sair",
+    "login_title": "Entrar",
+    "password_label": "Senha",
+    "login_button": "Entrar",
+    "wrong_password": "Senha incorreta.",
+    "try_again": "Muitas tentativas. Tente de novo em {wait}.",
+    "wait_seconds": {
+      "one": "{n} segundo",
+      "other": "{n} segundos"
+    },
+    "no_password": "Nenhuma senha de admin foi definida. No servidor, rode inkdoor password e tente de novo.",
+    "login_expired": "Este formulário expirou. Tente de novo.",
+    "bad_host": "Este endereço não é permitido. Abra o admin pelo IP do servidor ou adicione este nome em allowed_hosts, na seção [admin] do config.toml.",
+    "log_host_rejected": "Imagem do Kindle recusada para um endereço não permitido: {host}",
+    "log_error": "Falha na requisição: {error}",
+    "home_title": "Porta",
+    "last_update": "Última atualização: {date}, {time}",
+    "not_rendered": "A tela ainda não foi gerada.",
+    "failing_sources": "Sem acesso a:",
+    "preview_title": "Prévia da tela",
+    "preview_alt": "A tela que o Kindle está mostrando",
+    "error_title": "Erro {code}",
+    "error_400": "Não foi possível entender a requisição.",
+    "error_401": "Você não está logado ou sua sessão terminou.",
+    "error_403": "Esta requisição foi recusada. Recarregue a página e tente de novo.",
+    "error_404": "Página não encontrada.",
+    "error_413": "O formulário é grande demais.",
+    "error_500": "Algo deu errado. O erro foi registrado no servidor.",
+    "error_other": "Não foi possível concluir a requisição.",
+    "back_home": "Voltar ao início",
+    "login_link": "Entrar de novo"
   }
 }

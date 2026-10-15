@@ -11,8 +11,7 @@ from . import config
 from .i18n import Translator
 from .render import render, render_error, translator_for
 from .sources import SourceCache, collect
-
-IMAGE_NAME = "kindle.png"
+from .state import IMAGE_NAME
 
 
 def save(img, path: str) -> None:

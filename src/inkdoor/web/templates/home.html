@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set active = "home" %}
+{% block content %}
+<div class="columns">
+  <section class="card status">
+    <h1>{{ t("admin.home_title") }}</h1>
+    {% if last %}
+    <p class="status-word">{{ last.word }}</p>
+    <p class="status-headline">{{ last.headline }}</p>
+    <p class="muted">{{ updated }}</p>
+    {% if last.errors %}
+    <div class="alert">
+      <p>{{ t("admin.failing_sources") }}</p>
+      <ul>
+        {% for source in last.errors %}<li>{{ source }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="muted">{{ t("admin.not_rendered") }}</p>
+    {% endif %}
+  </section>
+  <section class="card preview">
+    <h2>{{ t("admin.preview_title") }}</h2>
+    {% if preview %}
+    <img src="/kindle.png?t={{ preview }}" alt="{{ t('admin.preview_alt') }}" width="1072" height="1448">
+    {% else %}
+    <p class="muted">{{ t("admin.not_rendered") }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

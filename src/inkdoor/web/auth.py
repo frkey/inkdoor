@@ -161,6 +161,8 @@ class Session:
     sid: str = field(repr=False)   # secrets: keep them out of logs and tracebacks
     csrf: str = field(repr=False)
     expires: float
+    # one-shot messages for the next page ("saved", "changed elsewhere"); the list is mutable
+    notices: list[str] = field(default_factory=list, repr=False, compare=False)
 
 
 class Sessions:

@@ -33,7 +33,10 @@ Homepage = "https://github.com/frkey/inkdoor"
 where = ["src"]
 
 [tool.setuptools.package-data]
-inkdoor = ["fonts/*.otf", "fonts/OFL.txt", "locales/*.json"]
+inkdoor = [
+    "fonts/*.otf", "fonts/OFL.txt", "locales/*.json",
+    "web/templates/*.html", "web/static/*.css", "web/static/*.js",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
