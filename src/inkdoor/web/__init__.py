@@ -105,6 +105,25 @@ def wait_text(t: Translator, seconds: float) -> str:
     return t.duration(math.ceil(seconds / 60))
 
 
+def check_password(limiter: auth.LoginLimiter, password, encoded: str) -> tuple[bool, float]:
+    """Checks a password under the login limit: (ok, wait). ``wait`` > 0 means it was not checked.
+
+    The attempt is reserved before scrypt runs (once per attempt: ``retry_after`` takes the global
+    slot) and its outcome is always recorded, even if checking raises.
+    """
+    ip = request.remote_addr or ""
+    wait = limiter.retry_after(ip)
+    if wait > 0:
+        return False, wait
+    ok = False
+    try:
+        ok = (isinstance(password, str) and len(password) <= MAX_PASSWORD_LENGTH
+              and auth.verify_password(password, encoded))
+    finally:
+        (limiter.succeeded if ok else limiter.failed)(ip)
+    return ok, 0.0
+
+
 def _printable(text: str, limit: int = 60) -> str:
     """A Host header that is safe to put in a log line or on the screen."""
     cleaned = "".join(c if 0x20 < ord(c) < 0x7F else "?" for c in text[:limit])
@@ -307,25 +326,23 @@ def create_app(state: ServerState, *, clock=time.time) -> Flask:
         next_ = safe_next(request.form.get("next"))
         if not _same_token(request.form.get("csrf"), request.cookies.get(LOGIN_COOKIE) or ""):
             return login_page(400, t()("admin.login_expired"), next_)
+        generation = sessions.generation  # before the hash is read: see auth.Sessions
         encoded = auth.read_password_hash(password_file)
         if encoded is None:  # fail closed: no file means nobody gets in
             return login_page(503, None, next_)
-        ip = request.remote_addr or ""
-        wait = limiter.retry_after(ip)  # reserves this attempt; checked before scrypt
+        ok, wait = check_password(limiter, request.form.get("password", ""), encoded)
         if wait > 0:
             return login_page(429, t()("admin.try_again", wait=wait_text(t(), wait)), next_)
-        ok = False
-        try:
-            password = request.form.get("password", "")
-            ok = len(password) <= MAX_PASSWORD_LENGTH and auth.verify_password(password, encoded)
-        finally:
-            (limiter.succeeded if ok else limiter.failed)(ip)
         if not ok:
             return login_page(401, t()("admin.wrong_password"), next_)
 
+        if watcher.changed():  # the file changed while scrypt ran (e.g. `inkdoor password`)
+            sessions.drop_all()
         if current is not None:
             sessions.drop(current.sid)  # this browser gets a fresh id
-        session = sessions.create()
+        session = sessions.create(expected_generation=generation)
+        if session is None:  # the password changed meanwhile: the checked one may be the old one
+            return login_page(409, t()("admin.login_expired"), next_)
         response = redirect(next_)
         response.set_cookie(SESSION_COOKIE, session.sid, max_age=SESSION_LIFETIME, path="/",
                             httponly=True, samesite="Strict")

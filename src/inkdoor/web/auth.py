@@ -175,13 +175,24 @@ class Session:
 
 
 class Sessions:
-    """Logged-in browsers, in memory only: a restart logs everyone out."""
+    """Logged-in browsers, in memory only: a restart logs everyone out.
+
+    ``drop_all`` starts a new generation. A login reads ``generation`` before it reads the password
+    hash and passes it to ``create``: if everyone was logged out meanwhile (the password changed
+    while scrypt ran), the login gets no session, so an old password cannot outlive the change.
+    """
 
     def __init__(self, clock=time.time, lifetime: float = 7 * 86400):
         self._clock = clock
         self._lifetime = lifetime
         self._lock = threading.Lock()
         self._sessions: dict[str, Session] = {}
+        self._generation = 0
+
+    @property
+    def generation(self) -> int:
+        with self._lock:
+            return self._generation
 
     def __len__(self) -> int:
         with self._lock:
@@ -196,10 +207,13 @@ class Sessions:
         with self._lock:
             self._prune(self._clock())
 
-    def create(self) -> Session:
+    def create(self, expected_generation: int | None = None) -> Session | None:
+        """A new session; None when ``expected_generation`` is given and has ended."""
         now = self._clock()
         session = Session(secrets.token_urlsafe(32), secrets.token_urlsafe(32), now + self._lifetime)
         with self._lock:
+            if expected_generation is not None and expected_generation != self._generation:
+                return None
             self._prune(now)
             self._sessions[session.sid] = session
         return session
@@ -224,6 +238,7 @@ class Sessions:
     def drop_all(self) -> None:
         with self._lock:
             self._sessions.clear()
+            self._generation += 1
 
 
 # --- login rate limit --------------------------------------------------------------------------

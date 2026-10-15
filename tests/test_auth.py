@@ -183,6 +183,17 @@ def test_sessions_drop_and_drop_all():
     assert sessions.get(b.sid) is None and sessions.get(c.sid) is None
 
 
+def test_drop_all_starts_a_new_generation():
+    sessions = Sessions()
+    before = sessions.generation
+    sessions.drop_all()
+    # a login that read the generation before the drop gets no session
+    assert sessions.create(expected_generation=before) is None
+    assert len(sessions) == 0
+    assert sessions.create(expected_generation=sessions.generation) is not None
+    assert sessions.create() is not None
+
+
 def test_unknown_or_empty_session_ids():
     sessions = Sessions()
     assert sessions.get("nope") is None

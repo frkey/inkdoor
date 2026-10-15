@@ -13,7 +13,8 @@ from inkdoor.i18n import Translator
 from inkdoor.sources import SourceCache
 from inkdoor.state import RenderInfo
 from inkdoor.web import auth, links, pages
-from test_web_core import BASE, PASSWORD, FakeClock, logged_in, make_app, make_state
+from test_web_core import (BASE, PASSWORD, FakeClock, client, logged_in, login_token,
+                           make_app, make_state)
 
 from conftest import fixture
 
@@ -776,7 +777,8 @@ def test_password_change_keeps_this_browser_and_logs_out_the_others(app, state):
     assert me.get("/").status_code == 200  # the watcher does not log this browser out later
 
 
-def test_generated_password_is_shown_once(app, state):
+def test_generated_password_is_shown_once(app, state, caplog, capsys):
+    caplog.set_level(logging.DEBUG)
     me = Admin(app, state)
     r = change_password(me, current=PASSWORD, generate="1", new="ignored")
     assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
@@ -789,6 +791,8 @@ def test_generated_password_is_shown_once(app, state):
     page = body(me.get("/account"))
     assert found[0] not in page
     assert me.get("/").status_code == 200
+    logged = caplog.text + "".join(capsys.readouterr())
+    assert found[0] not in logged and found[0].replace("-", "") not in logged
 
 
 def test_password_change_is_rate_limited_before_scrypt(logged, monkeypatch):
@@ -800,6 +804,89 @@ def test_password_change_is_rate_limited_before_scrypt(logged, monkeypatch):
         assert r.status_code == 200
     r = change_password(logged, current="wrong-wrong", new="a-brand-new-password")
     assert r.status_code == 429 and len(calls) == 5
+
+
+def test_login_mid_scrypt_does_not_survive_a_password_change(app, state, monkeypatch):
+    owner = Admin(app, state)
+    attacker = client(app)
+    token = login_token(attacker)
+    real = auth.verify_password
+
+    def racing(password, encoded):  # the owner changes the password while scrypt runs
+        ok = real(password, encoded)
+        monkeypatch.setattr(auth, "verify_password", real)
+        assert change_password(owner, current=PASSWORD, new="a-brand-new-password") \
+            .status_code == 303
+        return ok
+
+    monkeypatch.setattr(auth, "verify_password", racing)
+    app.test_clock.advance(1)
+    r = attacker.post("/login", base_url=BASE, data={"csrf": token, "password": PASSWORD})
+    assert r.status_code == 409 and EN("admin.login_expired") in body(r)
+    assert attacker.get("/", base_url=BASE).status_code == 302
+    assert owner.get("/").status_code == 200
+
+
+@pytest.mark.parametrize("noticed_by_another_request", [False, True])
+def test_login_mid_scrypt_does_not_survive_a_password_file_change(
+        app, state, monkeypatch, noticed_by_another_request):
+    other = Admin(app, state)
+    attacker = client(app)
+    token = login_token(attacker)
+    real = auth.verify_password
+
+    def racing(password, encoded):  # `inkdoor password` runs in a shell while scrypt runs
+        ok = real(password, encoded)
+        auth.set_password(auth.password_path(state.config_path), "from-the-shell-123")
+        if noticed_by_another_request:  # its guard sees the change and logs everyone out
+            assert other.get("/").status_code == 302
+        return ok
+
+    monkeypatch.setattr(auth, "verify_password", racing)
+    app.test_clock.advance(1)
+    r = attacker.post("/login", base_url=BASE, data={"csrf": token, "password": PASSWORD})
+    assert r.status_code == 409
+    assert attacker.get("/", base_url=BASE).status_code == 302
+
+
+def test_password_change_is_refused_when_the_file_changed_meanwhile(logged, state, monkeypatch):
+    real = auth.verify_password
+
+    def racing(password, encoded):  # `inkdoor password` runs while the current one is checked
+        ok = real(password, encoded)
+        auth.set_password(auth.password_path(state.config_path), "from-the-shell-123")
+        return ok
+
+    monkeypatch.setattr(auth, "verify_password", racing)
+    r = change_password(logged, current=PASSWORD, new="a-brand-new-password")
+    assert r.status_code == 401
+    assert real("from-the-shell-123", password_hash(state))  # the shell's password stays
+    assert logged.get("/").status_code == 302
+
+
+@pytest.mark.parametrize("path", ["/restore", "/render", "/account/password"])
+@pytest.mark.parametrize("problem", ["no token", "foreign origin"])
+def test_new_actions_need_the_csrf_token_and_origin(logged, state, path, problem):
+    add(logged, name="Work", url="https://calendar.example/work.ics")
+    add(logged, name="Home", url="https://calendar.example/home.ics")
+    write_config(state, "[[calendar]\n")   # restore would work with the right token
+
+    def file_digest():
+        with open(state.config_path, "rb") as f:
+            return config_edit.digest(f.read())
+
+    before = (file_digest(), password_hash(state))
+    state.render_event.clear()
+    data = {"digest": file_digest(), "current": PASSWORD, "new": "a-brand-new-password"}
+    headers = {}
+    if problem == "foreign origin":
+        data["csrf"] = logged.c.csrf
+        headers["Origin"] = "http://evil.example"
+    r = logged.post(path, data=data, headers=headers)
+    assert r.status_code == 403
+    assert (file_digest(), password_hash(state)) == before
+    assert not state.render_event.is_set()
+    assert logged.get("/").status_code == 200
 
 
 # --- home -------------------------------------------------------------------------------------
@@ -816,7 +903,6 @@ def test_update_now_is_throttled(logged, state):
 
 
 def test_status_json_needs_a_session_and_reports_the_last_render(app, logged, state):
-    from test_web_core import client
     r = client(app).get("/status.json", base_url=BASE)
     assert r.status_code == 302
     r = logged.get("/status.json")

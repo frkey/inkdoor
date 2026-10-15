@@ -23,8 +23,8 @@ from .. import check as checker
 from .. import config, config_edit, i18n, net
 from ..config import DISPLAY_DEFAULTS, SERVER_DEFAULTS, STYLES, is_configured
 from ..state import IMAGE_NAME, ServerState
-from . import (MAX_PASSWORD_LENGTH, SESSION_COOKIE, SESSION_LIFETIME, add_notice, auth, forms,
-               links, translator, wait_text)
+from . import (MAX_PASSWORD_LENGTH, SESSION_COOKIE, SESSION_LIFETIME, add_notice, auth,
+               check_password, forms, links, translator, wait_text)
 
 # At most two link tests at a time across all browsers; a third gets "busy" (429) at once, so
 # slow links can never take all of Waitress's threads away from /kindle.png.
@@ -595,30 +595,30 @@ def blueprint(state: ServerState) -> Blueprint:
                 return account_page({"new": t()("admin.error_too_long", n=MAX_PASSWORD_LENGTH)})
             if auth.password_length(new) < PASSWORD_MIN:
                 return account_page({"new": t()("admin.error_password_short", n=PASSWORD_MIN)})
+        generation = sessions.generation  # before the hash is read, as the login does
         encoded = auth.read_password_hash(password_file)
         if encoded is None:  # fail closed, as the login does
             return account_page(form_error=t()("admin.no_password"), status=503)
-        ip = request.remote_addr or ""
-        wait = limiter.retry_after(ip)  # the login's limit: reserves this attempt, before scrypt
+        ok, wait = check_password(limiter, current, encoded)  # the login's limit, before scrypt
         if wait > 0:
             return account_page(form_error=t()("admin.try_again", wait=wait_text(t(), wait)),
                                 status=429)
-        ok = False
-        try:
-            ok = len(current) <= MAX_PASSWORD_LENGTH and auth.verify_password(current, encoded)
-        finally:
-            (limiter.succeeded if ok else limiter.failed)(ip)
         if not ok:
             return account_page({"current": t()("admin.wrong_current_password")})
+        if inkdoor["watcher"].changed():  # changed while scrypt ran, e.g. `inkdoor password`
+            sessions.drop_all()
+        if sessions.generation != generation:  # everyone, this browser too, was logged out
+            abort(401)
         try:
             auth.set_password(password_file, new)
         except OSError as ex:
             return account_page(form_error=t()("admin.error_password_write",
                                                error=type(ex).__name__), status=500)
         # every browser is logged out; this one gets a fresh session. The watcher is told about
-        # the new file first, or the next request would see the change and drop that session too
-        sessions.drop_all()
+        # the new file first, or the next request would see the change and drop that session too;
+        # drop_all also ends the generation, so a login still checking the old password gets none
         inkdoor["watcher"].changed()
+        sessions.drop_all()
         session = sessions.create()
         g.session = session  # the page below carries the new session's CSRF token
         if generate:  # shown in this response only: never in a redirect, notice or log
