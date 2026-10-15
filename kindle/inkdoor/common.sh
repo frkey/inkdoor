@@ -5,8 +5,13 @@ DIR=/mnt/us/inkdoor
 tr -d "\r" < "$DIR/config.sh" > /tmp/inkdoor-config.sh
 . /tmp/inkdoor-config.sh
 LOG="$DIR/log.txt"
-PIDFILE=/tmp/inkdoor.pid
+LOCKDIR=/tmp/inkdoor.lock      # holds the PID of the running loop
 IMG=/tmp/inkdoor.png
+
+# Guard against bad values in config.sh
+case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=300 ;; esac
+case "$FULL_REFRESH_EVERY" in ''|*[!0-9]*|0) FULL_REFRESH_EVERY=6 ;; esac
+[ "$INTERVAL" -ge 30 ] || INTERVAL=30
 
 # Messages. The Kindle's built-in screen font has no accents, so keep them ASCII.
 case "$LANGUAGE" in
@@ -30,7 +35,31 @@ case "$LANGUAGE" in
     ;;
 esac
 
-log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
+log() {
+  # keep the log small: it lives on the Kindle's user storage
+  if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 102400 ]; then
+    tail -n 200 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+  fi
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
+}
+
+# Takes the single-instance lock. mkdir is atomic, so two quick taps cannot start two loops.
+# A lock left by a loop that died (without a reboot) is taken over.
+take_lock() {
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    echo $$ > "$LOCKDIR/pid"
+    return 0
+  fi
+  if kill -0 "$(cat "$LOCKDIR/pid" 2>/dev/null)" 2>/dev/null; then
+    return 1
+  fi
+  echo $$ > "$LOCKDIR/pid"
+  return 0
+}
+
+is_running() {
+  [ -d "$LOCKDIR" ] && kill -0 "$(cat "$LOCKDIR/pid" 2>/dev/null)" 2>/dev/null
+}
 
 download() {
   rm -f "$IMG.tmp"

@@ -2,7 +2,7 @@
 # Main loop: stops the Kindle UI and keeps the screen updated.
 # To get the normal Kindle back, restart it (hold the power button).
 . /mnt/us/inkdoor/common.sh
-echo $$ > "$PIDFILE"
+take_lock || exit 0
 log "display started ($URL every ${INTERVAL}s)"
 
 lipc-set-prop com.lab126.powerd preventScreenSaver 1

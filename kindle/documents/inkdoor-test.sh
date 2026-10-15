@@ -17,4 +17,5 @@ else
   echo "$MSG_DOWNLOAD_FAILED"
   echo "$MSG_HINT"
   log "test: download failed"
+  exit 1
 fi
