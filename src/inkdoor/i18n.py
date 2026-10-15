@@ -84,7 +84,8 @@ class Translator:
         return self.get("weekdays")[d.weekday()]
 
     def date_short(self, d: dt.date) -> str:
-        return self("date_short", day=d.day, month=d.month)
+        return self("date_short", day=d.day, month=d.month,
+                    month_name=self.get("months_short")[d.month - 1])
 
     def date_header(self, d: dt.date) -> str:
         return self("date_header", weekday=self.weekday(d), day=d.day,

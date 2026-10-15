@@ -135,11 +135,13 @@ def check_tasks(tasks_cfg: dict, cfg: dict, now: dt.datetime) -> SourceReport:
 
 
 def _print_upcoming(report: SourceReport, t: Translator) -> None:
+    # "Oct 4" is shorter than "Oct 14": pad the dates to keep the times in one column
+    width = max((len(t.date_short(start)) for start, _ in report.upcoming if start), default=0)
     for start, title in report.upcoming:
         if start is None:
             print(f"     {title}")
         else:
-            print(f"     {t.date_short(start)} {t.time(start):>8}  {title}")
+            print(f"     {t.date_short(start):<{width}} {t.time(start):>8}  {title}")
 
 
 def _print_header(name: str) -> None:
