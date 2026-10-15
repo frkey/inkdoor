@@ -107,7 +107,7 @@ Work is tracked in GitHub issues on `frkey/inkdoor` (use `gh issue ...`).
 - **Labels**: every issue gets exactly one `type:`, exactly one `priority:` and at least one
   `area:` label. Add a `status:` label only when it applies, and remove it when it no longer does.
   Do not use GitHub's default `bug`, `enhancement` or `documentation` labels; use the `type:` ones.
-- **Link the work**: branches and PRs reference the issue (see "Pull requests"). One issue per
+- **Link the work**: every PR references its issue (see "Pull requests"). One issue per
   independent piece of work; split issues that mix unrelated changes.
 - **Creating or editing labels changes the public repository**: ask the maintainer before running
   `gh label create`/`gh label edit`. If a label from the table is missing, ask before creating it
@@ -164,7 +164,7 @@ available alongside these.
   The maintainer then runs `/code-review` on the PR and posts the findings; the contributor
   handles them and pushes, and the maintainer reviews the new commits, until a round is clean.
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
-  issue it closes ("Fixes #12"), and a test plan whose checked `/code-review` line gives the
+  issue it closes ("Fixes #12", or "Refs #12" when it only does part of it), and a test plan whose checked `/code-review` line gives the
   totals over every loop on the PR: the number of rounds, that the last round was clean, and the
   findings (each counted once) fixed, not applicable and deferred.
 
