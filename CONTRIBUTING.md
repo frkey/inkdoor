@@ -49,7 +49,7 @@ inkdoor -o output --lang pt-BR demo 10:20
 Shell scripts are checked with [ShellCheck](https://www.shellcheck.net/):
 
 ```sh
-cd kindle && shellcheck inkdoor/*.sh documents/*.sh
+cd kindle && shellcheck inkdoor/*.sh documents/*.sh kpm/*.sh
 shellcheck deploy/*.sh deploy/proxmox/*.sh
 ```
 
@@ -82,7 +82,7 @@ src/inkdoor/
     pages.py      the blueprint, built from home, calendars, screen and account
     templates/    Jinja templates
     static/       admin.css and admin.js (every page also works without JavaScript)
-kindle/           POSIX sh scripts that run on the Kindle (BusyBox)
+kindle/           POSIX sh scripts that run on the Kindle (BusyBox); kpm/ has the KPM hooks
 deploy/           systemd unit, Debian/Ubuntu installer, Proxmox container script
 tests/            pytest suite with fictional calendars in tests/fixtures/
 docs/             user docs, each with a pt-BR translation in docs/pt-BR/
@@ -114,6 +114,14 @@ data loss, the door's status, or a rule in `CLAUDE.md`). Before opening yours, r
 diff line by line. The maintainer then reviews it, you handle each finding (fix it, explain why
 it does not apply, or move it to an issue) and push, and the new commits are reviewed the same
 way. Style suggestions alone do not hold a pull request back.
+
+### Kindle scripts
+
+The server hands the Kindle scripts out as a zip and as a KPM package (`src/inkdoor/kindle_files.py`).
+KPM only upgrades to a higher version, so when you change anything in `kindle/`, raise
+`KINDLE_VERSION` and set `SCRIPTS_SHA256` to the new digest; `tests/test_kindle_files.py` fails
+until you do, and prints what to change. The KPM hooks in `kindle/kpm/` are tested on the
+computer by running them against a temporary folder (`INKDOOR_KINDLE_ROOT`).
 
 ### Deploy scripts
 

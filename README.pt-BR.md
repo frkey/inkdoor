@@ -149,12 +149,18 @@ mostrar.
 
 ### 3. Coloque no Kindle
 
+Se o seu Kindle tem o **KPM** (os jailbreaks recentes têm), o seu servidor é um repositório do
+KPM: no Kindle, digite na barra de busca `;kpm add-repo http://<servidor>:3667/kpm.json`,
+`;kpm update` e `;kpm install inkdoor` (a página **Início** do admin mostra as linhas com o seu
+endereço). Sem o KPM:
+
 1. Na página **Início** do admin, aperte **Baixar os arquivos do Kindle**: um `.zip` já com o
    endereço do seu servidor e o seu idioma.
 2. Descompacte. Copie a pasta `inkdoor` para a raiz do Kindle e os dois arquivos de
    `scriptlets` para a pasta `documents` dele.
-3. Na biblioteca do Kindle, abra **inkdoor - test connection** e depois **inkdoor - start
-   display**.
+
+Depois, na biblioteca do Kindle, abra **inkdoor - test connection** e **inkdoor - start
+display**.
 
 Passo a passo, com dicas de energia e Wi-Fi: [docs/pt-BR/kindle.md](docs/pt-BR/kindle.md).
 
@@ -217,7 +223,8 @@ Quer outro idioma? Veja [Contribuindo](CONTRIBUTING.md#translations).
 
 - **Deixe tudo na rede local.** Nunca abra a porta do inkdoor no roteador: a imagem mostra a sua
   agenda. O admin usa HTTP simples, então use-o só numa rede em que você confia.
-- Só o `/kindle.png` e a página de login são públicos; todas as outras páginas pedem o login do
+- Só o `/kindle.png`, a página de login e o repositório KPM do Kindle (os scripts do Kindle e o
+  endereço do servidor, nada secreto) são públicos; todas as outras páginas pedem o login do
   admin, que tem limite de tentativas e proteção contra CSRF. O servidor só responde a endereços
   IP e nomes de rede local, o que bloqueia DNS rebinding.
 - Os links são baixados com limite de tamanho e de tempo, e nunca para os endereços de loopback

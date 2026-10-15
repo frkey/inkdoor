@@ -16,7 +16,28 @@ Antes de começar, deixe o Kindle em **modo avião** para ele não atualizar o f
 
 ## 2. Instalação
 
-### O jeito fácil: baixe os arquivos no admin
+### Pelo Kindle, com o KPM (sem cabo)
+
+Os jailbreaks recentes já vêm com o **KPM**, o gerenciador de pacotes do Kindle, e o seu servidor
+inkdoor funciona como um repositório do KPM. No Kindle, toque na barra de busca e digite cada
+linha, apertando Enter depois de cada uma (a página **Início** do admin mostra as linhas com o
+endereço do seu servidor):
+
+```
+;kpm add-repo http://192.168.1.50:3667/kpm.json
+;kpm update
+;kpm install inkdoor
+```
+
+O pacote já vem apontando para o seu servidor e no idioma do admin. Para atualizar o Kindle
+depois de atualizar o servidor, digite `;kpm update` e depois `;kpm upgrade`: as configurações do
+seu `config.sh` são mantidas. Para remover o inkdoor, digite `;kpm uninstall inkdoor`.
+
+Se o endereço do servidor mudar, instale de novo a partir do novo: `;kpm uninstall inkdoor` e
+`;kpm remove-repo inkdoor`, depois as três linhas acima com o endereço novo (isso volta o
+`config.sh` ao padrão; reservar o endereço do servidor no roteador evita isso).
+
+### Sem o KPM: baixe os arquivos no admin
 
 Na página **Início** do admin, aperte **Baixar os arquivos do Kindle**. O `.zip` já vem com o
 endereço do seu servidor e o seu idioma no `inkdoor/config.sh`. Com o Kindle ligado no USB:

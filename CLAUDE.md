@@ -42,7 +42,8 @@ inkdoor turns a jailbroken Kindle into a door sign that shows whether you are in
 - `src/inkdoor/web/`: the web admin (Flask, served on the same port as the image): routes and
   guards (`__init__.py`), password and sessions (`auth.py`), Host allowlist (`hosts.py`), pages
   and forms, Jinja templates and first-party static files.
-- `kindle/`: POSIX shell scripts that run on the Kindle and display the PNG.
+- `kindle/`: POSIX shell scripts that run on the Kindle and display the PNG; `kindle/kpm/` holds
+  the install hooks of the KPM package that the server builds from them (`kindle_files.py`).
 - `deploy/`: runs `inkdoor serve` as a systemd service. `install.sh` installs or updates it on
   Debian/Ubuntu; `proxmox/create-lxc.sh` runs on a Proxmox VE host, creates an LXC container and
   runs `install.sh` in it.
@@ -54,7 +55,7 @@ pip install -e ".[dev]"
 pytest                                   # all tests
 inkdoor -o output demo 10:20 16:50       # render previews with fictional data
 inkdoor -o output --lang pt-BR demo 10:20
-cd kindle && shellcheck inkdoor/*.sh documents/*.sh
+cd kindle && shellcheck inkdoor/*.sh documents/*.sh kpm/*.sh
 shellcheck deploy/*.sh deploy/proxmox/*.sh
 ```
 
@@ -74,9 +75,13 @@ longer and are the usual cause of overflow.
   server reuses that calendar's last good data for the day (`SourceCache`), and with no data
   at all the status becomes "Knock first". If rendering fails, an error screen replaces the
   old image.
-- `/kindle.png` is public (so are the login page and the admin's bundled static files); every
-  other route requires the admin login, and unknown paths are 404. Never serve the output folder
-  or config files.
+- `/kindle.png` is public (so are the login page, the admin's bundled static files and, while
+  the admin is on, the KPM repository `/kpm.json` and `/kpm/inkdoor.kpkg`, which hold only the
+  Kindle scripts and the server's own address); every other route requires the admin login, and
+  unknown paths are 404. Never serve the output folder or config files.
+- The Kindle side has a version (`kindle_files.KINDLE_VERSION`): KPM only upgrades to a higher
+  one, so bump it whenever a file in `kindle/inkdoor/`, `kindle/documents/` or `kindle/kpm/`
+  changes, and update `SCRIPTS_SHA256` (a test fails until both match).
 - Fetch calendar and task links only through `inkdoor.net.fetch` (size cap, deadline, redirect
   limit, no loopback or link-local). Links are secrets: never put them in a response, a log line
   or an exception message.

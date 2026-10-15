@@ -62,6 +62,8 @@ def register(bp: Blueprint, ed: Editor) -> None:
             kindle_url=url,
             # the zip needs the address it writes into config.sh, and the scripts beside the code
             kindle_zip=url is not None and kindle_files.find_dir() is not None,
+            # the KPM repository the Kindle adds (the same scripts, served by this server)
+            kpm_repo=url.removesuffix("/kindle.png") + "/kpm.json" if url else None,
             port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
             using_defaults=state.using_defaults,
             # the door's own rule for its setup screen; a missing file is a first setup too
