@@ -478,11 +478,14 @@ def render_setup(cfg: dict | None, admin_url: str | None) -> Image.Image:
     return _render_notice(Status(True, t("status.setup"), t("status.setup_headline"), detail))
 
 
-def render_host_rejected(cfg: dict | None, host: str) -> Image.Image:
-    """Screen shown when the Kindle reached the server through a host name that is not allowed."""
+def render_host_rejected(cfg: dict | None, host: str | None) -> Image.Image:
+    """Screen shown when the Kindle reached the server through a host name that is not allowed.
+
+    Without ``host``, the detail names no host (the image shared by many rejected names).
+    """
     t = translator_for(cfg or {})
-    st = Status(True, t("status.unknown"), t("status.host_headline"),
-                t("status.host_detail", host=host[:60]))
+    detail = t("status.host_detail_generic") if host is None else t("status.host_detail", host=host[:60])
+    st = Status(True, t("status.unknown"), t("status.host_headline"), detail)
     return _render_notice(st)
 
 
