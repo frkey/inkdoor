@@ -77,7 +77,7 @@ case "$LANGUAGE" in
     MSG_CONFIG="Copiando %s para o container..."
     MSG_FAILED_AFTER_CREATE="
 O container %s foi criado, mas a instalação não terminou.
-  Tentar de novo:  pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh
+  Tentar de novo:  pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh%s
   Ou apagar:       pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Pronto! Container %s (%s).
@@ -104,7 +104,7 @@ Pronto! Container %s (%s).
     MSG_CONFIG="Copying %s into the container..."
     MSG_FAILED_AFTER_CREATE="
 Container %s was created, but the installation did not finish.
-  Try again:     pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh
+  Try again:     pct exec %s -- env LC_ALL=C.UTF-8 bash /root/inkdoor-install.sh%s
   Or remove it:  pct stop %s; pct destroy %s --purge"
     MSG_DONE="
 Done! Container %s (%s).
@@ -143,7 +143,8 @@ on_exit() {
   local status=$?
   rm -f "$INSTALLER"
   if [ "$status" -ne 0 ] && [ "$CREATED" -eq 1 ]; then
-    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "$CTID" "$CTID" >&2
+    # the retry runs under C.UTF-8 too, so it names the language this run chose
+    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "${LANGUAGE:+ --lang $LANGUAGE}" "$CTID" "$CTID" >&2
   fi
 }
 trap on_exit EXIT
