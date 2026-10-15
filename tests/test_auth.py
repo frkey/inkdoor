@@ -47,6 +47,11 @@ def test_verify_tolerates_phone_keyboards():
     assert not verify_password("k7mq-x3vt-9hwp-r2ne", enc)
 
 
+def test_verify_ignores_any_whitespace():
+    enc = hash_password("k7mq-x3vt-9hwp-r2nd")
+    assert verify_password("k7mq\u00a0x3vt\u00a09hwp\tr2nd\n", enc)
+
+
 def test_user_chosen_password_stays_case_sensitive():
     enc = hash_password("Correct Horse 1!")
     assert verify_password("Correct Horse 1!", enc)
@@ -159,6 +164,12 @@ def test_session_ids_and_csrf_tokens_are_random():
     a, b = sessions.create(), sessions.create()
     assert a.sid != b.sid and a.csrf != b.csrf and a.sid != a.csrf
     assert len(a.sid) >= 43 and len(a.csrf) >= 43                 # 32 bytes, urlsafe base64
+
+
+def test_session_repr_hides_secrets():
+    session = Sessions().create()
+    text = repr(session)
+    assert session.sid not in text and session.csrf not in text
 
 
 def test_sessions_drop_and_drop_all():
@@ -282,3 +293,13 @@ def test_limiter_keeps_entries_still_waiting():
     lim.failed("b")
     assert len(lim) == 2
     assert lim.retry_after("a") == pytest.approx(1800, abs=1)
+
+
+def test_limiter_reserves_the_global_slot():
+    clock = FakeClock()
+    lim = LoginLimiter(clock)
+    assert lim.retry_after("a") == 0                              # allowed: the slot is now taken
+    assert lim.retry_after("b") == pytest.approx(1)               # a concurrent request must wait
+    assert lim.retry_after("a") == pytest.approx(1)
+    clock.advance(1)
+    assert lim.retry_after("b") == 0

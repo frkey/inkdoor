@@ -46,11 +46,11 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
 
 
 def _config_language(config_path: str | None, language: str | None) -> str | None:
-    """The language from --lang, else from the config when it can be read."""
+    """--lang, else the config's language (which honors INKDOOR_LANG), else INKDOOR_LANG."""
     try:
         return config.load(config_path, language)["display"]["language"]
     except (config.ConfigMissing, config.ConfigInvalid):
-        return language
+        return language or os.environ.get("INKDOOR_LANG")
 
 
 def _new_password(config_path: str, language: str | None) -> int:

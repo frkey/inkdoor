@@ -55,3 +55,12 @@ def test_cli_password_needs_an_existing_folder(tmp_path, monkeypatch, capsys):
     assert str(tmp_path / "nope") in captured.err
     assert captured.out == ""
     assert not os.path.exists(tmp_path / "nope")
+
+
+def test_cli_password_honors_inkdoor_lang_without_a_config(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("INKDOOR_LANG", "pt-BR")
+    assert main(["password", "--config", str(tmp_path / "config.toml")]) == 0
+    assert "Nova senha" in capsys.readouterr().out
+    (tmp_path / "config.toml").write_text("[server]\nrefresh_minutes = 0\n")   # invalid config
+    assert main(["password", "--config", str(tmp_path / "config.toml")]) == 0
+    assert "Nova senha" in capsys.readouterr().out

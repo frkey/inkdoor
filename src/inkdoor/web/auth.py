@@ -14,7 +14,7 @@ import re
 import secrets
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..files import write_private
 
@@ -38,12 +38,12 @@ def generate_password() -> str:
 
 
 def _normalize(password: str) -> bytes:
-    """Strips dashes and spaces, and lowercases passwords made only of ALPHABET characters.
+    """Removes dashes and whitespace, and lowercases passwords made only of ALPHABET characters.
 
     Phone keyboards capitalize the first letter, so a generated password is accepted in any case;
     a password the user chose with other characters stays case-sensitive.
     """
-    text = password.strip().replace("-", "").replace(" ", "")
+    text = "".join(password.split()).replace("-", "")  # any whitespace, e.g. a no-break space
     lowered = text.lower()
     if lowered and all(c in ALPHABET for c in lowered):
         text = lowered
@@ -158,8 +158,8 @@ class PasswordWatcher:
 
 @dataclass(frozen=True)
 class Session:
-    sid: str
-    csrf: str
+    sid: str = field(repr=False)   # secrets: keep them out of logs and tracebacks
+    csrf: str = field(repr=False)
     expires: float
 
 
@@ -223,7 +223,8 @@ class LoginLimiter:
     After FREE_FAILURES failures from one IP, the next attempt waits BASE_WAIT seconds from the
     last failure, doubling with each further failure up to MAX_WAIT. There is no global lockout:
     other IPs only wait for the global pace, so a correct password is never refused for long.
-    Check ``retry_after`` before running scrypt.
+    Check ``retry_after`` before running scrypt: when it allows an attempt it also reserves the
+    global slot, so concurrent requests cannot all pass at once.
     """
 
     FREE_FAILURES = 5
@@ -267,13 +268,21 @@ class LoginLimiter:
             del self._failures[ip]
 
     def retry_after(self, ip: str) -> float:
-        """Seconds this IP must wait before its next attempt; 0 when it may try now."""
+        """Seconds this IP must wait before its next attempt; 0 when it may try now.
+
+        Side effect: returning 0 records an attempt now (the global one-per-second slot is taken),
+        so call it once per login attempt, right before checking the password. The caller then
+        reports the outcome with ``failed`` or ``succeeded``.
+        """
         now = self._clock()
         with self._lock:
             wait = self._ip_remaining(ip, now)
             if self._last_attempt is not None:
                 wait = max(wait, self._last_attempt + self.GLOBAL_INTERVAL - now)
-            return max(0.0, wait)
+            if wait <= 0:
+                self._last_attempt = now
+                return 0.0
+            return wait
 
     def failed(self, ip: str) -> None:
         now = self._clock()
