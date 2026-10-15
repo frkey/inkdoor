@@ -210,3 +210,16 @@ def test_legend_leaves_out_calendars_without_a_link(monkeypatch, language, link)
     render(demo_snapshot(cfg, "21:10"), cfg)                  # after hours: tomorrow's list
     assert names[0] in drawn and names[2] in drawn            # the legend draws each name alone
     assert names[1] not in drawn
+
+
+def test_docs_images_script_draws_the_screens():
+    """scripts/docs_images.py keeps working (the admin part needs a browser, so it is not run)."""
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "scripts" / "docs_images.py"
+    spec = importlib.util.spec_from_file_location("docs_images", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    for language in ("en-US", "pt-BR"):
+        sheet = module.screens(language)
+        assert sheet.size == (3 * (W // 2 + 56) + 2 * 40, H // 2 + 56)
