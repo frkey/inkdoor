@@ -234,7 +234,8 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
 
     stop = threading.Event()
     try:
-        print(t("cli.serving", port=port))
+        address = net.lan_address() or t("cli.this_computer_ip")
+        print(t("cli.serving", address=address, port=port))
         if state.admin_enabled and auth.read_password_hash(auth.password_path(path)) is None:
             print(t("cli.no_password"))
         threading.Thread(target=render_loop, args=(state, SourceCache(), stop),
