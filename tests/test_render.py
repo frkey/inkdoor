@@ -119,3 +119,56 @@ def test_host_screen_fits_a_60_character_host(language):
     lines = _wrap(d, detail, f, W - 2 * M)
     assert len(lines) <= 8                       # _render_notice draws at most 8 lines
     assert all(d.textlength(line, font=f) <= W - 2 * M for line in lines)
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_no_busy_has_its_own_headline(cfg, language):
+    cfg["display"]["language"] = language
+    t = Translator(language)
+    st = compute_status(Snapshot(at("10:00"), [], [], [], configured="no_busy"), cfg, t)
+    assert st.headline == t("status.no_busy_headline") != t("status.unknown_headline")
+
+
+def test_status_box_has_no_empty_band_without_a_detail():
+    from PIL import Image, ImageDraw
+    from inkdoor.render import Status, draw_status
+    heights = []
+    for detail in ("a detail line", ""):
+        img = Image.new("L", (W, H), 255)
+        heights.append(draw_status(ImageDraw.Draw(img), Status(True, "Setup", "almost ready", detail), 0))
+    assert heights[1] < heights[0] - 40
+
+
+def test_notice_screens_do_not_change_the_status_they_are_given(cfg, monkeypatch):
+    from inkdoor import render as r
+    seen = []
+    real = r.draw_status
+
+    def spy(d, st, y):
+        seen.append((st, repr(st)))
+        return real(d, st, y)
+    monkeypatch.setattr(r, "draw_status", spy)
+    render_error(cfg, "RuntimeError")
+    render_setup(cfg, None)
+    for st, before in seen:
+        assert repr(st) == before
+    assert seen[0][0].detail == Translator("en-US")("status.error_detail")   # error keeps its box line
+
+
+@pytest.mark.parametrize("label", ["Em reunião com cliente importa", "Out", "  "])
+def test_status_word_fits_without_cutting_a_30_character_label(label):
+    from PIL import Image, ImageDraw
+    from inkdoor import render as r
+    d = ImageDraw.Draw(Image.new("L", (W, H), 255))
+    width = W - 2 * r.M - 104
+    f, lines = r.fit_word(d, label.upper(), width)
+    assert 1 <= len(lines) <= 2 and all(d.textlength(line, font=f) <= width for line in lines)
+    assert "…" not in "".join(lines)
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_long_status_label_renders_in_kindle_grays(cfg, language):
+    cfg["display"]["language"] = language
+    cfg["calendar"][0]["status_label"] = "Em reunião com cliente importa"
+    img = render(collect(cfg, at("09:10")), cfg)
+    assert img.size == (W, H) and grays(img) <= KINDLE_GRAYS
