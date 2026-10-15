@@ -1,6 +1,7 @@
 """Renders the screen periodically and serves it over HTTP for the Kindle to download."""
 from __future__ import annotations
 
+import errno
 import os
 import threading
 import time
@@ -37,7 +38,7 @@ def make_handler(image_path: str):
     """A handler that serves the screen image and nothing else (no directory listing)."""
 
     class ImageOnly(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self, head_only=False):
             if self.path.split("?")[0] != "/" + IMAGE_NAME:
                 self.send_error(404)
                 return
@@ -52,10 +53,11 @@ def make_handler(image_path: str):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(body)
+            if not head_only:
+                self.wfile.write(body)
 
         def do_HEAD(self):
-            self.do_GET()
+            self.do_GET(head_only=True)
 
         def log_message(self, *args):
             pass
@@ -70,8 +72,10 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
     image_path = os.path.join(output_dir, IMAGE_NAME)
     try:
         httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(os.path.abspath(image_path)))
-    except OSError:
-        raise PortInUse(port) from None
+    except OSError as ex:
+        if ex.errno in (errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", -1)):
+            raise PortInUse(port) from None
+        raise
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     print(t("cli.serving", port=port))
 
@@ -86,7 +90,7 @@ def run_cycle(config_path, output_dir, language, last_cfg: dict, cache: SourceCa
     cfg = last_cfg
     try:  # reloaded every cycle so the config can be edited without restarting
         cfg = config.load(config_path, language)
-    except (config.ConfigInvalid, config.ConfigMissing) as ex:
+    except Exception as ex:  # any problem with the file: keep running on the last valid config
         t = translator_for(last_cfg)
         print(t("cli.kept_last_config", message=describe(ex, t)))
     try:
@@ -94,7 +98,8 @@ def run_cycle(config_path, output_dir, language, last_cfg: dict, cache: SourceCa
     except Exception as ex:
         # never leave an old status on the door: show an error screen instead
         print(translator_for(cfg)("cli.error", error=ex))
-        save(render_error(cfg, f"{ex.__class__.__name__}: {ex}"), os.path.join(output_dir, IMAGE_NAME))
+        # only the error type goes on the door: messages can contain local paths
+        save(render_error(cfg, ex.__class__.__name__), os.path.join(output_dir, IMAGE_NAME))
     return cfg
 
 

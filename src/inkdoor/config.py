@@ -93,10 +93,20 @@ def load(path: str | None = None, language: str | None = None) -> dict:
     if not os.path.exists(path):
         raise ConfigMissing(path)
     with open(path, "rb") as f:
-        try:
-            cfg = with_defaults(tomllib.load(f))
-        except tomllib.TOMLDecodeError as ex:
-            raise ConfigInvalid("syntax", error=str(ex)) from None
+        raw = f.read()
+    try:
+        data = tomllib.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise ConfigInvalid("encoding") from None
+    except tomllib.TOMLDecodeError as ex:
+        raise ConfigInvalid("syntax", error=str(ex)) from None
+    for section in ("display", "server", "tasks"):
+        if section in data and not isinstance(data[section], dict):
+            raise ConfigInvalid("section", section=section)
+    if not isinstance(data.get("calendar", []), list) or not all(
+            isinstance(c, dict) for c in data.get("calendar", [])):
+        raise ConfigInvalid("section", section="calendar")
+    cfg = with_defaults(data)
     language = language or os.environ.get("INKDOOR_LANG")
     if language:
         cfg["display"]["language"] = language

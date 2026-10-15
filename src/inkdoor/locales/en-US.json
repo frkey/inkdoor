@@ -158,6 +158,8 @@
     "port": "port must be from 1 to 65535 (got {value}).",
     "calendar_name": "calendar #{index} needs a name.",
     "calendar_duplicate": "two calendars are named '{name}'; names must be unique.",
-    "style": "calendar '{name}': style must be solid, striped or outline (got {value})."
+    "style": "calendar '{name}': style must be solid, striped or outline (got {value}).",
+    "encoding": "config.toml is not UTF-8. Save it again as UTF-8 (in Notepad: File → Save as → Encoding: UTF-8).",
+    "section": "[{section}] has the wrong shape. Compare it with config.example.toml."
   }
 }

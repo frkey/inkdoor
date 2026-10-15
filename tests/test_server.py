@@ -52,3 +52,20 @@ def test_cycle_keeps_last_valid_config_and_never_leaves_a_stale_screen(tmp_path,
     before = (out / "kindle.png").read_bytes()
     server.run_cycle(str(path), str(out), None, cfg, server.SourceCache())
     assert (out / "kindle.png").read_bytes() != before   # replaced by the error screen
+
+
+def test_cycle_survives_a_non_utf8_config(tmp_path, cfg):
+    from inkdoor import server
+
+    path = tmp_path / "config.toml"
+    path.write_bytes('[display]\nlanguage = "pt-BR"  # é\n'.encode("latin-1"))
+    assert server.run_cycle(str(path), str(tmp_path / "out"), None, cfg, server.SourceCache()) is cfg
+
+
+def test_head_request_has_no_body(server):
+    import http.client
+    host, port = server.removeprefix("http://").split(":")
+    conn = http.client.HTTPConnection(host, int(port))
+    conn.request("HEAD", "/kindle.png")
+    response = conn.getresponse()
+    assert response.status == 200 and response.read() == b""

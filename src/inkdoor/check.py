@@ -105,10 +105,11 @@ def run(cfg: dict) -> bool:
                 tasks = read_tasks(tasks_cfg, now.date(), tz)
             except Exception as ex:
                 print(FAIL, t("check.read_failed", error=ex.__class__.__name__))
-                return False
-            print(OK, t("check.tasks_found", n=len(tasks)))
-            for task in tasks[:3]:
-                print(f"     {t('check.overdue_prefix') if task.overdue else ''}{task.title or t('untitled')}")
+                tasks, all_ok = None, False
+            if tasks is not None:
+                print(OK, t("check.tasks_found", n=len(tasks)))
+                for task in tasks[:3]:
+                    print(f"     {t('check.overdue_prefix') if task.overdue else ''}{task.title or t('untitled')}")
         else:
             all_ok = False
 

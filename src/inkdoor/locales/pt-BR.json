@@ -158,6 +158,8 @@
     "port": "port precisa ser de 1 a 65535 (veio {value}).",
     "calendar_name": "a agenda nº {index} precisa de um name.",
     "calendar_duplicate": "duas agendas se chamam '{name}'; os nomes precisam ser diferentes.",
-    "style": "agenda '{name}': style precisa ser solid, striped ou outline (veio {value})."
+    "style": "agenda '{name}': style precisa ser solid, striped ou outline (veio {value}).",
+    "encoding": "o config.toml não está em UTF-8. Salve de novo como UTF-8 (no Bloco de Notas: Arquivo → Salvar como → Codificação: UTF-8).",
+    "section": "[{section}] está no formato errado. Compare com o config.example.toml."
   }
 }

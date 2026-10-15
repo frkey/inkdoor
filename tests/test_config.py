@@ -39,3 +39,16 @@ def test_every_config_error_is_translated():
         t = Translator(lang)
         for key in t.get("config_error"):
             assert t.get(f"config_error.{key}")
+
+
+def test_non_utf8_and_wrong_shapes_are_explained(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_bytes('[[calendar]]\nname = "Família"\n'.encode("latin-1"))
+    with pytest.raises(config.ConfigInvalid) as err:
+        config.load(str(path))
+    assert err.value.key == "encoding"
+    for text in ('tasks = "x"\n', 'calendar = "x"\n', 'display = 3\n'):
+        path.write_text(text)
+        with pytest.raises(config.ConfigInvalid) as err:
+            config.load(str(path))
+        assert err.value.key == "section"
