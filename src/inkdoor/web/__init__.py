@@ -34,6 +34,7 @@ from werkzeug.exceptions import HTTPException
 from .. import kindle_files
 from ..i18n import Translator
 from ..render import render_host_rejected
+from ..render import screen_size as render_screen_size
 from ..state import IMAGE_NAME, ServerState
 from . import auth
 from .hosts import host_allowed
@@ -223,9 +224,9 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     password_file = auth.password_path(state.config_path)
     watcher = auth.PasswordWatcher(password_file)
     watcher.changed()  # record the file as it is now, so the first change is noticed
-    host_images: OrderedDict[tuple[str, str, str], bytes] = OrderedDict()
+    host_images: OrderedDict[tuple, bytes] = OrderedDict()   # (language, size, host)
     # per language and screen size (a few of each), never evicted
-    generic_host_images: dict[tuple[str, str], bytes] = {}
+    generic_host_images: dict[tuple, bytes] = {}
     host_renders = _Budget(HOST_RENDERS_PER_SECOND, 1.0, monotonic)
     host_logs = _Budget(HOST_LOGS_PER_MINUTE, 60.0, monotonic)
     host_lock = threading.Lock()
@@ -252,7 +253,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         shown = _printable(raw_host)
         language = t().language
         # the image depends on the language and the screen size, both of which the admin changes
-        look = (language, state.cfg["display"]["screen"])
+        look = (language, render_screen_size(state.cfg))
         key = (*look, shown)
         with host_lock:
             png = host_images.get(key)

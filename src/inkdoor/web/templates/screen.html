@@ -24,7 +24,7 @@
         {% endfor %}
       </select>
       <p class="help" id="screen-help">{{ t("admin.field_screen_help") }}
-        <a href="{{ docs_url('kindle.md#' ~ t('admin.field_screen_anchor')) }}" target="_blank" rel="noopener noreferrer">{{ t("admin.field_screen_more") }}</a></p>
+        <a href="{{ docs_url('kindle.md#' ~ (t('admin.field_screen_anchor') | urlencode)) }}" target="_blank" rel="noopener noreferrer">{{ t("admin.field_screen_more") }}</a></p>
       {{ m.field_error("screen", errors) }}
     </div>
 

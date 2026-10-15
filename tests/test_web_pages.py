@@ -1450,3 +1450,10 @@ def test_home_preview_has_the_screen_size(logged, state):
                                    "Free", "until 5:00 PM", ["Work"])
     state.cfg["display"]["screen"] = "1236x1648"
     assert 'width="1236" height="1648"' in body(logged.get("/"))
+
+
+def test_screen_docs_anchor_is_encoded_in_portuguese(logged, state):
+    write_config(state, '[display]\nlanguage = "pt-BR"\n')
+    state.cfg["display"]["language"] = "pt-BR"
+    page = body(logged.get("/screen"))
+    assert "docs/pt-BR/kindle.md#qual-%C3%A9-o-meu-kindle" in page
