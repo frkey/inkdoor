@@ -150,8 +150,8 @@ trap on_exit EXIT
 
 # The installer: from this checkout when the script runs from deploy/proxmox/ of a clone,
 # otherwise downloaded. Never pick up some other install.sh lying next to a downloaded script.
-DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)"
-if [ -n "$DEPLOY_DIR" ] && [ -f "$DEPLOY_DIR/proxmox/create-lxc.sh" ] &&
+DEPLOY_DIR="$(dirname "${BASH_SOURCE[0]}")/.."
+if [ -f "$DEPLOY_DIR/proxmox/create-lxc.sh" ] &&
    [ -f "$DEPLOY_DIR/inkdoor.service" ] && [ -f "$DEPLOY_DIR/install.sh" ]; then
   cp "$DEPLOY_DIR/install.sh" "$INSTALLER"
 else
