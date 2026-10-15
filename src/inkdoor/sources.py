@@ -30,7 +30,6 @@ class Event:
     status_label: str | None = None  # big word on the door; None = translated default
     all_day: bool = False
     location: str = ""
-    extra_sources: list = field(default_factory=list)
 
     @property
     def minutes(self) -> int:
@@ -52,7 +51,26 @@ class Snapshot:
     today: list
     tomorrow: list
     tasks: list
-    errors: list                    # names of sources that could not be read
+    errors: list = field(default_factory=list)     # "Name: ErrorType" for sources that failed
+    unknown: list = field(default_factory=list)    # busy calendars with no data at all right now
+
+
+class SourceCache:
+    """Last good data per source, reused when a fetch fails.
+
+    A flaky calendar link must never flip the door to "Free" in the middle of a meeting, so
+    the server keeps the last successful read of each source for the current day.
+    """
+
+    def __init__(self):
+        self._data: dict = {}
+
+    def put(self, name: str, day: dt.date, items: list) -> None:
+        self._data[name] = (day, items)
+
+    def get(self, name: str, day: dt.date):
+        cached = self._data.get(name)
+        return cached[1] if cached and cached[0] == day else None
 
 
 # ---------------------------------------------------------------- reading
@@ -169,7 +187,7 @@ def deduplicate(events: list[Event]) -> list[Event]:
     return sorted(unique.values(), key=lambda e: (not e.all_day, e.start, e.end))
 
 
-def collect(cfg: dict, now: dt.datetime | None = None) -> Snapshot:
+def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None = None) -> Snapshot:
     tz = ZoneInfo(cfg["display"]["timezone"])
     now = now or dt.datetime.now(tz)
     today = now.date()
@@ -177,25 +195,39 @@ def collect(cfg: dict, now: dt.datetime | None = None) -> Snapshot:
     tomorrow_start = day_start + dt.timedelta(days=1)
     window_end = day_start + dt.timedelta(days=2)
 
-    events, errors = [], []
+    events, errors, unknown = [], [], []
     for calendar in cfg.get("calendar", []):
         if not is_configured(calendar.get("url")):
             continue
+        name = calendar["name"]
         try:
-            events += read_calendar(calendar, day_start, window_end, tz)
+            fresh = read_calendar(calendar, day_start, window_end, tz)
+            if cache is not None:
+                cache.put(name, today, fresh)
+            events += fresh
         except Exception as ex:  # one broken calendar must not take the screen down
-            errors.append(f"{calendar['name']}: {ex.__class__.__name__}")
+            errors.append(f"{name}: {ex.__class__.__name__}")
+            cached = cache.get(name, today) if cache is not None else None
+            if cached is not None:
+                events += cached
+            elif calendar.get("busy", True):
+                unknown.append(name)
 
     tasks = []
     tasks_cfg = cfg.get("tasks")
     if tasks_cfg and is_configured(tasks_cfg.get("url")):
+        name = tasks_cfg.get("name", "TickTick")
         try:
             tasks = read_tasks(tasks_cfg, today, tz)
+            if cache is not None:
+                cache.put("__tasks__", today, tasks)
         except Exception as ex:
-            errors.append(f"{tasks_cfg.get('name', 'Tasks')}: {ex.__class__.__name__}")
+            errors.append(f"{name}: {ex.__class__.__name__}")
+            tasks = (cache.get("__tasks__", today) if cache is not None else None) or []
 
     events = deduplicate(events)
     today_events = [e for e in events if e.start < tomorrow_start and e.end > day_start]
-    tomorrow_events = [e for e in events if e.start < window_end and e.end > tomorrow_start
-                       and not (e.all_day and e.start < tomorrow_start)]
-    return Snapshot(now, today_events, tomorrow_events, tasks, errors)
+    tomorrow_events = [e for e in events
+                       if (e.all_day and e.start < window_end and e.end > tomorrow_start)
+                       or (not e.all_day and tomorrow_start <= e.start < window_end)]
+    return Snapshot(now, today_events, tomorrow_events, tasks, errors, unknown)

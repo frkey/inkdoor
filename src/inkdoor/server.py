@@ -4,12 +4,12 @@ from __future__ import annotations
 import os
 import threading
 import time
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import config
-from .render import render, translator_for
-from .sources import collect
+from .i18n import Translator
+from .render import render, render_error, translator_for
+from .sources import SourceCache, collect
 
 IMAGE_NAME = "kindle.png"
 
@@ -21,9 +21,9 @@ def save(img, path: str) -> None:
     os.replace(tmp, path)  # atomic swap: the Kindle never downloads half an image
 
 
-def render_once(cfg: dict, output_dir: str) -> str:
+def render_once(cfg: dict, output_dir: str, cache: SourceCache | None = None) -> str:
     t = translator_for(cfg)
-    snap = collect(cfg)
+    snap = collect(cfg, cache=cache)
     path = os.path.join(output_dir, IMAGE_NAME)
     save(render(snap, cfg), path)
     line = t("cli.rendered", time=t.time(snap.now), events=len(snap.today), tasks=len(snap.tasks))
@@ -33,24 +33,81 @@ def render_once(cfg: dict, output_dir: str) -> str:
     return path
 
 
-class _QuietHandler(SimpleHTTPRequestHandler):
-    def log_message(self, *args):
-        pass
+def make_handler(image_path: str):
+    """A handler that serves the screen image and nothing else (no directory listing)."""
+
+    class ImageOnly(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.split("?")[0] != "/" + IMAGE_NAME:
+                self.send_error(404)
+                return
+            try:
+                with open(image_path, "rb") as f:
+                    body = f.read()
+            except FileNotFoundError:
+                self.send_error(503)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_HEAD(self):
+            self.do_GET()
+
+        def log_message(self, *args):
+            pass
+
+    return ImageOnly
 
 
-def serve(config_path: str | None, output_dir: str) -> None:
-    cfg = config.load(config_path)
+def serve(config_path: str | None, output_dir: str, language: str | None = None) -> None:
+    cfg = config.load(config_path, language)
     t = translator_for(cfg)
     port = cfg["server"]["port"]
-    os.makedirs(output_dir, exist_ok=True)
-    handler = partial(_QuietHandler, directory=os.path.abspath(output_dir))
-    httpd = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    image_path = os.path.join(output_dir, IMAGE_NAME)
+    try:
+        httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(os.path.abspath(image_path)))
+    except OSError:
+        raise PortInUse(port) from None
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     print(t("cli.serving", port=port))
+
+    cache = SourceCache()
     while True:
-        try:
-            cfg = config.load(config_path)  # reloaded every cycle: edit without restarting
-            render_once(cfg, output_dir)
-        except Exception as ex:  # never let one bad calendar stop the server
-            print(translator_for(cfg)("cli.error", error=ex))
+        cfg = run_cycle(config_path, output_dir, language, cfg, cache)
         time.sleep(cfg["server"]["refresh_minutes"] * 60)
+
+
+def run_cycle(config_path, output_dir, language, last_cfg: dict, cache: SourceCache) -> dict:
+    """One refresh. Returns the config to keep using (the last valid one if the file broke)."""
+    cfg = last_cfg
+    try:  # reloaded every cycle so the config can be edited without restarting
+        cfg = config.load(config_path, language)
+    except (config.ConfigInvalid, config.ConfigMissing) as ex:
+        t = translator_for(last_cfg)
+        print(t("cli.kept_last_config", message=describe(ex, t)))
+    try:
+        render_once(cfg, output_dir, cache)
+    except Exception as ex:
+        # never leave an old status on the door: show an error screen instead
+        print(translator_for(cfg)("cli.error", error=ex))
+        save(render_error(cfg, f"{ex.__class__.__name__}: {ex}"), os.path.join(output_dir, IMAGE_NAME))
+    return cfg
+
+
+class PortInUse(Exception):
+    def __init__(self, port: int):
+        super().__init__(port)
+        self.port = port
+
+
+def describe(ex: Exception, t: Translator) -> str:
+    """Human-readable, translated explanation of a config problem."""
+    if isinstance(ex, config.ConfigInvalid):
+        return t(f"config_error.{ex.key}", **ex.details)
+    if isinstance(ex, config.ConfigMissing):
+        return t("cli.config_missing", path=ex.path)
+    return str(ex)

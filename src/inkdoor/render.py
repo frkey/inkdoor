@@ -68,6 +68,11 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
     working_hours = (now.weekday() in display["workdays"] and
                      display["workday_start"] <= now.hour < display["workday_end"])
 
+    if snap.unknown and not current:
+        # a busy calendar could not be read at all: never claim "Free" without knowing
+        return Status(True, t("status.unknown"), t("status.unknown_headline"),
+                      t("status.unknown_detail", sources=", ".join(snap.unknown)))
+
     if current:
         main = min(current, key=lambda e: e.end)
         until = end_of_block(max(e.end for e in current))
@@ -83,7 +88,7 @@ def compute_status(snap: Snapshot, cfg: dict, t: Translator) -> Status:
         nxt = upcoming[0]
         minutes = int((nxt.start - now).total_seconds() // 60)
         title = nxt.title or t("untitled")
-        detail = (t("status.next_in", title=title, minutes=minutes) if minutes <= 15
+        detail = (t("status.next_in", title=title, duration=t.duration(minutes)) if minutes <= 15
                   else t("status.next_at", title=title, time=t.time(nxt.start)))
         return Status(False, t("status.free"), t("status.until", time=t.time(nxt.start)), detail)
 
@@ -153,10 +158,11 @@ def draw_status(d, st: Status, y):
     size = 150   # main word: the largest size that fits
     while d.textlength(st.word.upper(), font=font("Black", size, True)) > width and size > 80:
         size -= 4
+    word = ellipsize(d, st.word.upper(), font("Black", size, True), width)
     f1, f2, f3 = font("Black", size, True), font("Bold", 76, True), font("Medium", 32)
     while d.textlength(st.headline, font=f2) > width and f2.size > 48:
         f2 = font("Bold", f2.size - 4, True)
-    b1 = d.textbbox((0, 0), st.word.upper(), font=f1)
+    b1 = d.textbbox((0, 0), word, font=f1)
     b2 = d.textbbox((0, 0), "0:00gpé", font=f2)
     b3 = d.textbbox((0, 0), "Ágp", font=f3)
     top = 46
@@ -171,7 +177,7 @@ def draw_status(d, st: Status, y):
     else:
         d.rounded_rectangle(box, 24, fill=WHITE, outline=BLACK, width=7)
         fg, soft = BLACK, DARK
-    d.text((M + pad, y1), st.word.upper(), font=f1, fill=fg)
+    d.text((M + pad, y1), word, font=f1, fill=fg)
     d.text((M + pad, y2), st.headline, font=f2, fill=fg)
     d.text((M + pad, y3), ellipsize(d, st.detail, f3, width), font=f3, fill=soft)
     return y + height
@@ -220,8 +226,8 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
     f_start, f_end = font("Bold", 36, True), font("Medium", 26)
     f_now = font("Bold", 32, True)
     # the time column fits the widest time on screen (12h times are wider)
-    time_width = max([d.textlength(t.time_short(now), font=f_now)] +
-                     [max(d.textlength(t.time_short(r.event.start), font=f_start),
+    time_width = max([d.textlength(t.time(now), font=f_now)] +
+                     [max(d.textlength(t.time(r.event.start), font=f_start),
                           d.textlength(t.time(r.event.end), font=f_end))
                       for r in rows if r.kind == "event"])
     col_time = M
@@ -256,7 +262,7 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
                 d.rectangle((M - 20, y, W - M + 20, y + r.height - 8), fill=BLACK)
             color = WHITE if r.current else (GRAY if r.past else BLACK)
             color2 = LIGHT if (r.current or r.past) else GRAY
-            d.text((col_time, y + 14), t.time_short(e.start), font=f_start, fill=color)
+            d.text((col_time, y + 14), t.time(e.start), font=f_start, fill=color)
             d.text((col_time, y + 56), t.time(e.end), font=f_end, fill=color2)
             marker(d, (col_marker, y + 14, col_marker + 16, y + r.height - 22), e.style,
                    color=(WHITE if r.current else (LIGHT if r.past else BLACK)),
@@ -264,8 +270,7 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
             f_title = font("SemiBold", 36)
             d.text((col_text, y + 10), ellipsize(d, e.title or t("untitled"), f_title, text_width),
                    font=f_title, fill=color)
-            meta = " · ".join([t.duration(e.minutes), " + ".join([e.source] + e.extra_sources)]
-                              + ([e.location] if e.location else []))
+            meta = " · ".join([t.duration(e.minutes), e.source] + ([e.location] if e.location else []))
             if r.current:
                 meta = f"{t('agenda.now')} · {meta}"
             d.text((col_text, y + 58), ellipsize(d, meta, f_end, text_width), font=f_end, fill=color2)
@@ -282,7 +287,7 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
             d.ellipse((col_marker - 4, mid - 12, col_marker + 20, mid + 12), fill=BLACK)
             d.line((col_marker + 20, mid, col_text - 14, mid), fill=BLACK, width=4)
             d.text((col_text, mid - 22), r.text, font=font("Bold", 32), fill=BLACK)
-            d.text((col_time, mid - 22), t.time_short(now), font=f_now, fill=BLACK)
+            d.text((col_time, mid - 22), t.time(now), font=f_now, fill=BLACK)
         elif r.kind == "done":
             d.text((col_text, y + 8), r.text, font=font("Medium", 28), fill=GRAY)
         y += r.height
@@ -339,15 +344,18 @@ def draw_footer(d, snap: Snapshot, cfg, t: Translator, showing_tomorrow: bool):
     y = H - 96
     d.line((M, y, W - M, y), fill=BLACK, width=3)
 
-    # calendar legend (right side)
+    # calendar legend (right side): at most half the width, otherwise it is left out
+    calendars = cfg.get("calendar", [])
     f = font("Medium", 24)
+    legend_width = sum(d.textlength(c["name"], font=f) + 54 for c in calendars)
     x = W - M
-    for calendar in reversed(cfg.get("calendar", [])):
-        x -= d.textlength(calendar["name"], font=f)
-        d.text((x, y + 30), calendar["name"], font=f, fill=DARK)
-        x -= 24
-        marker(d, (x, y + 30, x + 14, y + 58), calendar.get("style", "solid"))
-        x -= 30
+    if calendars and legend_width <= (W - 2 * M) / 2:
+        for calendar in reversed(calendars):
+            x -= d.textlength(calendar["name"], font=f)
+            d.text((x, y + 30), calendar["name"], font=f, fill=DARK)
+            x -= 24
+            marker(d, (x, y + 30, x + 14, y + 58), calendar.get("style", "solid"))
+            x -= 30
     text_limit = x - 20
 
     today = [e for e in snap.today if not e.all_day]
@@ -384,7 +392,8 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
     # after hours with nothing left today, the list switches to tomorrow
     today_timed = [e for e in snap.today if not e.all_day]
     remaining = [e for e in today_timed if e.end > now]
-    workday_end = now.replace(hour=cfg["display"]["workday_end"], minute=0, second=0, microsecond=0)
+    workday_end = (dt.datetime.combine(now.date(), dt.time.min, now.tzinfo)
+                   + dt.timedelta(hours=cfg["display"]["workday_end"]))
     showing_tomorrow = not remaining and now >= workday_end
 
     if showing_tomorrow:
@@ -414,9 +423,12 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
 
     if tasks:
         overdue = sum(1 for task in tasks if task.overdue)
-        right = t("tasks.for_today", n=len(tasks))
+        parts = []
+        if len(tasks) - overdue:
+            parts.append(t("tasks.for_today", n=len(tasks) - overdue))
         if overdue:
-            right += " · " + t("tasks.overdue_count", n=overdue)
+            parts.append(t("tasks.overdue_count", n=overdue))
+        right = " · ".join(parts)
         y = section_header(d, y, t("section.tasks"), right)
         draw_tasks(d, tasks, y, limit, t)
 
@@ -424,3 +436,30 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
 
     # the Kindle shows 16 shades: snap to them to avoid dithering
     return img.point(lambda v: min(255, round(v / 17) * 17))
+
+
+def render_error(cfg: dict | None, message: str) -> Image.Image:
+    """Screen shown when inkdoor itself fails, so the door never keeps a stale status."""
+    t = translator_for(cfg or {})
+    img = Image.new("L", (W, H), WHITE)
+    d = ImageDraw.Draw(img)
+    st = Status(True, t("status.unknown"), t("status.error_headline"), t("status.error_detail"))
+    y = draw_status(d, st, 130) + 60
+    f = font("Medium", 28)
+    for line in _wrap(d, message, f, W - 2 * M)[:12]:
+        d.text((M, y), line, font=f, fill=DARK)
+        y += 40
+    return img.point(lambda v: min(255, round(v / 17) * 17))
+
+
+def _wrap(d, text: str, f, width: int) -> list[str]:
+    lines, line = [], ""
+    for word in text.split():
+        candidate = f"{line} {word}".strip()
+        if d.textlength(candidate, font=f) <= width:
+            line = candidate
+        else:
+            if line:
+                lines.append(line)
+            line = ellipsize(d, word, f, width)
+    return lines + ([line] if line else [])

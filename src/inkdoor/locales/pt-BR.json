@@ -3,68 +3,108 @@
     "name": "Português (Brasil)",
     "clock": "24h"
   },
-  "weekdays": ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"],
-  "months_short": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+  "weekdays": [
+    "Segunda",
+    "Terça",
+    "Quarta",
+    "Quinta",
+    "Sexta",
+    "Sábado",
+    "Domingo"
+  ],
+  "months_short": [
+    "jan",
+    "fev",
+    "mar",
+    "abr",
+    "mai",
+    "jun",
+    "jul",
+    "ago",
+    "set",
+    "out",
+    "nov",
+    "dez"
+  ],
   "date_header": "{weekday}, {day} de {month}",
   "updated_at": "atualizado às {time}",
   "untitled": "(sem título)",
-
   "duration": {
     "hours_minutes": "{h}h{m:02d}",
     "hours": "{h}h",
     "minutes": "{m} min"
   },
-
   "status": {
     "busy": "Em reunião",
     "free": "Livre",
     "until": "até {time}",
     "then_free_until": "depois, livre até {time}",
     "then_free_rest": "depois, livre pelo resto do dia",
-    "next_in": "Próximo: {title} · começa em {minutes} min",
+    "next_in": "Próximo: {title} · começa em {duration}",
     "next_at": "Próximo: {title} · às {time}",
     "after_hours": "fora do expediente",
     "tomorrow_first": "Amanhã o primeiro é às {time}",
     "tomorrow_empty": "Nada marcado para amanhã",
     "rest_of_day": "pelo resto do dia",
-    "no_more_today": "Sem mais compromissos hoje"
+    "no_more_today": "Sem mais compromissos hoje",
+    "unknown": "Bata antes",
+    "unknown_headline": "agenda indisponível",
+    "unknown_detail": "Não consegui ler: {sources}",
+    "error_headline": "erro no painel",
+    "error_detail": "Confira o computador que roda o inkdoor serve"
   },
-
   "section": {
     "today": "Hoje",
     "tomorrow": "Amanhã · {weekday}",
     "tasks": "Tarefas"
   },
-
   "agenda": {
     "remaining": "{left} de {total} pela frente",
-    "events": {"one": "{n} compromisso", "other": "{n} compromissos"},
+    "events": {
+      "one": "{n} compromisso",
+      "other": "{n} compromissos"
+    },
     "free_for": "Livre por {duration}",
     "gap": "livre · {duration}",
     "no_more": "Sem mais compromissos hoje",
-    "done": {"one": "✓  {n} compromisso já concluído", "other": "✓  {n} compromissos já concluídos"},
-    "more_later": {"one": "+ {n} compromisso mais tarde", "other": "+ {n} compromissos mais tarde"},
+    "done": {
+      "one": "✓  {n} compromisso já concluído",
+      "other": "✓  {n} compromissos já concluídos"
+    },
+    "more_later": {
+      "one": "+ {n} compromisso mais tarde",
+      "other": "+ {n} compromissos mais tarde"
+    },
     "now": "agora",
     "none": "Nenhum compromisso."
   },
-
   "tasks": {
     "for_today": "{n} para hoje",
-    "overdue_count": {"one": "{n} atrasada", "other": "{n} atrasadas"},
+    "overdue_count": {
+      "one": "{n} atrasada",
+      "other": "{n} atrasadas"
+    },
     "overdue_tag": "ATRASADA",
-    "more": {"one": "+ {n} tarefa", "other": "+ {n} tarefas"}
+    "more": {
+      "one": "+ {n} tarefa",
+      "other": "+ {n} tarefas"
+    }
   },
-
   "footer": {
-    "tomorrow_long": {"one": "Amanhã: {n} compromisso, às {time}", "other": "Amanhã: {n} compromissos, o primeiro às {time}"},
+    "tomorrow_long": {
+      "one": "Amanhã: {n} compromisso, às {time}",
+      "other": "Amanhã: {n} compromissos, o primeiro às {time}"
+    },
     "tomorrow_medium": "Amanhã: {n} · o primeiro às {time}",
     "tomorrow_short": "Amanhã: {n} · {time}",
     "tomorrow_free": "Amanhã: agenda livre",
-    "today_done": {"one": "Hoje: {n} compromisso concluído", "other": "Hoje: {n} compromissos concluídos"},
+    "today_done": {
+      "one": "Hoje: {n} compromisso concluído",
+      "other": "Hoje: {n} compromissos concluídos"
+    },
     "today_empty": "Hoje: dia sem compromissos",
     "unreachable": "Sem acesso: {sources}"
   },
-
   "cli": {
     "description": "Painel de agenda em e-ink para a porta.",
     "config_missing": "Não encontrei '{path}'. Copie o config.example.toml para config.toml e cole seus links.",
@@ -72,9 +112,21 @@
     "serving": "Servindo em http://<ip-deste-computador>:{port}/kindle.png  (Ctrl+C para sair)",
     "rendered": "[{time}] tela gerada ({events} compromissos, {tasks} tarefas)",
     "rendered_errors": " — sem acesso: {sources}",
-    "error": "Erro: {error}"
+    "error": "Erro: {error}",
+    "config_invalid": "Config inválido: {message}",
+    "kept_last_config": "Config inválido, continuo usando o último válido: {message}",
+    "port_in_use": "A porta {port} já está em uso. Mude [server] port no config.toml ou feche o outro programa.",
+    "help": {
+      "config": "caminho do config.toml (padrão: ./config.toml)",
+      "output": "pasta onde as imagens são gravadas (padrão: ./output)",
+      "lang": "idioma da tela e das mensagens (tem prioridade sobre o config)",
+      "serve": "gera e serve a tela continuamente",
+      "render": "gera a tela uma vez",
+      "check": "testa os links das agendas",
+      "demo": "gera prévias com dados fictícios",
+      "hours": "uma ou mais horas, ex.: 10:20 15:20"
+    }
   },
-
   "check": {
     "not_configured": "link ainda não foi colado no config.toml",
     "unreachable": "não consegui acessar o endereço ({error})",
@@ -92,6 +144,20 @@
     "tasks_found": "{n} tarefas para hoje ou atrasadas",
     "overdue_prefix": "[atrasada] ",
     "all_good": "Tudo certo! Pode rodar: inkdoor serve",
-    "fix_errors": "Corrija os itens marcados com ✖ e rode o teste de novo."
+    "fix_errors": "Corrija os itens marcados com ✖ e rode o teste de novo.",
+    "read_failed": "não consegui ler os compromissos ({error})"
+  },
+  "date_short": "{day:02d}/{month:02d}",
+  "config_error": {
+    "syntax": "o config.toml tem um erro de sintaxe: {error}",
+    "timezone": "fuso horário desconhecido '{value}'. Use um nome como America/Sao_Paulo.",
+    "hour": "{key} precisa ser uma hora cheia de 0 a 24 (veio {value}).",
+    "workdays": "workdays precisa ser uma lista de números de 0 (segunda) a 6 (domingo).",
+    "clock": "clock precisa ser \"12h\" ou \"24h\" (veio {value}).",
+    "refresh": "refresh_minutes precisa ser de 1 a 1440 (veio {value}).",
+    "port": "port precisa ser de 1 a 65535 (veio {value}).",
+    "calendar_name": "a agenda nº {index} precisa de um name.",
+    "calendar_duplicate": "duas agendas se chamam '{name}'; os nomes precisam ser diferentes.",
+    "style": "agenda '{name}': style precisa ser solid, striped ou outline (veio {value})."
   }
 }

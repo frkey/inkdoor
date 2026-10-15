@@ -1,10 +1,17 @@
-from conftest import at
+import datetime as dt
 
-from inkdoor.sources import collect
+from conftest import TZ, at
+
+from inkdoor.sources import SourceCache, collect
 
 
 def rows(events):
     return [(e.start.strftime("%H:%M"), e.title, e.source) for e in events]
+
+
+def write_ics(path, body):
+    path.write_text("BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//inkdoor//tests//EN\n" + body + "END:VCALENDAR\n")
+    return str(path)
 
 
 def test_calendars_are_never_merged(cfg):
@@ -45,8 +52,37 @@ def test_tasks(cfg):
     assert snap.tasks[1].time.strftime("%H:%M") == "17:00"
 
 
-def test_unreachable_calendar_is_reported_not_fatal(cfg):
+def test_unreachable_calendar_without_cache_is_unknown(cfg):
     cfg["calendar"][1]["url"] = "/does/not/exist.ics"
     snap = collect(cfg, at("12:00"))
     assert snap.errors and snap.errors[0].startswith("Company")
-    assert snap.today
+    assert snap.unknown == ["Company"]
+    assert snap.today   # the other calendars still render
+
+
+def test_unreachable_calendar_reuses_todays_cache(cfg):
+    cache = SourceCache()
+    collect(cfg, at("12:00"), cache=cache)
+    good_url = cfg["calendar"][0]["url"]
+    cfg["calendar"][0]["url"] = "/does/not/exist.ics"
+    snap = collect(cfg, at("13:45"), cache=cache)
+    assert snap.errors and snap.unknown == []
+    assert ("13:30", "Roadmap review", "Work") in rows(snap.today)
+    # yesterday's data is never reused
+    snap = collect(cfg, at("09:00", day=15), cache=cache)
+    assert snap.unknown == ["Work"]
+    cfg["calendar"][0]["url"] = good_url
+
+
+def test_events_crossing_midnight_and_multi_day(cfg, tmp_path):
+    cfg["calendar"] = [{"name": "Work", "style": "solid", "busy": True, "url": write_ics(tmp_path / "x.ics", (
+        "BEGIN:VEVENT\nUID:late@test\nDTSTART:20261015T010000Z\nDTEND:20261015T040000Z\nSUMMARY:Late deploy\nEND:VEVENT\n"
+        "BEGIN:VEVENT\nUID:trip@test\nDTSTART;VALUE=DATE:20261013\nDTEND;VALUE=DATE:20261018\nSUMMARY:Trip\nEND:VEVENT\n"))}]
+    snap = collect(cfg, at("12:00"))
+    late = [e for e in snap.today if e.title == "Late deploy"]
+    assert late and late[0].start == dt.datetime(2026, 10, 14, 22, 0, tzinfo=TZ)
+    # starts today, so it is not one of tomorrow's events
+    assert not any(e.title == "Late deploy" for e in snap.tomorrow)
+    # a multi-day all-day event shows up today and tomorrow
+    assert any(e.title == "Trip" for e in snap.today)
+    assert any(e.title == "Trip" for e in snap.tomorrow)

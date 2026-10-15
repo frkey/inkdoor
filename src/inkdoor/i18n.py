@@ -74,12 +74,6 @@ class Translator:
             return f"{hour}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'}"
         return f"{t.hour}:{t.minute:02d}"
 
-    def time_short(self, t: dt.datetime | dt.time) -> str:
-        """Time without the AM/PM suffix, for tight columns."""
-        if self.clock == "12h":
-            return f"{t.hour % 12 or 12}:{t.minute:02d}"
-        return self.time(t)
-
     def duration(self, minutes: int) -> str:
         h, m = divmod(max(0, minutes), 60)
         if h and m:
@@ -88,6 +82,9 @@ class Translator:
 
     def weekday(self, d: dt.date) -> str:
         return self.get("weekdays")[d.weekday()]
+
+    def date_short(self, d: dt.date) -> str:
+        return self("date_short", day=d.day, month=d.month)
 
     def date_header(self, d: dt.date) -> str:
         return self("date_header", weekday=self.weekday(d), day=d.day,
