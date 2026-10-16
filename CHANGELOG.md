@@ -14,6 +14,15 @@ It is shown next to each release.
 - The admin and the Kindle image no longer accept names ending in `.fritz.box` or `.ts.net`
   without being listed: both are public domains. If the Kindle's `URL` or your browser uses such
   a name, add it to `[admin] allowed_hosts` (see the server guide).
+- Calendars and task lists are read in a separate process with a 30-second limit and at most
+  20,000 occurrences in the window read. A calendar that goes past either counts as unreadable
+  (the door falls back on today's data or **Knock first**) instead of stalling the server.
+- If the server stops finishing refreshes (more than 15 minutes late) or the image on disk is
+  from before a long outage, the Kindle gets an error screen instead of a status that may be old.
+
+### Changed
+
+- `inkdoor check` and **Test link** list the next events in order of start.
 
 ## [1.0.0] - 2026-10-15
 

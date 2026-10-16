@@ -3,8 +3,8 @@
   ✔ calendar reachable (1 KB)
   ✔ 12 events in the next 14 days
      Oct 14  9:00 AM  Daily
-     Oct 15  9:00 AM  Daily
-     Oct 16  9:00 AM  Daily
+     Oct 14  1:30 PM  Roadmap review
+     Oct 14  1:30 PM  Roadmap Review
 
 ■ Company
   ✔ calendar reachable (1 KB)

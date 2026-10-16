@@ -33,7 +33,7 @@ from werkzeug.exceptions import HTTPException
 
 from .. import kindle_files
 from ..i18n import Translator
-from ..render import render_host_rejected
+from ..render import render_error, render_host_rejected
 from ..render import screen_size as render_screen_size
 from ..state import IMAGE_NAME, ServerState
 from . import auth
@@ -232,6 +232,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     host_images: OrderedDict[tuple, bytes] = OrderedDict()   # (language, size, host)
     # per language and screen size (a few of each), never evicted
     generic_host_images: dict[tuple, bytes] = {}
+    stale_images: dict[tuple, bytes] = {}
     host_renders = _Budget(HOST_RENDERS_PER_SECOND, 1.0, monotonic)
     host_logs = _Budget(HOST_LOGS_PER_MINUTE, 60.0, monotonic)
     host_lock = threading.Lock()
@@ -286,6 +287,17 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
             host_images[key] = png
             while len(host_images) > HOST_IMAGE_CACHE:
                 host_images.popitem(last=False)
+        return png
+
+    def stale_image() -> bytes:
+        """The error screen served instead of an image that may show an old status."""
+        look = (t().language, render_screen_size(state.cfg))
+        with host_lock:
+            png = stale_images.get(look)
+        if png is None:
+            png = _png(render_error(state.cfg, t()("status.stalled")))
+            with host_lock:
+                stale_images[look] = png
         return png
 
     def origin_ok() -> bool:
@@ -377,9 +389,12 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         try:
             with open(os.path.join(state.output_dir, IMAGE_NAME), "rb") as f:
                 body = f.read()
+                mtime = os.fstat(f.fileno()).st_mtime
         except OSError:
             return app.response_class(t()("admin.not_rendered") + "\n", status=503,
                                       mimetype="text/plain", headers={"Cache-Control": "no-store"})
+        if state.image_stale(clock(), mtime):  # the door must not keep an old "Free"
+            body = stale_image()
         headers = {"Cache-Control": "no-store"}
         if state.next_render_at is not None:
             wait = max(0.0, state.next_render_at - clock()) + state.render_seconds + NEXT_MARGIN

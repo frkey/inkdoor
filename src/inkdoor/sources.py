@@ -12,13 +12,24 @@ from zoneinfo import ZoneInfo
 import icalendar
 import recurring_ical_events
 
-from . import net
+from . import isolate, net
 from .config import is_configured
 
 # Online-meeting locations only add noise on the screen
 _ONLINE_LOCATION = re.compile(r"teams|zoom|meet\.google|http", re.I)
 # Outlook prefixes the title instead of setting STATUS in some exports
 _CANCELLED_PREFIXES = ("canceled:", "cancelled:", "cancelado:", "cancelada:")
+# Occurrences the expansion of one source may go through. A real calendar has a few dozen in two
+# days, and a task list a few thousand at most over a year of overdue days; a rule that repeats
+# every second has 172,800 in two days. Each costs a few KB while the child reads.
+MAX_OCCURRENCES = 20000
+# The library orders dates and floating times without our time zone, so its order can be off by up
+# to a UTC offset: the expansion goes this far past the window before it stops.
+_ORDER_SLACK = dt.timedelta(days=1)
+
+
+class TooManyOccurrences(Exception):
+    """A calendar has more occurrences in the window than MAX_OCCURRENCES."""
 
 
 @dataclass
@@ -107,21 +118,48 @@ def _to_local(value, tz):
     return dt.datetime.combine(value, dt.time.min, tz)
 
 
-def _occurrences(cal, start, end, components=("VEVENT",)):
-    try:
-        return recurring_ical_events.of(cal, components=list(components)).between(start, end)
-    except TypeError:  # older versions of the library
-        return recurring_ical_events.of(cal).between(start, end)
+def _start(item, tz):
+    """When an occurrence starts, in ``tz``; None when it has no date to go by."""
+    when = item.get("DTSTART") or item.get("DUE")
+    return None if when is None else _to_local(when.dt, tz)
+
+
+def _occurrences(cal, start, end, tz, components=("VEVENT",)):
+    """Occurrences that overlap [start, end). The library yields them lazily, in order of start,
+    so the expansion stops just past ``end`` and goes through at most MAX_OCCURRENCES."""
+    found = []
+    query = recurring_ical_events.of(cal, components=list(components))
+    for seen, item in enumerate(query.after(start)):
+        if seen == MAX_OCCURRENCES:
+            raise TooManyOccurrences()
+        begins = _start(item, tz)
+        if begins is not None and begins >= end:
+            if begins >= end + _ORDER_SLACK:
+                break
+            continue
+        found.append(item)
+    return found
 
 
 def read_calendar(calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
-    return parse_events(icalendar.Calendar.from_ical(fetch(calendar["url"])), calendar, start, end, tz)
+    return events_from(fetch(calendar["url"]), calendar, start, end, tz)
+
+
+def events_from(content: bytes, calendar: dict, start: dt.datetime, end: dt.datetime,
+                tz) -> list[Event]:
+    """Events of a downloaded calendar between start and end, read in a child process with a
+    time limit (see ``isolate``): a calendar is data from outside."""
+    return isolate.run(_events_from, content, calendar, start, end, tz)
+
+
+def _events_from(content: bytes, calendar: dict, start, end, tz) -> list[Event]:
+    return parse_events(icalendar.Calendar.from_ical(content), calendar, start, end, tz)
 
 
 def parse_events(cal, calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
-    """Events of an already downloaded calendar between start and end."""
+    """Events of an already parsed calendar between start and end, in this process."""
     events = []
-    for item in _occurrences(cal, start, end):
+    for item in _occurrences(cal, start, end, tz):
         if str(item.get("STATUS", "")).upper() == "CANCELLED":
             continue
         title = str(item.get("SUMMARY", "")).strip()
@@ -152,16 +190,26 @@ def parse_events(cal, calendar: dict, start: dt.datetime, end: dt.datetime, tz) 
 
 
 def read_tasks(tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
-    return parse_tasks(icalendar.Calendar.from_ical(fetch(tasks_cfg["url"])), tasks_cfg, today, tz)
+    return tasks_from(fetch(tasks_cfg["url"]), tasks_cfg, today, tz)
+
+
+def tasks_from(content: bytes, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
+    """Tasks of a downloaded calendar due today or overdue, read in a child process (see
+    ``events_from``)."""
+    return isolate.run(_tasks_from, content, tasks_cfg, today, tz)
+
+
+def _tasks_from(content: bytes, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
+    return parse_tasks(icalendar.Calendar.from_ical(content), tasks_cfg, today, tz)
 
 
 def parse_tasks(cal, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
-    """Tasks of an already downloaded calendar that are due today or overdue."""
+    """Tasks of an already parsed calendar that are due today or overdue, in this process."""
     overdue_days = int(tasks_cfg.get("overdue_days", 7))
     start = dt.datetime.combine(today - dt.timedelta(days=overdue_days), dt.time.min, tz)
     end = dt.datetime.combine(today + dt.timedelta(days=1), dt.time.min, tz)
     tasks, seen = [], set()
-    for item in _occurrences(cal, start, end, ("VEVENT", "VTODO")):
+    for item in _occurrences(cal, start, end, tz, ("VEVENT", "VTODO")):
         if str(item.get("STATUS", "")).upper() in ("COMPLETED", "CANCELLED") or "COMPLETED" in item:
             continue
         when = item.get("DUE") or item.get("DTSTART")

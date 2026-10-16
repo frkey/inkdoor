@@ -679,3 +679,28 @@ def test_rejected_host_image_follows_the_screen_size(app, state, rendered):
     again = get(c, "/kindle.png", headers={"Host": "evil.com"}).data
     assert Image.open(io.BytesIO(first)).size == (1072, 1448)
     assert Image.open(io.BytesIO(again)).size == (600, 800)
+
+
+def _is_stale_screen(data: bytes) -> bool:
+    return Image.open(io.BytesIO(data)).size == (1072, 1448)          # not the 8x8 test image
+
+
+def test_kindle_png_is_replaced_when_the_render_loop_is_stuck(app, state, clock, rendered):
+    import os
+    os.utime(rendered, (clock.now, clock.now))
+    c = client(app)
+    state.next_render_at = clock.now - state.STALE_AFTER + 60       # late, but within the margin
+    assert not _is_stale_screen(get(c, "/kindle.png").data)
+    state.next_render_at = clock.now - state.STALE_AFTER - 60       # far past its render
+    assert _is_stale_screen(get(c, "/kindle.png").data)
+
+
+def test_kindle_png_from_an_earlier_run_is_replaced_when_old(app, state, clock, rendered):
+    import os
+    c = client(app)
+    refresh = state.cfg["server"]["refresh_minutes"] * 60
+    os.utime(rendered, (clock.now - refresh, clock.now - refresh))   # a restart a while ago
+    assert not _is_stale_screen(get(c, "/kindle.png").data)
+    old = clock.now - refresh - state.STALE_AFTER - 60               # the server was down
+    os.utime(rendered, (old, old))
+    assert _is_stale_screen(get(c, "/kindle.png").data)

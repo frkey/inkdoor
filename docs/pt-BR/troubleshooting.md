@@ -21,6 +21,7 @@ Nenhum dos dois mostra links de agenda, então dá para colar a saída numa issu
 | **BATA ANTES** · *sem agenda que marque ocupado* | Há agendas configuradas, mas nenhuma marca você como ocupado, então a porta não tem como saber quando você está livre. | No admin, edite a agenda das suas reuniões e ligue **Marca você como ocupado**. |
 | **BATA ANTES** · *endereço não permitido* | O Kindle chegou ao servidor por um nome que não está liberado. | Use o IP do servidor na `URL` do Kindle ou adicione o nome em `allowed_hosts` ([detalhes](server.md#abrindo-o-admin-por-nome)). |
 | **BATA ANTES** · *erro no painel* | O próprio inkdoor não conseguiu desenhar a tela. O tipo do erro aparece embaixo. | Veja o log do serviço e [abra uma issue](https://github.com/frkey/inkdoor/issues/new/choose) com ele. |
+| **BATA ANTES** · *erro no painel*, "A tela parou de atualizar" | O servidor passou mais de 15 minutos do horário sem terminar uma atualização, ou ficou desligado por um tempo, então o último status pode ser antigo. | Veja o log do serviço e reinicie-o (`systemctl restart inkdoor`). Se acontecer de novo, teste cada link. |
 | Uma linha no rodapé como *sem acesso: Trabalho* | Essa agenda falhou na última atualização; a porta está usando os últimos dados bons dela no dia. | Nada, se voltar na próxima atualização; senão, teste o link. |
 
 A porta nunca diz **Livre** sem saber: quando não tem como saber, diz **Bata antes**.
@@ -60,6 +61,8 @@ As mensagens do Kindle não têm acento: a fonte de tela do aparelho não tem es
 | *nenhum compromisso nos próximos 14 dias* | A agenda é lida, mas está vazia. | Confira se publicou a agenda certa. |
 | *o link só mostra 'Ocupado'* | A agenda foi publicada só com "ocupado". | Publique de novo com **Pode ver todos os detalhes**; se essa opção não existir, a porta funciona mesmo assim. |
 | *muitos compromissos de madrugada* | O fuso horário provavelmente está errado. | Ajuste o fuso na página **Tela** do admin. |
+| *não consegui ler os compromissos (TooManyOccurrences)* | A agenda repete um compromisso com tanta frequência (a cada minuto ou segundo, por exemplo) que ele tem milhares de ocorrências em poucos dias. O inkdoor para de ler a agenda. | Corrija ou apague esse compromisso repetido no app de agenda. |
+| *não consegui ler os compromissos (CalendarTimeout)* | Ler a agenda levou mais de 30 segundos, quase sempre por uma regra que repete com muita frequência. | O mesmo de cima; com uma agenda muito grande, publique uma menor. |
 
 Onde achar cada link: [Links das agendas](calendar-sources.md).
 

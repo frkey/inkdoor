@@ -192,3 +192,50 @@ def test_events_crossing_midnight_and_multi_day(cfg, tmp_path):
     # a multi-day all-day event shows up today and tomorrow
     assert any(e.title == "Trip" for e in snap.today)
     assert any(e.title == "Trip" for e in snap.tomorrow)
+
+
+def test_a_calendar_with_endless_occurrences_is_a_failed_source(cfg):
+    # one rule that repeats every second: 172,800 occurrences in the two days read
+    cfg["calendar"] = [{"name": "Work", "style": "solid", "busy": True,
+                        "url": fixture("every-second.ics")}]
+    snap = collect(cfg, at("12:00"))
+    assert snap.errors == ["Work: TooManyOccurrences"]
+    assert snap.unknown == ["Work"] and snap.today == []          # "Knock first", never "Free"
+
+
+def test_a_calendar_that_takes_too_long_is_a_failed_source(cfg, tmp_path, monkeypatch):
+    from inkdoor import isolate
+    monkeypatch.setattr(isolate, "TIMEOUT", 0.5)
+    # a rule from long ago that repeats every second: the library walks every second until today
+    cfg["calendar"] = [{"name": "Work", "style": "solid", "busy": True, "url": write_ics(
+        tmp_path / "old.ics", "BEGIN:VEVENT\nUID:old@test\nDTSTART:20000101T000000Z\n"
+        "DTEND:20000101T000001Z\nRRULE:FREQ=SECONDLY\nSUMMARY:Tick\nEND:VEVENT\n")}]
+    cache = SourceCache()
+    snap = collect(cfg, at("12:00"), cache=cache)
+    assert snap.errors == ["Work: CalendarTimeout"]
+    assert snap.unknown == ["Work"]
+
+
+def test_endless_tasks_are_a_failed_source(cfg):
+    cfg["tasks"] = {"name": "TickTick", "url": fixture("every-second.ics"), "overdue_days": 7}
+    snap = collect(cfg, at("12:00"))
+    assert "TickTick: TooManyOccurrences" in snap.errors and snap.tasks == []
+
+
+def test_expansion_goes_past_the_window_before_stopping(tmp_path, monkeypatch):
+    # the library may yield an occurrence that starts after the window before one inside it
+    import icalendar
+    path = write_ics(tmp_path / "t.ics", "BEGIN:VTODO\nUID:a@test\nDUE;VALUE=DATE:20261015\n"
+                     "SUMMARY:Tomorrow\nEND:VTODO\nBEGIN:VTODO\nUID:b@test\n"
+                     "DUE:20261015T010000Z\nSUMMARY:Tonight\nEND:VTODO\n")
+    cal = icalendar.Calendar.from_ical(open(path, "rb").read())
+    items = list(sources.recurring_ical_events.of(cal, components=["VTODO"]).all())
+    items.sort(key=lambda i: str(i["SUMMARY"]) != "Tomorrow")         # "Tomorrow" first
+
+    class Query:
+        def after(self, start):
+            return iter(items)
+
+    monkeypatch.setattr(sources.recurring_ical_events, "of", lambda cal, components: Query())
+    tasks = sources.parse_tasks(cal, {"overdue_days": 7}, dt.date(2026, 10, 14), TZ)
+    assert [t.title for t in tasks] == ["Tonight"]                    # 22:00 on the 14th, local
