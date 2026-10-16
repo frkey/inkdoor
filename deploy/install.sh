@@ -28,6 +28,10 @@ TIMEZONE=""
 BAD_OPTION=""
 
 APP_DIR=/opt/inkdoor
+# Keys that sign inkdoor releases, in git's allowed-signers format. A release picked by "latest"
+# is installed only when its tag is signed by one of them. The installer that checks a release is
+# the one already installed, so a new key must ship in a release signed by a key listed here.
+RELEASE_SIGNERS='inkdoor-release namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOp2fGOY09+JvaazC0HEz+2LKFhSS+Z77UQSybUAWRbJ'
 CONF_DIR=/etc/inkdoor
 CONF="$CONF_DIR/config.toml"
 STATE_DIR=/var/lib/inkdoor
@@ -74,6 +78,8 @@ case "$LANGUAGE" in
     MSG_OLD_PYTHON="O inkdoor precisa do Python 3.10 ou mais novo (Debian 12+ ou Ubuntu 22.04+)."
     MSG_DOWNLOAD="Baixando o inkdoor (%s)..."
     MSG_NO_TAGS="Não consegui ler as versões de %s. Confira a rede ou use --ref."
+    MSG_NO_RELEASE="Nenhuma versão encontrada em %s, mas esta instalação já está numa versão; nada foi alterado. Para mudar para um branch, use --ref."
+    MSG_UNSIGNED="A versão %s não está assinada com a chave de releases do inkdoor; nada foi instalado. Para instalar um branch ou uma tag sem essa conferência, use --ref."
     MSG_NOT_GIT="%s existe mas não é um clone do git; mova a pasta e rode de novo."
     MSG_PIP="Instalando o pacote Python..."
     MSG_CONFIG_NEW="Criei %s. As agendas você adiciona no admin."
@@ -105,6 +111,8 @@ O inkdoor está rodando."
     MSG_OLD_PYTHON="inkdoor needs Python 3.10 or newer (Debian 12+ or Ubuntu 22.04+)."
     MSG_DOWNLOAD="Downloading inkdoor (%s)..."
     MSG_NO_TAGS="Could not list the versions of %s. Check the network or use --ref."
+    MSG_NO_RELEASE="No release found in %s, but this install is already on one; nothing was changed. To switch to a branch, use --ref."
+    MSG_UNSIGNED="Release %s is not signed with the inkdoor release key; nothing was installed. To install a branch or tag without this check, use --ref."
     MSG_NOT_GIT="%s exists but is not a git checkout; move it away and run again."
     MSG_PIP="Installing the Python package..."
     MSG_CONFIG_NEW="Created %s. Add your calendars in the admin."
@@ -153,7 +161,7 @@ apt-get update -qq
 # avahi-daemon announces this machine as <hostname>.local, so computers and phones can open the
 # admin by name (the Kindle cannot resolve .local names and keeps using the IP address)
 apt-get install -y -qq --no-install-recommends python3 python3-venv git ca-certificates tzdata \
-  avahi-daemon >/dev/null
+  avahi-daemon openssh-client >/dev/null
 python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || die "$MSG_OLD_PYTHON"
 
 # valid_timezone NAME: a zone from the system's tz database, e.g. America/Sao_Paulo
@@ -188,19 +196,59 @@ if [ "$REF" = "latest" ]; then
   TARGET="$({ printf '%s\n' "$TAGS" |
     sed -n 's|^[0-9a-f]*[[:space:]]*refs/tags/\(v[0-9]*\.[0-9]*\.[0-9]*\)$|\1|p'
     echo v1.0.0; } | sort -V -u | tail -n 1)"
-  [ "$TARGET" != "v1.0.0" ] || TARGET="master"
+  if [ "$TARGET" = "v1.0.0" ]; then
+    # No release yet: master, as before. An install already on a release never falls back to
+    # master, which is not signed: its releases disappearing is a reason to stop, not to follow.
+    CURRENT="$(git -C "$APP_DIR" describe --tags --exact-match HEAD 2>/dev/null || true)"
+    case "$CURRENT" in
+      v1.0.0) ;;
+      v[0-9]*.[0-9]*.[0-9]*) die "$MSG_NO_RELEASE" "$REPO" ;;
+    esac
+    TARGET="master"
+  fi
 fi
 
+# verify_release TAG: the tag is signed by one of RELEASE_SIGNERS and names itself TAG (so an
+# older signed release cannot come back under a newer name)
+verify_release() {
+  local signers status=0
+  [ "$(git -C "$APP_DIR" cat-file tag "refs/tags/$1" 2>/dev/null | sed -n 's/^tag //p')" = "$1" ] ||
+    return 1
+  signers="$(mktemp)"
+  printf '%s\n' "$RELEASE_SIGNERS" > "$signers"
+  git -C "$APP_DIR" -c gpg.ssh.allowedSignersFile="$signers" verify-tag "refs/tags/$1" \
+    >/dev/null 2>&1 || status=1
+  rm -f "$signers"
+  return "$status"
+}
+
+# A release picked by "latest" is fetched as a tag and verified before anything from it is
+# checked out or run; master (no release yet) and a --ref are taken as they are
+SIGNED=""
+[ "$REF" != "latest" ] || [ "$TARGET" = "master" ] || SIGNED="$TARGET"
+CHECKOUT="FETCH_HEAD"
+[ -z "$SIGNED" ] || CHECKOUT="refs/tags/$SIGNED"
+FRESH=0
 say "$MSG_DOWNLOAD" "$TARGET"
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" remote set-url origin "$REPO"
-  git -C "$APP_DIR" fetch --quiet --depth 1 origin "$TARGET"
-  git -C "$APP_DIR" checkout --quiet --force FETCH_HEAD
+  if [ -n "$SIGNED" ]; then
+    git -C "$APP_DIR" fetch --quiet --depth 1 --no-tags origin "+refs/tags/$SIGNED:refs/tags/$SIGNED"
+  else
+    git -C "$APP_DIR" fetch --quiet --depth 1 origin "$TARGET"
+  fi
 elif [ -e "$APP_DIR" ]; then
   die "$MSG_NOT_GIT" "$APP_DIR"
 else
-  git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$TARGET" "$REPO" "$APP_DIR"
+  git clone --quiet --depth 1 --no-checkout --branch "$TARGET" "$REPO" "$APP_DIR"
+  FRESH=1
+  [ -n "$SIGNED" ] || CHECKOUT="HEAD"
 fi
+if [ -n "$SIGNED" ] && ! verify_release "$SIGNED"; then
+  [ "$FRESH" -eq 0 ] || rm -rf "$APP_DIR"
+  die "$MSG_UNSIGNED" "$SIGNED"
+fi
+git -C "$APP_DIR" -c advice.detachedHead=false checkout --quiet --force "$CHECKOUT"
 git -C "$APP_DIR" config inkdoor.version "$REF"
 git -C "$APP_DIR" config --unset inkdoor.ref || true
 

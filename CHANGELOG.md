@@ -24,6 +24,8 @@ It is shown next to each release.
   the same.
 - `install.sh` installs the Python packages at exact versions checked against their hashes
   (`deploy/requirements.txt`), and builds inkdoor without fetching anything unpinned.
+- Releases are signed, and `install.sh` installs a release only when its tag carries the inkdoor
+  release signature; otherwise it stops without changing anything.
 - CI runs with a read-only token, pins its actions by commit and audits the pinned packages for
   known vulnerabilities every week; Dependabot proposes updates.
 

@@ -151,7 +151,9 @@ Continue from step 5 of the Proxmox steps above.
 To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the latest release (or the
 branch or tag you gave with `--ref` before) from the same repository, installs the Python
 packages at the exact versions in `deploy/requirements.txt`, checked against their hashes, and
-restarts the service. It never overwrites your
+restarts the service. Releases are signed: it installs one only when its tag carries the inkdoor
+release signature, and otherwise stops without changing anything (a branch or tag given with
+`--ref` is installed without that check). It never overwrites your
 config or your admin password; on an install from before the admin existed, it turns the admin
 on once and prints its first password. Without `--lang`, its messages use the `language` set in your config.
 
