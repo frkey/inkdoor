@@ -84,7 +84,7 @@ Until a link is added, the door shows a setup screen with the admin's address.
 | `--template-storage NAME` | `local` | where the Debian template is stored |
 | `--disk GB` | `4` | can be grown later with `pct resize <id> rootfs +1G` |
 | `--memory MB` | `512` | |
-| `--ref BRANCH_OR_TAG` | `master` | inkdoor version to install |
+| `--ref BRANCH_OR_TAG` | the latest release | inkdoor version to install, e.g. `v1.1.0` or `master` |
 
 The Kindle must always find the server at the same address. Use a static `--ip`, or reserve
 the container's address on your router (a "DHCP reservation").
@@ -148,8 +148,10 @@ the admin (every option is explained in `/opt/inkdoor/config.example.toml`). It 
 admin password, starts the service and prints the admin's address and the password.
 Continue from step 5 of the Proxmox steps above.
 
-To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the new version from the same
-repository and branch (`--ref`) as before, and restarts the service. It never overwrites your
+To update, run `bash /opt/inkdoor/deploy/install.sh`. It downloads the latest release (or the
+branch or tag you gave with `--ref` before) from the same repository, installs the Python
+packages at the exact versions in `deploy/requirements.txt`, checked against their hashes, and
+restarts the service. It never overwrites your
 config or your admin password; on an install from before the admin existed, it turns the admin
 on once and prints its first password. Without `--lang`, its messages use the `language` set in your config.
 

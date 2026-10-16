@@ -13,14 +13,14 @@
 #     --template-storage NAME  storage for the Debian template (default: local)
 #     --disk GB                (default: 4)
 #     --memory MB              (default: 512)
-#     --ref BRANCH_OR_TAG      inkdoor version to install (default: master)
+#     --ref BRANCH_OR_TAG      inkdoor version to install (default: the latest release)
 #
 # Run it as root on the Proxmox host (the node's Shell in the web UI, or SSH).
 set -euo pipefail
 
 REPO="${INKDOOR_REPO:-https://github.com/frkey/inkdoor.git}"
 RAW_URL="${INKDOOR_RAW_URL:-https://raw.githubusercontent.com/frkey/inkdoor}"
-REF="${INKDOOR_REF:-master}"
+REF="${INKDOOR_REF:-}"  # empty: install.sh picks the latest release
 LANGUAGE="${INKDOOR_LANG:-}"
 CONFIG=""
 IP="dhcp"
@@ -156,7 +156,9 @@ if [ -f "$DEPLOY_DIR/proxmox/create-lxc.sh" ] &&
    [ -f "$DEPLOY_DIR/inkdoor.service" ] && [ -f "$DEPLOY_DIR/install.sh" ]; then
   cp "$DEPLOY_DIR/install.sh" "$INSTALLER"
 else
-  curl -fsSL "$RAW_URL/$REF/deploy/install.sh" -o "$INSTALLER"
+  # master's installer when no --ref: it fetches the latest release and finishes with that
+  # release's own installer
+  curl -fsSL "$RAW_URL/${REF:-master}/deploy/install.sh" -o "$INSTALLER"
 fi
 
 # newest_template VERSION: newest debian-VERSION-standard template, available or downloaded

@@ -133,6 +133,13 @@ update. They must never overwrite `/etc/inkdoor/config.toml` or `admin-password`
 the systemd sandbox in `inkdoor.service`, check that it still starts in an unprivileged Proxmox
 container with nesting.
 
+`install.sh` installs the Python packages from `deploy/requirements.txt`: exact versions with
+hashes, setuptools included, so a server never fetches an unpinned package. After changing the
+dependencies in `pyproject.toml` (or `deploy/requirements.in`), run the command at the top of that
+file again (it needs [uv](https://docs.astral.sh/uv/)); a test fails until the lock names every
+dependency. Dependabot proposes version bumps weekly, and the CI's `audit` job checks the pinned
+versions against known vulnerabilities.
+
 ## Docs images
 
 Every image in `docs/img/` comes from the demo's fictional data, through one script:
@@ -181,4 +188,5 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
    checks they match), and move `[Unreleased]` to a dated section with the Kindle scripts'
    version (`KINDLE_VERSION`).
 2. After it is merged, tag `master` as `vX.Y.Z` and publish a GitHub release with that
-   section as its notes. `install.sh --ref vX.Y.Z` then installs exactly that version.
+   section as its notes. From then on, new installs and every update without `--ref` get that
+   version; `install.sh --ref vX.Y.Z` installs exactly that version.

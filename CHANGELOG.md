@@ -19,6 +19,13 @@ It is shown next to each release.
   (the door falls back on today's data or **Knock first**) instead of stalling the server.
 - If the server stops finishing refreshes (more than 15 minutes late) or the image on disk is
   from before a long outage, the Kindle gets an error screen instead of a status that may be old.
+- `install.sh` installs the latest release instead of `master`, also when updating an install
+  that was on `master` by default (pass `--ref master` to stay on it). The Proxmox script does
+  the same.
+- `install.sh` installs the Python packages at exact versions checked against their hashes
+  (`deploy/requirements.txt`), and builds inkdoor without fetching anything unpinned.
+- CI runs with a read-only token, pins its actions by commit and audits the pinned packages for
+  known vulnerabilities every week; Dependabot proposes updates.
 
 ### Changed
 
