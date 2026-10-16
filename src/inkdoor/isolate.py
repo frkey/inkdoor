@@ -55,8 +55,10 @@ def _child(conn, func, args) -> None:
     try:
         try:
             answer = ("ok", func(*args))
-        except BaseException as ex:  # noqa: BLE001 - everything goes back to the parent
+        except Exception as ex:
             answer = ("error", ex)
+        except BaseException as ex:  # e.g. Ctrl+C reached the child: never re-raise it as such
+            answer = ("error", ChildError(type(ex).__name__))
         try:
             payload = pickle.dumps(answer)
             pickle.loads(payload)  # some exceptions pickle but cannot be rebuilt
@@ -98,6 +100,8 @@ def run(func, *args, timeout: float | None = None):
         if process.is_alive():
             process.kill()
         process.join(_JOIN)
+        if process.exitcode is not None:
+            process.close()
     if status == "error":
         raise value from None
     return value

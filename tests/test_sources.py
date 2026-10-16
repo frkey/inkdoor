@@ -220,3 +220,22 @@ def test_endless_tasks_are_a_failed_source(cfg):
     cfg["tasks"] = {"name": "TickTick", "url": fixture("every-second.ics"), "overdue_days": 7}
     snap = collect(cfg, at("12:00"))
     assert "TickTick: TooManyOccurrences" in snap.errors and snap.tasks == []
+
+
+def test_expansion_goes_past_the_window_before_stopping(tmp_path, monkeypatch):
+    # the library may yield an occurrence that starts after the window before one inside it
+    import icalendar
+    path = write_ics(tmp_path / "t.ics", "BEGIN:VTODO\nUID:a@test\nDUE;VALUE=DATE:20261015\n"
+                     "SUMMARY:Tomorrow\nEND:VTODO\nBEGIN:VTODO\nUID:b@test\n"
+                     "DUE:20261015T010000Z\nSUMMARY:Tonight\nEND:VTODO\n")
+    cal = icalendar.Calendar.from_ical(open(path, "rb").read())
+    items = list(sources.recurring_ical_events.of(cal, components=["VTODO"]).all())
+    items.sort(key=lambda i: str(i["SUMMARY"]) != "Tomorrow")         # "Tomorrow" first
+
+    class Query:
+        def after(self, start):
+            return iter(items)
+
+    monkeypatch.setattr(sources.recurring_ical_events, "of", lambda cal, components: Query())
+    tasks = sources.parse_tasks(cal, {"overdue_days": 7}, dt.date(2026, 10, 14), TZ)
+    assert [t.title for t in tasks] == ["Tonight"]                    # 22:00 on the 14th, local

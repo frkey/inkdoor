@@ -19,9 +19,13 @@ from .config import is_configured
 _ONLINE_LOCATION = re.compile(r"teams|zoom|meet\.google|http", re.I)
 # Outlook prefixes the title instead of setting STATUS in some exports
 _CANCELLED_PREFIXES = ("canceled:", "cancelled:", "cancelado:", "cancelada:")
-# Occurrences one source may have in the window read. A real calendar has a few dozen in two days
-# (tasks: a few hundred over the overdue days); a rule that repeats every second has 172,800.
-MAX_OCCURRENCES = 5000
+# Occurrences the expansion of one source may go through. A real calendar has a few dozen in two
+# days, and a task list a few thousand at most over a year of overdue days; a rule that repeats
+# every second has 172,800 in two days. Each costs a few KB while the child reads.
+MAX_OCCURRENCES = 20000
+# The library orders dates and floating times without our time zone, so its order can be off by up
+# to a UTC offset: the expansion goes this far past the window before it stops.
+_ORDER_SLACK = dt.timedelta(days=1)
 
 
 class TooManyOccurrences(Exception):
@@ -122,14 +126,17 @@ def _start(item, tz):
 
 def _occurrences(cal, start, end, tz, components=("VEVENT",)):
     """Occurrences that overlap [start, end). The library yields them lazily, in order of start,
-    so the expansion stops at ``end`` and never builds more than MAX_OCCURRENCES."""
+    so the expansion stops just past ``end`` and goes through at most MAX_OCCURRENCES."""
     found = []
-    for item in recurring_ical_events.of(cal, components=list(components)).after(start):
+    query = recurring_ical_events.of(cal, components=list(components))
+    for seen, item in enumerate(query.after(start)):
+        if seen == MAX_OCCURRENCES:
+            raise TooManyOccurrences()
         begins = _start(item, tz)
         if begins is not None and begins >= end:
-            break
-        if len(found) == MAX_OCCURRENCES:
-            raise TooManyOccurrences()
+            if begins >= end + _ORDER_SLACK:
+                break
+            continue
         found.append(item)
     return found
 

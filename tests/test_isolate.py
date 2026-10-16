@@ -54,3 +54,13 @@ def test_a_child_that_dies_is_reported():
 def test_a_slow_child_is_killed_at_the_time_limit():
     with pytest.raises(isolate.CalendarTimeout):
         isolate.run(sleeps, timeout=0.5)
+
+
+def interrupted():
+    raise KeyboardInterrupt
+
+
+def test_an_interrupt_in_the_child_is_not_raised_as_one():
+    with pytest.raises(isolate.ChildError) as info:
+        isolate.run(interrupted)
+    assert info.value.name == "KeyboardInterrupt"
