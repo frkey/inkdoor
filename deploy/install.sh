@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Installs or updates inkdoor as a systemd service on Debian 12+ or Ubuntu 22.04+.
 #
-#   install.sh [--lang en-US|pt-BR] [--timezone Area/City] [--ref BRANCH_OR_TAG]
+#   install.sh [--lang en-US|pt-BR] [--timezone Area/City] [--ref BRANCH_OR_TAG|latest]
 #
-# Run it as root on the machine (or container) that will serve the Kindle image.
+# Run it as root on the machine (or container) that will serve the Kindle image. It installs
+# the latest release unless --ref names a branch or tag.
 # To update, run /opt/inkdoor/deploy/install.sh: it keeps the version (--ref) and repository
 # of the current install, and it never overwrites config.toml or the admin password.
 #
@@ -72,6 +73,7 @@ case "$LANGUAGE" in
     MSG_PACKAGES="Instalando pacotes do sistema..."
     MSG_OLD_PYTHON="O inkdoor precisa do Python 3.10 ou mais novo (Debian 12+ ou Ubuntu 22.04+)."
     MSG_DOWNLOAD="Baixando o inkdoor (%s)..."
+    MSG_NO_TAGS="Não consegui ler as versões de %s. Confira a rede ou use --ref."
     MSG_NOT_GIT="%s existe mas não é um clone do git; mova a pasta e rode de novo."
     MSG_PIP="Instalando o pacote Python..."
     MSG_CONFIG_NEW="Criei %s. As agendas você adiciona no admin."
@@ -102,6 +104,7 @@ O inkdoor está rodando."
     MSG_PACKAGES="Installing system packages..."
     MSG_OLD_PYTHON="inkdoor needs Python 3.10 or newer (Debian 12+ or Ubuntu 22.04+)."
     MSG_DOWNLOAD="Downloading inkdoor (%s)..."
+    MSG_NO_TAGS="Could not list the versions of %s. Check the network or use --ref."
     MSG_NOT_GIT="%s exists but is not a git checkout; move it away and run again."
     MSG_PIP="Installing the Python package..."
     MSG_CONFIG_NEW="Created %s. Add your calendars in the admin."
@@ -160,25 +163,46 @@ valid_timezone() {
 }
 [ -z "$TIMEZONE" ] || valid_timezone "$TIMEZONE" || die "$MSG_BAD_TIMEZONE" "$TIMEZONE"
 
-# Without --ref or INKDOOR_REPO, keep what the current install came from
+# Without --ref or INKDOOR_REPO, keep what the current install came from. Older installers kept
+# --ref in inkdoor.ref, set to "master" when none was given: such an install now follows the
+# releases, like a new one.
 if [ -d "$APP_DIR/.git" ]; then
   [ -n "$REPO" ] || REPO="$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)"
-  [ -n "$REF" ] || REF="$(git -C "$APP_DIR" config --get inkdoor.ref || true)"
+  if [ -z "$REF" ]; then
+    REF="$(git -C "$APP_DIR" config --get inkdoor.version || true)"
+    if [ -z "$REF" ]; then
+      REF="$(git -C "$APP_DIR" config --get inkdoor.ref || true)"
+      [ "$REF" != "master" ] || REF=""
+    fi
+  fi
 fi
 REPO="${REPO:-https://github.com/frkey/inkdoor.git}"
-REF="${REF:-master}"
+REF="${REF:-latest}"
 
-say "$MSG_DOWNLOAD" "$REF"
+# "latest" is the newest release tag (vX.Y.Z) newer than v1.0.0, whose installer does not know
+# "latest"; until there is one, it is master, as before. The re-run below gets "latest" too, so
+# the version stays symbolic and every update picks the newest release.
+TARGET="$REF"
+if [ "$REF" = "latest" ]; then
+  TAGS="$(git ls-remote --tags --refs "$REPO" 'v*')" || die "$MSG_NO_TAGS" "$REPO"
+  TARGET="$({ printf '%s\n' "$TAGS" |
+    sed -n 's|^[0-9a-f]*[[:space:]]*refs/tags/\(v[0-9]*\.[0-9]*\.[0-9]*\)$|\1|p'
+    echo v1.0.0; } | sort -V -u | tail -n 1)"
+  [ "$TARGET" != "v1.0.0" ] || TARGET="master"
+fi
+
+say "$MSG_DOWNLOAD" "$TARGET"
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" remote set-url origin "$REPO"
-  git -C "$APP_DIR" fetch --quiet --depth 1 origin "$REF"
+  git -C "$APP_DIR" fetch --quiet --depth 1 origin "$TARGET"
   git -C "$APP_DIR" checkout --quiet --force FETCH_HEAD
 elif [ -e "$APP_DIR" ]; then
   die "$MSG_NOT_GIT" "$APP_DIR"
 else
-  git clone --quiet --depth 1 --branch "$REF" "$REPO" "$APP_DIR"
+  git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$TARGET" "$REPO" "$APP_DIR"
 fi
-git -C "$APP_DIR" config inkdoor.ref "$REF"
+git -C "$APP_DIR" config inkdoor.version "$REF"
+git -C "$APP_DIR" config --unset inkdoor.ref || true
 
 # Finish with the installer that was just downloaded, so an update also updates these steps
 if [ -z "${INKDOOR_REEXEC:-}" ] && [ "$SELF_HASH" != "$(sha256sum < "$APP_DIR/deploy/install.sh")" ]; then
@@ -189,7 +213,12 @@ fi
 
 say "$MSG_PIP"
 [ -x "$APP_DIR/.venv/bin/python" ] || python3 -m venv "$APP_DIR/.venv"
-"$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check --upgrade "$APP_DIR"
+# The dependencies come pinned and hash-checked from deploy/requirements.txt, setuptools (the
+# build backend) included; inkdoor itself is then built with them, so nothing unpinned is fetched
+"$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check --require-hashes \
+  -r "$APP_DIR/deploy/requirements.txt"
+"$APP_DIR/.venv/bin/pip" install --quiet --disable-pip-version-check --no-deps \
+  --no-build-isolation --upgrade "$APP_DIR"
 
 id inkdoor >/dev/null 2>&1 ||
   useradd --system --user-group --home-dir "$STATE_DIR" --no-create-home --shell /usr/sbin/nologin inkdoor

@@ -4,6 +4,12 @@ on:
   push:
     branches: [master]
   pull_request:
+  schedule:
+    - cron: "17 6 * * 1"  # Mondays: the audit also catches advisories published since the last push
+
+# Read-only token: no job writes to the repository
+permissions:
+  contents: read
 
 jobs:
   tests:
@@ -12,8 +18,8 @@ jobs:
       matrix:
         python: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev]"
@@ -22,7 +28,7 @@ jobs:
         run: |
           inkdoor -o output --lang en-US demo 10:20 15:20 16:50 21:10
           inkdoor -o output --lang pt-BR demo 10:20 15:20 16:50 21:10
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         if: matrix.python == '3.12'
         with:
           name: previews
@@ -31,9 +37,29 @@ jobs:
   kindle-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - name: ShellCheck
         working-directory: kindle
         run: shellcheck inkdoor/*.sh documents/*.sh kpm/*.sh
       - name: ShellCheck (deploy)
         run: shellcheck deploy/*.sh deploy/proxmox/*.sh
+
+  # The pinned versions that deploy/install.sh installs: they install the way it installs them,
+  # pass the tests and have no known vulnerabilities
+  deploy-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.11"  # Debian 12's
+      - name: Install as deploy/install.sh does
+        # inside the checkout, like /opt/inkdoor/.venv: the admin finds kindle/ next to it
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --require-hashes -r deploy/requirements.txt
+          .venv/bin/pip install --no-deps --no-build-isolation .
+          .venv/bin/pip check
+      - run: .venv/bin/pip install pytest && .venv/bin/pytest -q
+      - run: pip install pip-audit==2.10.1
+      - run: pip-audit --disable-pip --require-hashes -r deploy/requirements.txt

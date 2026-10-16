@@ -85,7 +85,7 @@ admin.
 | `--template-storage NOME` | `local` | onde fica o template do Debian |
 | `--disk GB` | `4` | dá para aumentar depois com `pct resize <id> rootfs +1G` |
 | `--memory MB` | `512` | |
-| `--ref BRANCH_OU_TAG` | `master` | versão do inkdoor a instalar |
+| `--ref BRANCH_OU_TAG` | a versão mais recente | versão do inkdoor a instalar, por exemplo `v1.1.0` ou `master` |
 
 O Kindle precisa achar o servidor sempre no mesmo endereço. Use um `--ip` fixo ou reserve o
 endereço do container no roteador ("reserva de DHCP").
@@ -150,8 +150,10 @@ opção está explicada em `/opt/inkdoor/config.example.toml`). Depois gera uma 
 liga o serviço e mostra o endereço do admin e a senha. Continue a partir do passo 5 do Proxmox,
 acima.
 
-Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão nova do mesmo
-repositório e branch (`--ref`) de antes e reinicia o serviço. Sua config e sua senha do admin
+Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão mais recente (ou
+o branch ou a tag que você passou antes com `--ref`) do mesmo repositório, instala os pacotes
+Python nas versões exatas de `deploy/requirements.txt`, conferidos pelos hashes, e reinicia o
+serviço. Sua config e sua senha do admin
 nunca são sobrescritas; numa instalação de antes do admin existir, ele liga o admin uma vez e
 mostra a primeira senha. Sem `--lang`, as mensagens saem no `language` da sua config.
 
