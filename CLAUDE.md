@@ -176,6 +176,8 @@ available alongside these.
 - **Without Claude Code**: contributors review their own diff line by line before opening the PR.
   The maintainer then runs `/code-review` on the PR and posts the findings; the contributor
   handles them and pushes, and the maintainer reviews the new commits, until a round is clean.
+- **Changelog**: a PR with a user-visible change adds a line to `## [Unreleased]` in
+  `CHANGELOG.md` (English). Releases are described in CONTRIBUTING.md ("Releases").
 - **Describe the PR with the template** (`.github/pull_request_template.md`): the summary, the
   issue it closes or references ("Fixes #12", or "Refs #12" when it only does part of it), and a
   test plan whose checked `/code-review` line gives the totals over every loop on the PR: the

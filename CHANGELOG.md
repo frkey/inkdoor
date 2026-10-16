@@ -1,0 +1,79 @@
+# Changelog
+
+All notable changes to inkdoor are listed here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/).
+
+The Kindle scripts have their own version, which KPM uses to offer updates (`;kpm upgrade`).
+It is shown next to each release.
+
+## [Unreleased]
+
+## [1.0.0] - 2026-10-15
+
+The first public release. Kindle scripts: 1.2.0.
+
+### The door
+
+- A 16-gray screen that someone at the door can read from 2 meters away: **In a meeting**
+  (or the calendar's own label) until when, and what comes next; **Free** until the next
+  meeting; after hours; and **Knock first** whenever inkdoor cannot be sure.
+- Today's agenda with free gaps, a "now" marker and finished events folded away; all-day events
+  as tags; after the workday, tomorrow's agenda.
+- Tasks due today and overdue ones from a TickTick subscription link, with priorities.
+- A footer with tomorrow at a glance and a legend of the calendars, told apart by pattern
+  (solid, striped, outline) since e-ink has no color.
+- The door never says "Free" without knowing: a busy calendar that cannot be read keeps its last
+  good data for the day, and with none the door says "Knock first". If drawing fails, an error
+  screen replaces the old image.
+- Every Kindle screen that current jailbreaks support, from 600 × 800 to the Scribe's
+  1860 × 2480, drawn at the device's resolution with text sized for it.
+- Status changes reach the door within seconds: the server redraws when a meeting starts or
+  ends and tells the Kindle when to come back.
+
+### Calendars
+
+- Any number of ICS links: Outlook, Google, a Nextcloud or Radicale server on your network, or
+  any other. Calendars are never merged; repeats inside one calendar are.
+- Recurring events, their exceptions and time zones. A calendar published with "busy" detail
+  only still drives the door.
+- Per calendar: marks you busy or is only listed, its pattern, and its own status word.
+- Links are fetched with a size cap, a deadline and a redirect limit, never to the server's own
+  loopback or link-local addresses, and are never shown in full again, logged or printed.
+- `inkdoor check` and the admin's **Test link** explain what is wrong with a link in plain words.
+
+### Web admin
+
+- Served on the same port as the Kindle image (3667), behind a login: scrypt password, sessions
+  in memory, login rate limit, CSRF protection and a Host allowlist against DNS rebinding.
+- **Home** with the door's status, a live preview, "Update now" and the Kindle files;
+  **Calendars** and **Tasks** to add, test, edit, reorder and remove links; **Screen** for the
+  Kindle model, language, time zone, clock, workday and refresh; **Account** for the password.
+- Step-by-step help where people get stuck: where to find each calendar's link, how to install
+  on the Kindle.
+- Edits `config.toml` in place, atomically and privately, keeps a backup, and can restore it.
+
+### Kindle
+
+- Scriptlets to test the connection and start the display, written for BusyBox `sh`.
+- **Download the Kindle files** in the admin: a zip with this server's address and language
+  already set.
+- The server is a KPM repository: open **inkdoor - connect KPM** once, and later updates are
+  `;kpm update` and `;kpm upgrade` in the search bar.
+
+### Server
+
+- `deploy/install.sh` installs or updates inkdoor as a sandboxed systemd service on
+  Debian/Ubuntu, and announces it as `<hostname>.local` on the network.
+- `deploy/proxmox/create-lxc.sh` creates an unprivileged LXC container on Proxmox VE and installs
+  inkdoor in it with one command.
+- Keeps serving with a broken or missing config, showing the setup or error screen; with a
+  broken file the admin stays reachable to restore the last good version.
+
+### Languages
+
+- English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
+  admin, the command line, the Kindle messages, the installers and the docs.
+
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/frkey/inkdoor/releases/tag/v1.0.0

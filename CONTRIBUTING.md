@@ -11,6 +11,7 @@ a pull request.
 - [Docs images](#docs-images)
 - [Translations](#translations)
 - [Testing on real hardware](#testing-on-real-hardware)
+- [Releases](#releases)
 
 ## Ground rules
 
@@ -170,3 +171,14 @@ The Kindle scripts were written for a Kindle Paperwhite 10th generation. If you 
 another model, another firmware or another kind of server, a short report is very welcome, even
 when everything works: open an issue with the model, the firmware version and what you saw
 (`inkdoor/log.txt` on the Kindle helps).
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/). Add each user-visible change to the
+`[Unreleased]` section of [`CHANGELOG.md`](CHANGELOG.md) as part of its pull request. To release:
+
+1. In a pull request, set the version in `pyproject.toml` and `src/inkdoor/__init__.py` (a test
+   checks they match), and move `[Unreleased]` to a dated section with the Kindle scripts'
+   version (`KINDLE_VERSION`).
+2. After it is merged, tag `master` as `vX.Y.Z` and publish a GitHub release with that
+   section as its notes. `install.sh --ref vX.Y.Z` then installs exactly that version.

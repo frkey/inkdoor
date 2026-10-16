@@ -5,6 +5,7 @@
 **Turn an old Kindle into a door sign that tells people whether you are in a meeting.**
 
 [![CI](https://github.com/frkey/inkdoor/actions/workflows/ci.yml/badge.svg)](https://github.com/frkey/inkdoor/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/frkey/inkdoor)](https://github.com/frkey/inkdoor/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![Languages: English, Português](https://img.shields.io/badge/languages-en--US%20%7C%20pt--BR-green.svg)](#language)
@@ -169,6 +170,7 @@ Step by step, with tips on power and Wi-Fi: [docs/kindle.md](docs/kindle.md).
 | [Troubleshooting](docs/troubleshooting.md) | What each door screen, Kindle message and Test link result means, and what to do |
 | [Contributing](CONTRIBUTING.md) | Development setup, tests, translations, how changes are reviewed |
 | [Security policy](SECURITY.md) | How to report a vulnerability, and what inkdoor protects |
+| [Changelog](CHANGELOG.md) | What changed in each release |
 
 ## Configuration
 
