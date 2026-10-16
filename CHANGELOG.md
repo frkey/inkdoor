@@ -67,7 +67,8 @@ The first public release. Kindle scripts: 1.2.0.
   Debian/Ubuntu, and announces it as `<hostname>.local` on the network.
 - `deploy/proxmox/create-lxc.sh` creates an unprivileged LXC container on Proxmox VE and installs
   inkdoor in it with one command.
-- Keeps serving with a broken or missing config: the admin stays reachable to fix it.
+- Keeps serving with a broken or missing config, showing the setup or error screen; with a
+  broken file the admin stays reachable to restore the last good version.
 
 ### Languages
 
