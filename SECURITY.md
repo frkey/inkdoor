@@ -35,8 +35,9 @@ Within that model:
   limit and a cap on repeating events. A calendar past either counts as unreadable (the door
   uses that calendar's last good data from today, else says **Knock first**), and if the server
   ever stops refreshing, the Kindle gets an error screen instead of an old status.
-- **Installs are verified.** `install.sh` installs only release tags signed with the inkdoor
-  release key, and Python packages at exact versions checked against their hashes.
+- **Installs are verified.** `install.sh` installs a release only when its tag is signed with
+  the inkdoor release key (a branch or tag you name with `--ref` is installed as it is), and
+  Python packages at exact versions checked against their hashes.
 - **The service is sandboxed.** On a server it runs as an unprivileged user under a strict
   systemd sandbox that can only write to `/var/lib/inkdoor` and `/etc/inkdoor`.
 
