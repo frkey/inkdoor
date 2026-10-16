@@ -34,7 +34,7 @@ Guidance for Claude (and other contributors) working on this repository.
 inkdoor turns a jailbroken Kindle into a door sign that shows whether you are in a meeting.
 
 - `src/inkdoor/`: Python package that runs on a computer. It reads ICS calendars and a
-  TickTick subscription (`sources.py`), draws a 1072×1448 grayscale PNG (`render.py`) and
+  TickTick subscription (`sources.py`), draws a grayscale PNG at the Kindle's resolution (`render.py`) and
   serves it over HTTP with Waitress (`server.py`, render loop plus `serve()`). `net.py` fetches
   links and finds the LAN address; `state.py` holds what the render loop and the admin share;
   `files.py` writes private (mode 600) files atomically; `config_edit.py` edits `config.toml`
@@ -55,20 +55,24 @@ pip install -e ".[dev]"
 pytest                                   # all tests
 inkdoor -o output demo 10:20 16:50       # render previews with fictional data
 inkdoor -o output --lang pt-BR demo 10:20
+inkdoor -o output demo --screen 600x800 10:20   # another Kindle screen
 cd kindle && shellcheck inkdoor/*.sh documents/*.sh kpm/*.sh
 shellcheck deploy/*.sh deploy/proxmox/*.sh
 ```
 
 After changing anything visual, render the demo in **both** languages at a few times
 (e.g. 7:30, 10:20, 15:20, 16:50, 21:10) and look at the images: Portuguese strings are often
-longer and are the usual cause of overflow.
+longer and are the usual cause of overflow. Also look at the smallest screen and the one with
+the least room in layout units (`inkdoor demo --screen 600x800 10:20`, `--screen 1264x1680`).
 
 ## Conventions
 
 - Default branch: `master`.
 - Supported Python: 3.10+ (`tomli` is used as a fallback for `tomllib` on 3.10).
-- Screen constraints: 1072×1448 px, 16 gray levels (multiples of 17). `render()` snaps every
-  pixel to those levels; keep strokes at least 3 px wide so they survive e-ink.
+- Screen constraints: 16 gray levels (multiples of 17); `render()` snaps every pixel to those
+  levels. The layout is written in units of a 1072-wide screen (1072×1448 is the default) and
+  `Canvas` scales coordinates, strokes and fonts to the size in `config.SCREENS`; keep strokes at
+  least 3 units wide so they survive e-ink. Draw only through the `Canvas`, never on the image.
 - Calendars are never merged with each other; only repeats inside one calendar are
   de-duplicated.
 - The door must never say "Free" without knowing. If a busy calendar cannot be read, the

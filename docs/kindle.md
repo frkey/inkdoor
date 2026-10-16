@@ -5,6 +5,33 @@
 inkdoor runs on jailbroken Kindles. The Kindle side is small: a couple of scriptlets that turn
 off the Kindle interface and show the image rendered by your computer.
 
+## Which Kindle do I have?
+
+inkdoor draws the image at your Kindle's resolution: pick the model on the admin's **Screen**
+page (or set `screen` under `[display]` in `config.toml`, for example `screen = "1236x1648"`).
+The default is 1072 × 1448. These are the Kindles that current jailbreaks support:
+
+| Screen | Kindle models |
+|---|---|
+| 600 × 800 | Kindle 2014, 2016 and 2019 (7th, 8th and 10th generation) |
+| 758 × 1024 | Kindle Paperwhite 1 and 2 (2012, 2013) |
+| 1072 × 1448 | Kindle Paperwhite 3 and 4 (2015, 2018), Voyage, Oasis 2016, Kindle 2022 and 2024 (11th generation) |
+| 1236 × 1648 | Kindle Paperwhite 5 and Signature Edition (2021) |
+| 1264 × 1680 | Kindle Oasis 2017 and 2019 |
+| 1272 × 1696 | Kindle Paperwhite 2024 and Colorsoft |
+| 1860 × 2480 | Kindle Scribe 2022 and 2024 |
+
+On firmware 5.14 or newer, Settings → Device Options → Device Info names the model. The layout
+keeps the same proportions on every screen, with text sized for it.
+
+- If the image does not fill the screen, or its edges are cut off, the model on the **Screen**
+  page is not yours.
+- The Paperwhite 2024 and the Colorsoft size comes from screenshots, not from inkdoor running on
+  them, and the Colorsoft shows the door in gray. If you have one, a report is very welcome
+  ([open an issue](https://github.com/frkey/inkdoor/issues/new/choose)).
+- Which firmware versions can be jailbroken changes over time: check
+  [Kindle Modding](https://kindlemodding.org/jailbreaking/) before you start.
+
 ## 1. Jailbreak
 
 Follow the up-to-date guide at [Kindle Modding](https://kindlemodding.org/jailbreaking/). The

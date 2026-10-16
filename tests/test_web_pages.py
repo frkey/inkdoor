@@ -607,7 +607,7 @@ def test_pages_follow_the_configured_language(tmp_path):
 # --- screen settings --------------------------------------------------------------------------
 
 def screen_form(logged, **fields):
-    data = {"language": "en-US", "timezone": "America/Sao_Paulo", "clock": "",
+    data = {"screen": "1072x1448", "language": "en-US", "timezone": "America/Sao_Paulo", "clock": "",
             "workday_start": "8", "workday_end": "19", "workdays": ["0", "1", "2", "3", "4"],
             "min_gap_minutes": "30", "refresh_minutes": "5"}
     data.update(fields)
@@ -668,6 +668,7 @@ def test_screen_save_of_the_defaults_pins_nothing(logged):
     ({"refresh_minutes": "１０"}, "refresh_minutes", "admin.error_refresh"),  # full-width digits
     ({"clock": "13h"}, "clock", "admin.error_clock"),
     ({"language": "xx-YY"}, "language", "admin.error_language"),
+    ({"screen": "1080x1440"}, "screen", "admin.error_screen"),
 ])
 def test_screen_tampered_values_show_field_errors(logged, state, fields, field, error):
     write_config(state, '[display]\nlanguage = "en-US"\n')
@@ -1424,3 +1425,35 @@ def test_home_explains_kpm_updates_without_add_repo(logged):
     assert howto(page, EN("admin.howto_kpm_title")) == '<details class="howto">'
     assert "<strong>inkdoor - connect KPM</strong>" in page
     assert ";kpm update\n;kpm upgrade" in page and "add-repo" not in page
+
+
+def test_screen_picks_the_kindle_model(logged, state):
+    write_config(state, '[display]\nlanguage = "en-US"\n')
+    page = body(logged.get("/screen"))
+    assert '<option value="1072x1448" selected>' in page                 # the default
+    assert EN("admin.screen_option", models=EN("screens.1860x2480"), width=1860,
+              height=2480) in page
+    r = logged.post("/screen", data=screen_form(logged, screen="600x800"))
+    assert r.status_code == 303 and logged.raw()["display"]["screen"] == "600x800"
+    assert '<option value="600x800" selected>' in body(logged.get("/screen"))
+
+
+def test_screen_points_to_the_model_list_in_the_page_language(logged):
+    page = body(logged.get("/screen"))
+    assert "docs/kindle.md#which-kindle-do-i-have" in page
+
+
+def test_home_preview_has_the_screen_size(logged, state):
+    from PIL import Image
+    Image.new("L", (8, 8), 255).save(state.output_dir + "/kindle.png")
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30, tzinfo=dt.timezone.utc),
+                                   "Free", "until 5:00 PM", ["Work"])
+    state.cfg["display"]["screen"] = "1236x1648"
+    assert 'width="1236" height="1648"' in body(logged.get("/"))
+
+
+def test_screen_docs_anchor_is_encoded_in_portuguese(logged, state):
+    write_config(state, '[display]\nlanguage = "pt-BR"\n')
+    state.cfg["display"]["language"] = "pt-BR"
+    page = body(logged.get("/screen"))
+    assert "docs/pt-BR/kindle.md#qual-%C3%A9-o-meu-kindle" in page

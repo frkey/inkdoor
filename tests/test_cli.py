@@ -112,3 +112,11 @@ def test_serve_port_in_use_exits_with_1(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(server, "serve", busy)
     assert main(["serve", "--config", str(tmp_path / "config.toml")]) == 1
     assert "8123" in capsys.readouterr().err
+
+
+def test_demo_draws_another_kindle_screen(tmp_path, monkeypatch):
+    from PIL import Image
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    assert main(["-o", "a", "demo", "9:00", "--screen", "600x800"]) == 0
+    assert Image.open(tmp_path / "a" / "demo-en-US-900-600x800.png").size == (600, 800)

@@ -42,6 +42,7 @@ def build_parser(t: Translator) -> argparse.ArgumentParser:
     commands.add_parser("check", parents=[common], help=t("cli.help.check"))
     demo = commands.add_parser("demo", parents=[common], help=t("cli.help.demo"))
     demo.add_argument("hours", nargs="*", default=["16:50"], help=t("cli.help.hours"))
+    demo.add_argument("--screen", choices=list(config.SCREENS), help=t("cli.help.screen"))
     commands.add_parser("password", parents=[common], help=t("cli.help.password"))
     commands.add_parser("url", parents=[common], help=t("cli.help.url"))
     return parser
@@ -87,13 +88,17 @@ def main(argv: list[str] | None = None) -> int:
             from .render import render
             from .server import save
             try:
-                lang = config.load(config_path, language)["display"]["language"]
+                display = config.load(config_path, language)["display"]
+                lang, screen = display["language"], display["screen"]
             except config.ConfigMissing:
-                lang = language
+                lang, screen = language, config.DEFAULT_SCREEN
             cfg = demo_config(lang)
+            cfg["display"]["screen"] = args.screen or screen
             t = Translator(cfg["display"]["language"])
+            # the usual screen keeps the short names; another one is named in the file
+            size = "" if cfg["display"]["screen"] == config.DEFAULT_SCREEN else f"-{cfg['display']['screen']}"
             for hour in args.hours:
-                path = os.path.join(output, f"demo-{cfg['display']['language']}-{hour.replace(':', '')}.png")
+                path = os.path.join(output, f"demo-{cfg['display']['language']}-{hour.replace(':', '')}{size}.png")
                 save(render(demo_snapshot(cfg, hour), cfg), path)
                 print(t("cli.preview", path=path))
             return 0

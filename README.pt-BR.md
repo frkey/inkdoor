@@ -179,7 +179,7 @@ opção está explicada no [`config.example.toml`](config.example.toml):
 
 | Seção | Opções |
 |---|---|
-| `[display]` | `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
+| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
 | `[server]` | `port` (padrão 3667), `refresh_minutes` |
 | `[[calendar]]` | uma por agenda: `name`, `url`, `style` (`solid`, `striped`, `outline`), `busy` (se muda o status da porta), `status_label` (a palavra grande, por exemplo `"Ocupado"` para compromissos pessoais) |
 | `[tasks]` | o `url` da assinatura do TickTick, `overdue_days` |
@@ -235,9 +235,10 @@ vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
 <details>
 <summary><b>Quais Kindles funcionam?</b></summary>
 
-Qualquer Kindle com jailbreak que rode scriptlets (arquivos `.sh` na pasta `documents/`). O
-inkdoor foi feito num Kindle Paperwhite de 10ª geração, com tela de 1072×1448. Para outra
-resolução, mude `W` e `H` em `src/inkdoor/render.py`.
+Qualquer Kindle com jailbreak que rode scriptlets (arquivos `.sh` na pasta `documents/`), do
+Paperwhite de 2012 ao Scribe. Escolha o seu na página **Tela** do admin e a imagem é desenhada na
+resolução dele; o [docs/pt-BR/kindle.md](docs/pt-BR/kindle.md#qual-é-o-meu-kindle) lista todos os
+modelos. O inkdoor foi feito num Kindle Paperwhite de 10ª geração (1072×1448).
 </details>
 
 <details>

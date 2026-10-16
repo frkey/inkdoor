@@ -1,5 +1,9 @@
 """
-Draws the screen (Kindle Paperwhite 10th gen: 1072 x 1448, 16 shades of gray).
+Draws the screen for the Kindle's resolution (``[display] screen``), in 16 shades of gray.
+
+The layout is written for a screen 1072 wide (Kindle Paperwhite 3 and 4) and drawn through a
+``Canvas`` that scales every coordinate, stroke and font size to the real screen, so text stays
+sharp at any size. The height follows the screen's proportions.
 
 Layout, top to bottom:
   1. Status, for whoever is at the door (read from 2 m away in 2 seconds): can I come in? until when?
@@ -15,11 +19,11 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .config import is_configured
+from .config import DEFAULT_SCREEN, SCREENS, is_configured
 from .i18n import Translator
 from .sources import Event, Snapshot
 
-W, H = 1072, 1448
+W, H = 1072, 1448            # the layout's width, and the height of a 1072 x 1448 screen
 M = 64                       # side margin
 EVENT_ROW = 96               # height of an event row
 # The current event sits in a rounded black box with 14 px above and below its text, so its row
@@ -34,10 +38,75 @@ _font_cache: dict = {}
 
 def font(weight: str, size: int, display: bool = False):
     name = f"{'InterDisplay' if display else 'Inter'}-{weight}.otf"
-    key = (name, size)
+    return _truetype(os.path.join(_FONTS_DIR, name), size)
+
+
+def _truetype(path: str, size: int):
+    key = (path, size)
     if key not in _font_cache:
-        _font_cache[key] = ImageFont.truetype(os.path.join(_FONTS_DIR, name), size)
+        _font_cache[key] = ImageFont.truetype(path, size)
     return _font_cache[key]
+
+
+def screen_size(cfg: dict | None) -> tuple[int, int]:
+    """(width, height) of the Kindle's screen in pixels, portrait."""
+    name = ((cfg or {}).get("display") or {}).get("screen", DEFAULT_SCREEN)
+    return SCREENS.get(name, SCREENS[DEFAULT_SCREEN])
+
+
+class Canvas:
+    """ImageDraw in layout units: a 1072-wide screen whose height follows the real one's
+    proportions. Coordinates, strokes and fonts are scaled to the real screen when drawn, and
+    text is measured with the font the screen gets, so what fits here fits there. At 1072 wide
+    every call goes to ImageDraw unchanged."""
+
+    def __init__(self, img: Image.Image):
+        self._d = ImageDraw.Draw(img)
+        self.scale = img.width / W
+        self.height = round(img.height / self.scale)
+
+    def _font(self, f):
+        return f if self.scale == 1 else _truetype(f.path, round(f.size * self.scale))
+
+    def _xy(self, xy):
+        return xy if self.scale == 1 else [v * self.scale for v in xy]
+
+    def _width(self, width):
+        # 2 px at least: thinner lines fade on e-ink
+        return width if self.scale == 1 else max(2, round(width * self.scale))
+
+    def text(self, xy, text, font, fill):
+        self._d.text(self._xy(xy), text, font=self._font(font), fill=fill)
+
+    def textlength(self, text, font):
+        return self._d.textlength(text, font=self._font(font)) / self.scale
+
+    def textbbox(self, xy, text, font):
+        box = self._d.textbbox(self._xy(xy), text, font=self._font(font))
+        return box if self.scale == 1 else tuple(v / self.scale for v in box)
+
+    def line(self, xy, fill, width):
+        self._d.line(self._xy(xy), fill=fill, width=self._width(width))
+
+    def rectangle(self, box, fill=None, outline=None, width=1):
+        self._d.rectangle(self._xy(box), fill=fill, outline=outline, width=self._width(width))
+
+    def rounded_rectangle(self, box, radius, fill=None, outline=None, width=1):
+        self._d.rounded_rectangle(self._xy(box), radius * self.scale, fill=fill, outline=outline,
+                                  width=self._width(width))
+
+    def ellipse(self, box, fill):
+        self._d.ellipse(self._xy(box), fill=fill)
+
+
+def _blank(cfg: dict | None) -> tuple[Image.Image, Canvas]:
+    img = Image.new("L", screen_size(cfg), WHITE)
+    return img, Canvas(img)
+
+
+def _snap(img: Image.Image) -> Image.Image:
+    # the Kindle shows 16 shades: snap to them to avoid dithering
+    return img.point(lambda v: min(255, round(v / 17) * 17))
 
 
 def translator_for(cfg: dict) -> Translator:
@@ -132,7 +201,7 @@ def next_change(snap: Snapshot, cfg: dict) -> dt.datetime | None:
 
 # ---------------------------------------------------------------- drawing helpers
 
-def ellipsize(d: ImageDraw.ImageDraw, text: str, f, width: int) -> str:
+def ellipsize(d: Canvas, text: str, f, width: int) -> str:
     if d.textlength(text, font=f) <= width:
         return text
     while text and d.textlength(text + "…", font=f) > width:
@@ -388,7 +457,7 @@ def draw_tasks(d, tasks, y, y_max, t: Translator):
 
 
 def draw_footer(d, snap: Snapshot, cfg, t: Translator, showing_tomorrow: bool):
-    y = H - 96
+    y = d.height - 96
     d.line((M, y, W - M, y), fill=BLACK, width=3)
 
     # calendar legend (right side): at most half the width, otherwise it is left out. Only
@@ -430,8 +499,7 @@ def draw_footer(d, snap: Snapshot, cfg, t: Translator, showing_tomorrow: bool):
 
 def render(snap: Snapshot, cfg: dict) -> Image.Image:
     t = translator_for(cfg)
-    img = Image.new("L", (W, H), WHITE)
-    d = ImageDraw.Draw(img)
+    img, d = _blank(cfg)
     now = snap.now
 
     draw_header(d, now, t)
@@ -456,7 +524,7 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
         title = t("section.today")
         right = t("agenda.remaining", left=len(remaining), total=len(today_timed)) if today_timed else ""
 
-    limit = H - 120
+    limit = d.height - 120
     tasks = snap.tasks
     tasks_reserve = (60 + 62 * min(2, len(tasks)) + 44 + 26) if tasks else 0
 
@@ -481,29 +549,26 @@ def render(snap: Snapshot, cfg: dict) -> Image.Image:
         draw_tasks(d, tasks, y, limit, t)
 
     draw_footer(d, snap, cfg, t, showing_tomorrow)
-
-    # the Kindle shows 16 shades: snap to them to avoid dithering
-    return img.point(lambda v: min(255, round(v / 17) * 17))
+    return _snap(img)
 
 
 def render_error(cfg: dict | None, message: str) -> Image.Image:
     """Screen shown when inkdoor itself fails, so the door never keeps a stale status."""
     t = translator_for(cfg or {})
     st = Status(True, t("status.unknown"), t("status.error_headline"), t("status.error_detail"))
-    return _render_notice(st, message, size=28, line_height=40, max_lines=12)
+    return _render_notice(cfg, st, message, size=28, line_height=40, max_lines=12)
 
 
-def _render_notice(st: Status, text: str, size: int = 36, line_height: int = 52,
+def _render_notice(cfg: dict | None, st: Status, text: str, size: int = 36, line_height: int = 52,
                    max_lines: int = 8) -> Image.Image:
     """The status box, then ``text`` wrapped below it, so long text and URLs stay readable."""
-    img = Image.new("L", (W, H), WHITE)
-    d = ImageDraw.Draw(img)
+    img, d = _blank(cfg)
     y = draw_status(d, st, 130) + 60
     f = font("Medium", size)
     for line in _wrap(d, text, f, W - 2 * M)[:max_lines]:
         d.text((M, y), line, font=f, fill=DARK)
         y += line_height
-    return img.point(lambda v: min(255, round(v / 17) * 17))
+    return _snap(img)
 
 
 def render_setup(cfg: dict | None, admin_url: str | None) -> Image.Image:
@@ -511,7 +576,8 @@ def render_setup(cfg: dict | None, admin_url: str | None) -> Image.Image:
     t = translator_for(cfg or {})
     detail = (t("status.setup_admin", url=admin_url) if admin_url is not None
               else t("status.setup_file"))
-    return _render_notice(Status(True, t("status.setup"), t("status.setup_headline"), ""), detail)
+    return _render_notice(cfg, Status(True, t("status.setup"), t("status.setup_headline"), ""),
+                          detail)
 
 
 def render_host_rejected(cfg: dict | None, host: str | None) -> Image.Image:
@@ -521,7 +587,8 @@ def render_host_rejected(cfg: dict | None, host: str | None) -> Image.Image:
     """
     t = translator_for(cfg or {})
     detail = t("status.host_detail_generic") if host is None else t("status.host_detail", host=host[:60])
-    return _render_notice(Status(True, t("status.unknown"), t("status.host_headline"), ""), detail)
+    return _render_notice(cfg, Status(True, t("status.unknown"), t("status.host_headline"), ""),
+                          detail)
 
 
 def _wrap(d, text: str, f, width: int) -> list[str]:

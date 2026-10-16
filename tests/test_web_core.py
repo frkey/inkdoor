@@ -670,3 +670,12 @@ def test_kindle_png_says_when_to_come_back(app, state, clock, rendered):
     assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "8"
     state.next_render_at = clock.now + 10 ** 9
     assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "86400"
+
+
+def test_rejected_host_image_follows_the_screen_size(app, state, rendered):
+    c = client(app)
+    first = get(c, "/kindle.png", headers={"Host": "evil.com"}).data
+    state.cfg["display"]["screen"] = "600x800"
+    again = get(c, "/kindle.png", headers={"Host": "evil.com"}).data
+    assert Image.open(io.BytesIO(first)).size == (1072, 1448)
+    assert Image.open(io.BytesIO(again)).size == (600, 800)

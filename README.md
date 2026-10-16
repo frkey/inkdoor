@@ -177,7 +177,7 @@ setting is explained in [`config.example.toml`](config.example.toml):
 
 | Section | Settings |
 |---|---|
-| `[display]` | `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
+| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
 | `[server]` | `port` (default 3667), `refresh_minutes` |
 | `[[calendar]]` | one per calendar: `name`, `url`, `style` (`solid`, `striped`, `outline`), `busy` (whether it changes the door), `status_label` (the big word, e.g. `"Busy"` for personal events) |
 | `[tasks]` | the TickTick subscription `url`, `overdue_days` |
@@ -233,9 +233,10 @@ More in [docs/server.md](docs/server.md#security). To report a vulnerability, se
 <details>
 <summary><b>Which Kindles work?</b></summary>
 
-Any jailbroken Kindle that can run scriptlets (`.sh` files in `documents/`). inkdoor was built on
-a Kindle Paperwhite 10th generation, whose screen is 1072×1448. For another resolution, change
-`W` and `H` in `src/inkdoor/render.py`.
+Any jailbroken Kindle that can run scriptlets (`.sh` files in `documents/`), from the 2012
+Paperwhite to the Scribe. Pick yours on the admin's **Screen** page and the image is drawn at its
+resolution; [docs/kindle.md](docs/kindle.md#which-kindle-do-i-have) lists every model. inkdoor
+was built on a Kindle Paperwhite 10th generation (1072×1448).
 </details>
 
 <details>

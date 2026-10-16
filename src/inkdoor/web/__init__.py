@@ -34,6 +34,7 @@ from werkzeug.exceptions import HTTPException
 from .. import kindle_files
 from ..i18n import Translator
 from ..render import render_host_rejected
+from ..render import screen_size as render_screen_size
 from ..state import IMAGE_NAME, ServerState
 from . import auth
 from .hosts import host_allowed
@@ -228,8 +229,9 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
     password_file = auth.password_path(state.config_path)
     watcher = auth.PasswordWatcher(password_file)
     watcher.changed()  # record the file as it is now, so the first change is noticed
-    host_images: OrderedDict[tuple[str, str], bytes] = OrderedDict()
-    generic_host_images: dict[str, bytes] = {}            # per language, never evicted
+    host_images: OrderedDict[tuple, bytes] = OrderedDict()   # (language, size, host)
+    # per language and screen size (a few of each), never evicted
+    generic_host_images: dict[tuple, bytes] = {}
     host_renders = _Budget(HOST_RENDERS_PER_SECOND, 1.0, monotonic)
     host_logs = _Budget(HOST_LOGS_PER_MINUTE, 60.0, monotonic)
     host_lock = threading.Lock()
@@ -255,7 +257,9 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         host is cached after its first request, so what it receives does not change."""
         shown = _printable(raw_host)
         language = t().language
-        key = (language, shown)
+        # the image depends on the language and the screen size, both of which the admin changes
+        look = (language, render_screen_size(state.cfg))
+        key = (*look, shown)
         with host_lock:
             png = host_images.get(key)
             if png is not None:
@@ -265,7 +269,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
             log, skipped = host_logs.take(), host_logs.refused
             if log:
                 host_logs.refused = 0
-            generic = None if render else generic_host_images.get(language)
+            generic = None if render else generic_host_images.get(look)
         if log:
             if skipped:
                 app.logger.warning(t()("admin.log_host_rejected_more", n=skipped))
@@ -275,7 +279,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         if not render:  # first generic image of this language
             png = _png(render_host_rejected(state.cfg, None))
             with host_lock:
-                generic_host_images[language] = png
+                generic_host_images[look] = png
             return png
         png = _png(render_host_rejected(state.cfg, shown))
         with host_lock:
