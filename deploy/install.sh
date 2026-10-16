@@ -78,6 +78,7 @@ case "$LANGUAGE" in
     MSG_OLD_PYTHON="O inkdoor precisa do Python 3.10 ou mais novo (Debian 12+ ou Ubuntu 22.04+)."
     MSG_DOWNLOAD="Baixando o inkdoor (%s)..."
     MSG_NO_TAGS="Não consegui ler as versões de %s. Confira a rede ou use --ref."
+    MSG_NO_RELEASE="Nenhuma versão encontrada em %s, mas esta instalação já está numa versão; nada foi alterado. Para mudar para um branch, use --ref."
     MSG_UNSIGNED="A versão %s não está assinada com a chave de releases do inkdoor; nada foi instalado. Para instalar um branch ou uma tag sem essa conferência, use --ref."
     MSG_NOT_GIT="%s existe mas não é um clone do git; mova a pasta e rode de novo."
     MSG_PIP="Instalando o pacote Python..."
@@ -110,6 +111,7 @@ O inkdoor está rodando."
     MSG_OLD_PYTHON="inkdoor needs Python 3.10 or newer (Debian 12+ or Ubuntu 22.04+)."
     MSG_DOWNLOAD="Downloading inkdoor (%s)..."
     MSG_NO_TAGS="Could not list the versions of %s. Check the network or use --ref."
+    MSG_NO_RELEASE="No release found in %s, but this install is already on one; nothing was changed. To switch to a branch, use --ref."
     MSG_UNSIGNED="Release %s is not signed with the inkdoor release key; nothing was installed. To install a branch or tag without this check, use --ref."
     MSG_NOT_GIT="%s exists but is not a git checkout; move it away and run again."
     MSG_PIP="Installing the Python package..."
@@ -194,7 +196,16 @@ if [ "$REF" = "latest" ]; then
   TARGET="$({ printf '%s\n' "$TAGS" |
     sed -n 's|^[0-9a-f]*[[:space:]]*refs/tags/\(v[0-9]*\.[0-9]*\.[0-9]*\)$|\1|p'
     echo v1.0.0; } | sort -V -u | tail -n 1)"
-  [ "$TARGET" != "v1.0.0" ] || TARGET="master"
+  if [ "$TARGET" = "v1.0.0" ]; then
+    # No release yet: master, as before. An install already on a release never falls back to
+    # master, which is not signed: its releases disappearing is a reason to stop, not to follow.
+    CURRENT="$(git -C "$APP_DIR" describe --tags --exact-match HEAD 2>/dev/null || true)"
+    case "$CURRENT" in
+      v1.0.0) ;;
+      v[0-9]*.[0-9]*.[0-9]*) die "$MSG_NO_RELEASE" "$REPO" ;;
+    esac
+    TARGET="master"
+  fi
 fi
 
 # verify_release TAG: the tag is signed by one of RELEASE_SIGNERS and names itself TAG (so an
