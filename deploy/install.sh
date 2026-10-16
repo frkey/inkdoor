@@ -31,7 +31,7 @@ APP_DIR=/opt/inkdoor
 # Keys that sign inkdoor releases, in git's allowed-signers format. A release picked by "latest"
 # is installed only when its tag is signed by one of them. The installer that checks a release is
 # the one already installed, so a new key must ship in a release signed by a key listed here.
-RELEASE_SIGNERS='RELEASE_KEY_PLACEHOLDER'
+RELEASE_SIGNERS='inkdoor-release namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOp2fGOY09+JvaazC0HEz+2LKFhSS+Z77UQSybUAWRbJ'
 CONF_DIR=/etc/inkdoor
 CONF="$CONF_DIR/config.toml"
 STATE_DIR=/var/lib/inkdoor
