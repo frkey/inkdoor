@@ -44,6 +44,7 @@ Then:
 pytest                                    # the whole suite, a few seconds, no network
 inkdoor -o output demo 10:20 16:50        # render previews with fictional data
 inkdoor -o output --lang pt-BR demo 10:20
+inkdoor -o output demo --screen 600x800 10:20   # another Kindle screen
 ```
 
 Shell scripts are checked with [ShellCheck](https://www.shellcheck.net/):
@@ -61,7 +62,7 @@ previews as an artifact, so you can look at them without running anything.
 ```
 src/inkdoor/
   sources.py      reads calendars (ICS) and tasks: recurrence, time zones, de-duplication, cache
-  render.py       screen layout and drawing (1072×1448, 16 grays)
+  render.py       screen layout and drawing (every Kindle screen size, 16 grays)
   server.py       the render loop and `inkdoor serve` (Waitress)
   net.py          fetches links (size cap, deadline, redirects, no loopback) and finds the LAN address
   check.py        `inkdoor check` and the admin's Test link
@@ -99,7 +100,8 @@ scripts/          docs_images.py regenerates docs/img/ from the demo
    listener on `0.0.0.0`. Shared helpers live in `tests/helpers.py` and `tests/web_helpers.py`.
 4. **Anything visual?** Render the demo in both languages at a few times (for example 7:30, 10:20,
    15:20, 16:50 and 21:10) and look at the images; Portuguese strings are longer and are the
-   usual cause of overflow. Keep strokes at least 3 px wide so they survive e-ink.
+   usual cause of overflow. Check a small and a tall screen too (`--screen 600x800`,
+   `--screen 1264x1680`). Keep strokes at least 3 px wide so they survive e-ink.
    If the change shows up in the README's images, regenerate them
    (see [Docs images](#docs-images)).
 5. **Anything user-visible?** Update the docs in both languages: `README.md` and

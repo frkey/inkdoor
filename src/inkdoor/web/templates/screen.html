@@ -15,6 +15,20 @@
     {{ m.form_fields(digest) }}
 
     <div class="field">
+      <label for="screen">{{ t("admin.field_screen") }}</label>
+      <select id="screen" name="screen"
+              {%- if errors.get("screen") %} aria-invalid="true" aria-describedby="screen-help screen-error"
+              {%- else %} aria-describedby="screen-help"{% endif %}>
+        {% for key, width, height in screens %}
+        <option value="{{ key }}"{% if values.screen == key %} selected{% endif %}>{{ t("admin.screen_option", models=t("screens." ~ key), width=width, height=height) }}</option>
+        {% endfor %}
+      </select>
+      <p class="help" id="screen-help">{{ t("admin.field_screen_help") }}
+        <a href="{{ docs_url('kindle.md#' ~ (t('admin.field_screen_anchor') | urlencode)) }}" target="_blank" rel="noopener noreferrer">{{ t("admin.field_screen_more") }}</a></p>
+      {{ m.field_error("screen", errors) }}
+    </div>
+
+    <div class="field">
       <label for="language">{{ t("admin.field_language") }}</label>
       {% if locked %}
       <input id="language" type="text" value="{{ locked_name }}" readonly aria-describedby="language-help">

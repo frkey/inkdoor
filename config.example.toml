@@ -5,6 +5,7 @@
 # ============================================================
 
 [display]
+# screen = "1072x1448"      # your Kindle's screen: see "Which Kindle do I have?" in docs/kindle.md
 language = "en-US"          # "en-US" or "pt-BR"
 timezone = "America/New_York"
 # clock = "24h"             # "12h" or "24h"; defaults to the language's convention

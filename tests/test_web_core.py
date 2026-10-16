@@ -659,3 +659,12 @@ def test_kpm_repository_is_absent_without_the_kindle_scripts(app, monkeypatch):
     monkeypatch.setattr(kindle_files, "find_dir", lambda: None)
     for path in ("/kpm.json", "/kpm/inkdoor.kpkg"):
         assert get(client(app), path).status_code == 404
+
+
+def test_rejected_host_image_follows_the_screen_size(app, state, rendered):
+    c = client(app)
+    first = get(c, "/kindle.png", headers={"Host": "evil.com"}).data
+    state.cfg["display"]["screen"] = "600x800"
+    again = get(c, "/kindle.png", headers={"Host": "evil.com"}).data
+    assert Image.open(io.BytesIO(first)).size == (1072, 1448)
+    assert Image.open(io.BytesIO(again)).size == (600, 800)

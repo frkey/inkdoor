@@ -8,6 +8,7 @@ from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_
 
 from .. import config, config_edit, kindle_files, net
 from ..config import is_configured
+from ..render import screen_size
 from ..state import IMAGE_NAME
 from . import add_notice
 from .editing import Editor
@@ -59,7 +60,7 @@ def register(bp: Blueprint, ed: Editor) -> None:
             # watch for the new screen after a save or "Update now", while a render is pending,
             # or while none happened yet
             poll=watch_render or state.render_event.is_set() or last is None,
-            kindle_url=url,
+            kindle_url=url, screen=screen_size(state.cfg),
             # the zip needs the address it writes into config.sh, and the scripts beside the code
             kindle_zip=url is not None and kindle_files.find_dir() is not None,
             port=state.cfg["server"]["port"], broken=broken, problem=problem or warning,
