@@ -47,6 +47,11 @@ SAFE_METHODS = frozenset({"GET", "HEAD"})
 # address), which KPM fetches without a login
 PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static", "kpm_index", "kpm_package"})
 HOST_IMAGE_CACHE = 16
+# The Kindle comes back this long after the next render starts: time for that render to finish
+# (the last one's duration) plus this margin. Header: "X-Inkdoor-Next: <seconds>".
+NEXT_HEADER = "X-Inkdoor-Next"
+NEXT_MARGIN = 5
+NEXT_MAX = 86400
 # Rejected hosts: renders of new names per second (the rest get one generic image per language),
 # and log lines per minute (the rest are counted in the next line)
 HOST_RENDERS_PER_SECOND = 2
@@ -375,7 +380,11 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         except OSError:
             return app.response_class(t()("admin.not_rendered") + "\n", status=503,
                                       mimetype="text/plain", headers={"Cache-Control": "no-store"})
-        return app.response_class(body, mimetype="image/png", headers={"Cache-Control": "no-store"})
+        headers = {"Cache-Control": "no-store"}
+        if state.next_render_at is not None:
+            wait = max(0.0, state.next_render_at - clock()) + state.render_seconds + NEXT_MARGIN
+            headers[NEXT_HEADER] = str(min(NEXT_MAX, math.ceil(wait)))
+        return app.response_class(body, mimetype="image/png", headers=headers)
 
     # --- KPM repository: ";kpm add-repo http://<server>/kpm.json" on the Kindle ----------------
 

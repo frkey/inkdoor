@@ -7,6 +7,7 @@ tr -d "\r" < "$DIR/config.sh" > /tmp/inkdoor-config.sh
 LOG="$DIR/log.txt"
 LOCKDIR=/tmp/inkdoor.lock      # holds the PID of the running loop
 IMG=/tmp/inkdoor.png
+HEADERS=/tmp/inkdoor.headers   # the last download's response headers
 
 # Guard against bad values in config.sh
 case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=300 ;; esac
@@ -72,11 +73,12 @@ is_running() {
 }
 
 download() {
-  rm -f "$IMG.tmp"
+  rm -f "$IMG.tmp" "$HEADERS"
   if command -v curl >/dev/null 2>&1; then
-    curl -s -f -m 30 -o "$IMG.tmp" "$URL"
+    curl -s -f -m 30 -D "$HEADERS" -o "$IMG.tmp" "$URL"
   else
-    wget -q -T 30 -O "$IMG.tmp" "$URL"
+    # -S prints the response headers (on stderr) instead of the progress
+    wget -S -T 30 -O "$IMG.tmp" "$URL" 2> "$HEADERS"
   fi
   # only replace the screen with a real PNG
   if [ -s "$IMG.tmp" ] && head -c 4 "$IMG.tmp" | grep -q PNG; then
@@ -84,6 +86,20 @@ download() {
     return 0
   fi
   return 1
+}
+
+# Seconds to wait before the next download: what the server asked for (X-Inkdoor-Next: it renders
+# again when a meeting starts or ends), at least 30 and at most INTERVAL. An older server sends
+# nothing, and the wait is INTERVAL.
+next_wait() {
+  n="$(sed -n 's/^[[:space:]]*[Xx]-[Ii]nkdoor-[Nn]ext:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+    "$HEADERS" 2>/dev/null | tail -n 1)"
+  case "$n" in
+    ''|??????*) echo "$INTERVAL"; return ;;    # nothing, or too long to be a real wait
+  esac
+  [ "$n" -ge 30 ] || n=30
+  [ "$n" -le "$INTERVAL" ] || n=$INTERVAL
+  echo "$n"
 }
 
 ensure_wifi() {

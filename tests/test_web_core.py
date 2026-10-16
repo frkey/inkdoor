@@ -661,6 +661,17 @@ def test_kpm_repository_is_absent_without_the_kindle_scripts(app, monkeypatch):
         assert get(client(app), path).status_code == 404
 
 
+def test_kindle_png_says_when_to_come_back(app, state, clock, rendered):
+    c = client(app)
+    assert "X-Inkdoor-Next" not in get(c, "/kindle.png").headers     # nothing scheduled yet
+    state.next_render_at, state.render_seconds = clock.now + 100, 2.4
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "108"   # 100 + 2.4 + 5, rounded up
+    state.next_render_at = clock.now - 50                               # a render running late
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "8"
+    state.next_render_at = clock.now + 10 ** 9
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "86400"
+
+
 def test_rejected_host_image_follows_the_screen_size(app, state, rendered):
     c = client(app)
     first = get(c, "/kindle.png", headers={"Host": "evil.com"}).data

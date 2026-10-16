@@ -190,7 +190,7 @@ setting is explained in [`config.example.toml`](config.example.toml):
 
 | Command | What it does |
 |---|---|
-| `inkdoor serve` | Renders the screen every `refresh_minutes` and serves it, with the admin, on `port`. Reloads the config on every cycle. |
+| `inkdoor serve` | Renders the screen every `refresh_minutes` (on the clock: 10:00, 10:05…) and right when a meeting starts or ends, and serves it, with the admin, on `port`. Reloads the config on every cycle. |
 | `inkdoor check` | Tests each link: reachable or not, how many events, whether titles come through or only "Busy". |
 | `inkdoor render` | Renders `output/kindle.png` once. |
 | `inkdoor demo 10:20 16:50` | Renders previews with fictional data; no calendars needed. |

@@ -228,6 +228,30 @@ def test_docs_images_script_draws_the_screens():
         assert sheet.size == (3 * (W // 2 + 56) + 2 * 40, H // 2 + 56)
 
 
+# --- when the screen changes next ------------------------------------------------------------
+
+def test_next_change_is_the_next_start_end_or_soon_moment():
+    from inkdoor.render import next_change
+    from inkdoor.sources import Event
+    cfg = with_defaults({"display": {"language": "en-US"}})
+    meeting = Event(at("10:00"), at("11:00"), "Review", "Work")
+    reminder = Event(at("10:20"), at("10:30"), "Stretch", "Personal", busy=False)
+    all_day = Event(at("0:00"), at("0:00", 15), "Holiday", "Work", all_day=True)
+    snap = lambda now: Snapshot(now, [meeting, reminder, all_day], [], [])
+    assert next_change(snap(at("9:00")), cfg) == at("9:45")      # "in 15 min" starts
+    assert next_change(snap(at("9:50")), cfg) == at("10:00")     # the meeting starts
+    assert next_change(snap(at("10:05")), cfg) == at("10:20")    # a listed event starts
+    assert next_change(snap(at("10:30")), cfg) == at("11:00")    # the meeting ends
+    assert next_change(snap(at("11:00")), cfg) == at("19:00")    # the workday ends
+    assert next_change(snap(at("19:00")), cfg) == at("0:00", 15)   # the day turns
+
+
+def test_next_change_starts_with_the_workday():
+    from inkdoor.render import next_change
+    cfg = with_defaults({"display": {"language": "en-US", "workday_start": 9}})
+    assert next_change(Snapshot(at("6:30"), [], [], []), cfg) == at("9:00")
+
+
 # --- other Kindle screens --------------------------------------------------------------------
 
 @pytest.mark.parametrize("screen", sorted(SCREENS))

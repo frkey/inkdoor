@@ -83,6 +83,10 @@ the least room in layout units (`inkdoor demo --screen 600x800 10:20`, `--screen
   the admin is on, the KPM repository `/kpm.json` and `/kpm/inkdoor.kpkg`, which hold only the
   Kindle scripts and the server's own address); every other route requires the admin login, and
   unknown paths are 404. Never serve the output folder or config files.
+- The render loop renders on refresh ticks of the clock and just after each moment the screen
+  changes (`render.next_change`); `/kindle.png` sends `X-Inkdoor-Next` (seconds until that render
+  is done) and `loop.sh` sleeps that long, clamped to 30 s..`INTERVAL`. Keep both sides working
+  with an older version of the other: no header means `INTERVAL`, and extra headers are ignored.
 - The Kindle side has a version (`kindle_files.KINDLE_VERSION`): KPM only upgrades to a higher
   one, so bump it whenever a file in `kindle/inkdoor/`, `kindle/documents/` or `kindle/kpm/`
   changes, and update `SCRIPTS_SHA256` (a test fails until both match).

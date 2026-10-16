@@ -98,7 +98,7 @@ Edite `inkdoor/config.sh`:
 
 ```sh
 URL="http://192.168.0.10:3667/kindle.png"   # IP do computador que roda o "inkdoor serve"
-INTERVAL=300                                # segundos entre atualizações
+INTERVAL=300                                # espera máxima entre atualizações, em segundos
 FULL_REFRESH_EVERY=6                        # a cada N atualizações, uma completa (pisca e limpa fantasmas)
 LANGUAGE="pt-BR"                            # mensagens no Kindle: en-US ou pt-BR
 ```
@@ -123,6 +123,10 @@ não inicia sozinho depois de reiniciar.
   Kindle no carregador. Um cabo USB fino passa bem pelo batente da porta.
 - **IP fixo**: reserve um IP para o computador no roteador, senão o endereço muda e o painel
   para de atualizar. Um servidor de casa evita isso e nunca dorme ([server.md](server.md)).
+- **Na hora certa**: o servidor redesenha a porta na hora em que um compromisso começa ou termina
+  e avisa o Kindle quando voltar, então o status muda em segundos. O `INTERVAL` é só a espera
+  máxima entre atualizações; isso precisa dos scripts do Kindle a partir da versão 1.2
+  (`;kpm upgrade` ou um zip novo).
 - **Uma instância só**: tocar duas vezes em "start display" não inicia dois painéis.
 - **Sem conexão**: depois de 3 falhas seguidas, aparece "sem conexao com o PC" no canto da tela.
   O histórico fica em `inkdoor/log.txt`, e a

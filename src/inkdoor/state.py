@@ -17,6 +17,8 @@ class RenderInfo:
     word: str
     headline: str
     errors: list[str]
+    # when the screen changes next with the clock alone (a meeting starts or ends), if known
+    next_change: dt.datetime | None = None
 
 
 @dataclass
@@ -37,6 +39,10 @@ class ServerState:
     clock: Callable[[], float] = field(default=time.monotonic, repr=False)
     render_event: threading.Event = field(default_factory=threading.Event, repr=False)
     last_render: RenderInfo | None = None
+    # wall-clock time (time.time()) of the next scheduled render, and how long the last one
+    # took: /kindle.png tells the Kindle when to come back for it
+    next_render_at: float | None = None
+    render_seconds: float = 0.0
     # True while no config (neither the file nor its .bak) has ever loaded and ``cfg`` holds
     # only the defaults: the door then shows the setup or error screen instead of a status.
     using_defaults: bool = False

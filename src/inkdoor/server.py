@@ -2,22 +2,29 @@
 
 Only the render loop renders. The admin asks for a new render by setting
 ``ServerState.render_event``; the loop clears the event before each cycle and then waits on it
-with the refresh interval as timeout, so a request that arrives during a render is not lost.
+until the next scheduled render, so a request that arrives during a render is not lost.
+
+Renders are scheduled at the next refresh tick on the clock (every ``refresh_minutes`` from
+midnight: 10:00, 10:05...) or, if sooner, just after the next moment the screen changes (a
+meeting starts or ends). ``/kindle.png`` tells the Kindle how long to wait for it.
 """
 from __future__ import annotations
 
 import datetime as dt
 import errno
+import math
 import os
 import threading
+import time
 from zoneinfo import ZoneInfo
 
 from . import config, net
-from .render import compute_status, render, render_error, render_setup, translator_for
+from .render import compute_status, next_change, render, render_error, render_setup, translator_for
 from .sources import SourceCache, Snapshot, collect
 from .state import IMAGE_NAME, RenderInfo, ServerState
 
 THREADS = 8
+_wall_clock = time.time      # when the next render happens, as /kindle.png reads it (tests pin it)
 
 
 class PortInUse(Exception):
@@ -57,7 +64,8 @@ def _render_snapshot(cfg: dict, path: str, cache: SourceCache | None,
     if snap.errors:  # "Name: ErrorType" only, never a link
         line += t("cli.rendered_errors", sources="; ".join(snap.errors))
     _log(line)
-    return RenderInfo(snap.now, word, headline, list(snap.errors))
+    change = next_change(snap, cfg) if snap.configured != "nothing" else None
+    return RenderInfo(snap.now, word, headline, list(snap.errors), change)
 
 
 def render_once(cfg: dict, output_dir: str, cache: SourceCache | None = None) -> str:
@@ -186,18 +194,43 @@ def render_loop(state: ServerState, cache: SourceCache, stop: threading.Event) -
     """
     while not stop.is_set():
         state.render_event.clear()
+        started = time.monotonic()
         try:
             run_cycle(state, cache)
         except Exception as ex:  # e.g. the output folder is not writable: try again later
             _log_error(state.cfg, ex)
-        state.render_event.wait(_refresh_seconds(state))
+        state.render_seconds = time.monotonic() - started
+        wait = _wait_seconds(state)
+        state.next_render_at = _wall_clock() + wait
+        state.render_event.wait(wait)
 
 
-def _refresh_seconds(state: ServerState) -> float:
+# a render this long after a change, so the clock has passed it (and "now" is inside a meeting)
+CHANGE_DELAY = 1.0
+
+
+def _wait_seconds(state: ServerState) -> float:
+    """Seconds until the next render: the next refresh tick, or just after the next change."""
     try:
-        return state.cfg["server"]["refresh_minutes"] * 60
+        cfg = state.cfg
+        now = _now(cfg)
+        wait = _until_tick(now, cfg["server"]["refresh_minutes"])
+        change = state.last_render.next_change if state.last_render is not None else None
+        if change is not None:
+            wait = min(wait, (change - now).total_seconds() + CHANGE_DELAY)
+        return max(1.0, wait)
     except Exception:
         return config.SERVER_DEFAULTS["refresh_minutes"] * 60
+
+
+def _until_tick(now: dt.datetime, minutes: int) -> float:
+    """Seconds from ``now`` to the next multiple of ``minutes`` counted from midnight."""
+    midnight = dt.datetime.combine(now.date(), dt.time.min, now.tzinfo)
+    elapsed = (now - midnight).total_seconds()
+    period = minutes * 60
+    tick = math.floor(elapsed / period + 1) * period
+    # the last tick of the day can fall after midnight's: midnight itself is then the tick
+    return min(tick, 86400.0) - elapsed
 
 
 # ---------------------------------------------------------------- serve
