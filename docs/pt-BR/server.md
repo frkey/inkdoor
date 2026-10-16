@@ -153,7 +153,9 @@ acima.
 Para atualizar, rode `bash /opt/inkdoor/deploy/install.sh`. Ele baixa a versão mais recente (ou
 o branch ou a tag que você passou antes com `--ref`) do mesmo repositório, instala os pacotes
 Python nas versões exatas de `deploy/requirements.txt`, conferidos pelos hashes, e reinicia o
-serviço. Sua config e sua senha do admin
+serviço. As versões são assinadas: ele só instala uma quando a tag tem a assinatura de releases
+do inkdoor, e senão para sem mudar nada (um branch ou tag passado com `--ref` é instalado sem
+essa conferência). Sua config e sua senha do admin
 nunca são sobrescritas; numa instalação de antes do admin existir, ele liga o admin uma vez e
 mostra a primeira senha. Sem `--lang`, as mensagens saem no `language` da sua config.
 

@@ -188,6 +188,20 @@ Versions follow [Semantic Versioning](https://semver.org/). Add each user-visibl
 1. In a pull request, set the version in `pyproject.toml` and `src/inkdoor/__init__.py` (a test
    checks they match), and move `[Unreleased]` to a dated section with the Kindle scripts'
    version (`KINDLE_VERSION`).
-2. After it is merged, tag `master` as `vX.Y.Z` and publish a GitHub release with that
-   section as its notes. From then on, new installs and every update without `--ref` get that
-   version; `install.sh --ref vX.Y.Z` installs exactly that version.
+2. After it is merged, make a **signed** tag on `master` with the release key and push it:
+   `git tag -s vX.Y.Z -m "inkdoor X.Y.Z"` then `git push origin vX.Y.Z`. Publish a GitHub
+   release with that section as its notes. From then on, new installs and every update without
+   `--ref` get that version; `install.sh --ref vX.Y.Z` installs exactly that version.
+
+### Release key
+
+`install.sh` installs a release only when its tag is signed by a key in `RELEASE_SIGNERS` at the
+top of `deploy/install.sh` (git's allowed-signers format), and only if the tag object names
+itself with that same version. The check runs in the installer that is already installed, so:
+
+- Sign with SSH: `git config gpg.format ssh` and `git config user.signingkey <path to the
+  public key>`. Keep the private key off shared machines, with a passphrase, and backed up.
+- Add the public key to GitHub as a *signing* key too, so tags show as verified.
+- To change keys, add the new key to `RELEASE_SIGNERS` and ship that in a release signed with a
+  key already listed; remove the old key in a later release. A tag that no listed key signed is
+  refused by every server, and the only way past it is `--ref`.
