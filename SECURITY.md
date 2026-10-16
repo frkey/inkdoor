@@ -6,11 +6,12 @@ Please **do not open a public issue** for a security problem. Report it privatel
 GitHub: go to the repository's **Security** tab and choose
 [**Report a vulnerability**](https://github.com/frkey/inkdoor/security/advisories/new).
 
-Include what an attacker can do, the steps to reproduce it and the version (the commit) you
-tested. Use fictional data: never send real calendar links or passwords. You will get an answer
-as soon as possible, and credit in the fix if you want it.
+Include what an attacker can do, the steps to reproduce it and the version (the release or
+commit) you tested. Use fictional data: never send real calendar links or passwords. You will
+get an answer as soon as possible, and credit in the fix if you want it.
 
-Only the latest `master` is supported; fixes are not backported.
+Only the latest release (what `install.sh` installs) and `master` are supported; fixes are not
+backported.
 
 ## What inkdoor protects
 
@@ -30,6 +31,13 @@ Within that model:
 - **Fetching is constrained.** Links are fetched with a size cap, a total deadline and a
   redirect limit, and never to the server's own loopback or link-local addresses (for example the
   cloud metadata address).
+- **Reading a calendar is bounded.** Calendars are parsed in a separate process with a time
+  limit and a cap on repeating events. A calendar past either counts as unreadable (the door
+  uses that calendar's last good data from today, else says **Knock first**), and if the server
+  ever stops refreshing, the Kindle gets an error screen instead of an old status.
+- **Installs are verified.** `install.sh` installs a release only when its tag is signed with
+  the inkdoor release key (a branch or tag you name with `--ref` is installed as it is), and
+  Python packages at exact versions checked against their hashes.
 - **The service is sandboxed.** On a server it runs as an unprivileged user under a strict
   systemd sandbox that can only write to `/var/lib/inkdoor` and `/etc/inkdoor`.
 

@@ -9,6 +9,10 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-16
+
+A security release. Kindle scripts: 1.2.0 (unchanged).
+
 ### Security
 
 - The admin and the Kindle image no longer accept names ending in `.fritz.box` or `.ts.net`
@@ -99,5 +103,6 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/frkey/inkdoor/releases/tag/v1.1.0
 [1.0.0]: https://github.com/frkey/inkdoor/releases/tag/v1.0.0
