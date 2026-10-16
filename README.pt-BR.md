@@ -5,6 +5,7 @@
 **Transforme um Kindle velho numa placa de porta que diz se você está em reunião.**
 
 [![CI](https://github.com/frkey/inkdoor/actions/workflows/ci.yml/badge.svg)](https://github.com/frkey/inkdoor/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/frkey/inkdoor)](https://github.com/frkey/inkdoor/releases/latest)
 [![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![Idiomas: English, Português](https://img.shields.io/badge/idiomas-en--US%20%7C%20pt--BR-green.svg)](#idioma)
@@ -171,6 +172,7 @@ Passo a passo, com dicas de energia e Wi-Fi: [docs/pt-BR/kindle.md](docs/pt-BR/k
 | [Solução de problemas](docs/pt-BR/troubleshooting.md) | O que significa cada tela da porta, mensagem do Kindle e resultado do Testar link, e o que fazer |
 | [Contribuindo](CONTRIBUTING.md) | Ambiente de desenvolvimento, testes, traduções, revisão das mudanças (em inglês) |
 | [Política de segurança](SECURITY.md) | Como relatar uma vulnerabilidade e o que o inkdoor protege (em inglês) |
+| [Changelog](CHANGELOG.md) | O que mudou em cada versão (em inglês) |
 
 ## Configuração
 

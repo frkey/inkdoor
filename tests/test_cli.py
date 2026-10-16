@@ -120,3 +120,17 @@ def test_demo_draws_another_kindle_screen(tmp_path, monkeypatch):
     monkeypatch.delenv("INKDOOR_LANG", raising=False)
     assert main(["-o", "a", "demo", "9:00", "--screen", "600x800"]) == 0
     assert Image.open(tmp_path / "a" / "demo-en-US-900-600x800.png").size == (600, 800)
+
+
+def test_version_matches_the_package_metadata():
+    # pyproject.toml and inkdoor.__version__ are bumped together for a release
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        import tomli as tomllib
+    from inkdoor import __version__
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "pyproject.toml"), "rb") as f:
+        assert tomllib.load(f)["project"]["version"] == __version__
+    with open(os.path.join(root, "CHANGELOG.md"), encoding="utf-8") as f:
+        assert f"## [{__version__}] - " in f.read()      # and the changelog has its entry
