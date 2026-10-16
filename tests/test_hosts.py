@@ -8,8 +8,7 @@ from inkdoor.web.hosts import host_allowed, host_name
     [
         "192.168.0.50", "192.168.0.50:8000", "[::1]:8000", "[fe80::1]",
         "localhost:8000", "inkdoor", "inkdoor.local", "door.lan", "x.home", "x.home.arpa",
-        "x.internal", "x.localdomain", "inkdoor.fritz.box", "box.tail1234.ts.net",
-        "INKDOOR.LAN.", "door.example.com",
+        "x.internal", "x.localdomain", "INKDOOR.LAN.", "door.example.com",
     ],
 )
 def test_allowed(host):
@@ -21,10 +20,17 @@ def test_allowed(host):
     [
         None, "", "evil.com", "evil.com:8000", "x.notlocal", "inkdoor.lan.evil.com",
         "192.168.0.50.evil.com", "[::1", "a b",
+        # suffixes under public domains: their owners could point a name at the LAN
+        "inkdoor.fritz.box", "box.tail1234.ts.net",
     ],
 )
 def test_rejected(host):
     assert not host_allowed(host, extra=[])
+
+
+@pytest.mark.parametrize("host", ["inkdoor.fritz.box", "box.tail1234.ts.net:3667"])
+def test_public_zone_names_pass_when_listed(host):
+    assert host_allowed(host, extra=["inkdoor.fritz.box", "box.tail1234.ts.net"])
 
 
 @pytest.mark.parametrize(

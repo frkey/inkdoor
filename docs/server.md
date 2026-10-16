@@ -194,15 +194,18 @@ It prints the new password once and logs out every browser. You can also change 
 
 The admin, and the Kindle image, only answer when the address in the browser is an IP address
 or a local network name: a name without dots, or one ending in `.local`, `.lan`, `.home`,
-`.home.arpa`, `.internal`, `.localdomain`, `.fritz.box` or `.ts.net`. This blocks websites that
-try to reach your server through their own names (DNS rebinding). To use another name, list it
-in `config.toml`:
+`.home.arpa`, `.internal` or `.localdomain`. This blocks websites that try to reach your server
+through their own names (DNS rebinding). To use another name, list it in `config.toml`:
 
 ```toml
 [admin]
 enabled = true
 allowed_hosts = ["door.example.com"]
 ```
+
+Names from your router or VPN that end in a public domain, such as a FRITZ!Box name
+(`inkdoor.fritz.box`) or a Tailscale name (`inkdoor.tail1234.ts.net`), need to be listed too:
+whoever controls that domain could otherwise point a name of their own at your server.
 
 Write each name exactly as typed in the browser, without the port and without wildcards. A name
 with accents or other non-ASCII letters goes in its ASCII form (punycode, starting with

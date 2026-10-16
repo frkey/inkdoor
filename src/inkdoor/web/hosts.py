@@ -2,6 +2,9 @@
 
 A malicious website can point its own name at a server on the local network, so every request's
 Host header is checked before anything else. Only addresses and private-network style names pass.
+Every built-in suffix is one that public DNS never answers for: a suffix under a public domain
+(``.fritz.box``, ``.ts.net``) would trust whoever controls that zone, so such names go in
+``[admin] allowed_hosts`` instead.
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ import ipaddress
 import re
 
 SUFFIXES = (
-    ".local", ".lan", ".home", ".home.arpa", ".internal", ".localdomain", ".fritz.box", ".ts.net",
+    ".local", ".lan", ".home", ".home.arpa", ".internal", ".localdomain",
 )
 
 _LABEL = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?")
