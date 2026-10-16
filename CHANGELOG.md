@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Security
+
+- The admin and the Kindle image no longer accept names ending in `.fritz.box` or `.ts.net`
+  without being listed: both are public domains. If the Kindle's `URL` or your browser uses such
+  a name, add it to `[admin] allowed_hosts` (see the server guide).
+
 ## [1.0.0] - 2026-10-15
 
 The first public release. Kindle scripts: 1.2.0.
