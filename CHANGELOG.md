@@ -11,6 +11,9 @@ It is shown next to each release.
 
 ### Security
 
+- The admin and the Kindle image no longer accept names ending in `.fritz.box` or `.ts.net`
+  without being listed: both are public domains. If the Kindle's `URL` or your browser uses such
+  a name, add it to `[admin] allowed_hosts` (see the server guide).
 - Calendars and task lists are read in a separate process with a 30-second limit and at most
   20,000 occurrences in the window read. A calendar that goes past either counts as unreadable
   (the door falls back on today's data or **Knock first**) instead of stalling the server.

@@ -198,15 +198,19 @@ senha na página **Conta**.
 
 O admin, e também a imagem do Kindle, só respondem quando o endereço no navegador é um IP ou um
 nome de rede local: um nome sem pontos, ou terminado em `.local`, `.lan`, `.home`,
-`.home.arpa`, `.internal`, `.localdomain`, `.fritz.box` ou `.ts.net`. Isso bloqueia sites que
-tentam chegar ao seu servidor usando o próprio nome deles (DNS rebinding). Para usar outro
-nome, coloque-o no `config.toml`:
+`.home.arpa`, `.internal` ou `.localdomain`. Isso bloqueia sites que tentam chegar ao seu
+servidor usando o próprio nome deles (DNS rebinding). Para usar outro nome, coloque-o no
+`config.toml`:
 
 ```toml
 [admin]
 enabled = true
 allowed_hosts = ["porta.example.com"]
 ```
+
+Nomes do roteador ou da VPN que terminam num domínio público, como um nome da FRITZ!Box
+(`inkdoor.fritz.box`) ou do Tailscale (`inkdoor.tail1234.ts.net`), também precisam estar na
+lista: quem controla esse domínio poderia apontar um nome dele para o seu servidor.
 
 Escreva cada nome exatamente como você digita no navegador, sem a porta e sem curingas. Um nome
 com acentos ou outras letras fora do ASCII vai na forma ASCII (punycode, que começa com
