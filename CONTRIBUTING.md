@@ -137,8 +137,9 @@ container with nesting.
 hashes, setuptools included, so a server never fetches an unpinned package. After changing the
 dependencies in `pyproject.toml` (or `deploy/requirements.in`), run the command at the top of that
 file again (it needs [uv](https://docs.astral.sh/uv/)); a test fails until the lock names every
-dependency. Dependabot proposes version bumps weekly, and the CI's `audit` job checks the pinned
-versions against known vulnerabilities.
+dependency. Dependabot proposes version bumps weekly, and the CI's `deploy-lock` job installs the pinned
+versions the way `install.sh` does, runs the tests with them and checks them against known
+vulnerabilities.
 
 ## Docs images
 

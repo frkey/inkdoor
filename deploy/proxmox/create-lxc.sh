@@ -144,7 +144,8 @@ on_exit() {
   rm -f "$INSTALLER"
   if [ "$status" -ne 0 ] && [ "$CREATED" -eq 1 ]; then
     # the retry runs under C.UTF-8 too, so it names the language this run chose
-    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "${LANGUAGE:+ --lang $LANGUAGE}" "$CTID" "$CTID" >&2
+    say "$MSG_FAILED_AFTER_CREATE" "$CTID" "$CTID" "${LANGUAGE:+ --lang $LANGUAGE}${REF:+ --ref $REF}" \
+      "$CTID" "$CTID" >&2
   fi
 }
 trap on_exit EXIT
