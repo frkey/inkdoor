@@ -15,7 +15,8 @@ def run(tmp_path, script, interval=300, path_dirs=()):
         config = f.read().replace("INTERVAL=300", f"INTERVAL={interval}")
     (home / "config.sh").write_text(config)
     with open(os.path.join(FOLDER, "common.sh")) as f:
-        common = f.read().replace("/mnt/us/inkdoor", str(home)).replace("/tmp/", f"{tmp_path}/")
+        # /tmp first: tmp_path itself is under /tmp on Linux, and must not be replaced again
+        common = f.read().replace("/tmp/", f"{tmp_path}/").replace("/mnt/us/inkdoor", str(home))
     (home / "common.sh").write_text(common)
     # LC_ALL=C as on the Kindle: a UTF-8 locale makes some greps skip the PNG's binary header
     env = {**os.environ, "LC_ALL": "C",
