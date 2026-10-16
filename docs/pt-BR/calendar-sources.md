@@ -39,9 +39,9 @@ são convertidos automaticamente.
 
 No TickTick para desktop ou na web:
 
-1. Avatar → **Settings** → **Integrations & Import** (os nomes podem aparecer traduzidos).
-2. Em **Others**, abra **Subscribe to TickTick**.
-3. Clique em **Enable the URL**, escolha a lista e copie o link gerado (pode começar com
+1. Avatar → **Configurações** → **Integrações e Importação**.
+2. Em **Outros**, abra **Assinar o TickTick**.
+3. Clique em **Habilitar o URL**, escolha a lista e copie o link gerado (pode começar com
    `webcal://`; o inkdoor aceita).
 
 Quais planos têm essa opção é decisão do TickTick; veja o
