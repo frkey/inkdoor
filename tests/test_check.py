@@ -72,8 +72,8 @@ def test_check_failures_and_warnings_match_golden(cfg, tmp_path, capsys, languag
 def test_check_reports_unreadable_sources(cfg, capsys, monkeypatch, language):
     def broken(*args, **kwargs):
         raise ValueError("secret detail")
-    monkeypatch.setattr(check, "parse_events", broken)
-    monkeypatch.setattr(check, "parse_tasks", broken)
+    monkeypatch.setattr(check, "events_from", broken)
+    monkeypatch.setattr(check, "tasks_from", broken)
     cfg["display"]["language"] = language
     assert run(cfg, now=at("09:00")) is False
     out = capsys.readouterr().out
@@ -137,7 +137,8 @@ def test_check_calendar_returns_a_structured_report(cfg):
     assert isinstance(report, SourceReport)
     assert (report.name, report.kind, report.ok) == ("Work", "calendar", True)
     assert report.lines == [("ok", t("check.ok", kb=1)), ("ok", t("check.events_found", n=12))]
-    assert [title for _, title in report.upcoming] == ["Daily"] * 3
+    # the next three in order of start, whatever calendar entry they come from
+    assert [title for _, title in report.upcoming] == ["Daily", "Roadmap review", "Roadmap Review"]
     assert report.upcoming[0][0] == at("09:00")
 
 
@@ -182,7 +183,7 @@ def test_check_calendar_counts_timed_and_all_day_events_apart(cfg):
 def test_check_calendar_fails_without_leaking_details(cfg, monkeypatch):
     def broken(*args, **kwargs):
         raise ValueError("https://cal.example/secret.ics")
-    monkeypatch.setattr(check, "parse_events", broken)
+    monkeypatch.setattr(check, "events_from", broken)
     report = check_calendar(cfg["calendar"][0], cfg, at("09:00"))
     t = Translator("en-US")
     assert report.ok is False

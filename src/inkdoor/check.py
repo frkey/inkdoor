@@ -11,7 +11,7 @@ from . import net
 from .config import is_configured
 from .i18n import Translator
 from .render import translator_for
-from .sources import parse_events, parse_tasks
+from .sources import events_from, tasks_from
 
 # Titles that mean the link only publishes free/busy, without details
 FREE_BUSY_TITLES = {"busy", "ocupado", "tentative", "provisório", "free", "livre",
@@ -42,12 +42,13 @@ class SourceReport:
 
 def check_link(url: str, t: Translator) -> tuple[bool, str]:
     """Downloads the link and makes sure it is a calendar. Returns (ok, message)."""
-    cal, message = load_link(url, t)
-    return cal is not None, message
+    content, message = load_link(url, t)
+    return content is not None, message
 
 
-def load_link(url: str, t: Translator) -> tuple[icalendar.Calendar | None, str]:
-    """Downloads the link once and parses it. Returns (calendar, message); None when it failed."""
+def load_link(url: str, t: Translator) -> tuple[bytes | None, str]:
+    """Downloads the link once and makes sure it parses as a calendar. Returns (content,
+    message); None when it failed."""
     if not is_configured(url):
         return None, t("check.not_configured")
     try:
@@ -68,10 +69,10 @@ def load_link(url: str, t: Translator) -> tuple[icalendar.Calendar | None, str]:
     if b"BEGIN:VCALENDAR" not in head:
         return None, t("check.html_page") if b"<html" in head.lower() else t("check.not_ics")
     try:
-        cal = icalendar.Calendar.from_ical(content)
+        icalendar.Calendar.from_ical(content)
     except Exception:
         return None, t("check.invalid")
-    return cal, t("check.ok", kb=len(content) // 1024 or 1)
+    return content, t("check.ok", kb=len(content) // 1024 or 1)
 
 
 def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
@@ -80,13 +81,13 @@ def check_calendar(calendar: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     start = dt.datetime.combine(now.date(), dt.time.min, tz)
     end = start + dt.timedelta(days=14)
     report = SourceReport(calendar["name"], "calendar")
-    cal, message = load_link(calendar.get("url", ""), t)
-    report.lines.append(("fail" if cal is None else "ok", message))
-    if cal is None:
+    content, message = load_link(calendar.get("url", ""), t)
+    report.lines.append(("fail" if content is None else "ok", message))
+    if content is None:
         report.ok = False
         return report
     try:
-        found = parse_events(cal, calendar, start, end, tz)
+        found = events_from(content, calendar, start, end, tz)
     except Exception as ex:
         report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
         report.ok = False
@@ -117,13 +118,13 @@ def check_tasks(tasks_cfg: dict, cfg: dict, now: dt.datetime) -> SourceReport:
     t = translator_for(cfg)
     tz = ZoneInfo(cfg["display"]["timezone"])
     report = SourceReport(tasks_cfg["name"], "tasks")
-    cal, message = load_link(tasks_cfg.get("url", ""), t)
-    report.lines.append(("fail" if cal is None else "ok", message))
-    if cal is None:
+    content, message = load_link(tasks_cfg.get("url", ""), t)
+    report.lines.append(("fail" if content is None else "ok", message))
+    if content is None:
         report.ok = False
         return report
     try:
-        tasks = parse_tasks(cal, tasks_cfg, now.date(), tz)
+        tasks = tasks_from(content, tasks_cfg, now.date(), tz)
     except Exception as ex:
         report.lines.append(("fail", t("check.read_failed", error=ex.__class__.__name__)))
         report.ok = False

@@ -21,6 +21,7 @@ Neither one ever prints a calendar link, so their output is safe to share in an 
 | **KNOCK FIRST** · *no busy calendar* | Calendars are set up, but none of them marks you busy, so the door cannot know when you are free. | In the admin, edit the calendar with your meetings and turn on **Marks you busy**. |
 | **KNOCK FIRST** · *address not allowed* | The Kindle reached the server through a host name that is not on the allow list. | Use the server's IP address in the Kindle's `URL`, or add the name to `allowed_hosts` ([details](server.md#opening-the-admin-by-name)). |
 | **KNOCK FIRST** · *display error* | inkdoor itself failed to draw the screen. The error type is printed below. | Look at the service log and [open an issue](https://github.com/frkey/inkdoor/issues/new/choose) with it. |
+| **KNOCK FIRST** · *display error*, "The screen stopped updating" | The server has not finished a refresh for more than 15 minutes past its time, or it was off for a while, so the last status may be old. | Look at the service log and restart the service (`systemctl restart inkdoor`). If it happens again, test each link. |
 | A footer line like *unreachable: Work* | That calendar failed on the last refresh; the door is using its last good data from today. | Nothing, if it recovers on the next refresh; otherwise test the link. |
 
 The door never says **Free** without knowing: whenever it cannot tell, it says **Knock first**.
@@ -58,6 +59,8 @@ The door never says **Free** without knowing: whenever it cannot tell, it says *
 | *no events in the next 14 days* | The calendar is readable but empty. | Make sure you published the right calendar. |
 | *the link only shows 'Busy'* | The calendar was published with "busy" detail only. | Publish it again with **Can view all details**; if that option is missing, the door still works. |
 | *many events in the middle of the night* | The time zone is probably wrong. | Set the time zone on the admin's **Screen** page. |
+| *could not read the events (TooManyOccurrences)* | The calendar repeats an event so often (every minute or second, say) that it has thousands of occurrences in a few days. inkdoor stops reading it. | Fix or remove that repeating event in your calendar app. |
+| *could not read the events (CalendarTimeout)* | Reading the calendar took more than 30 seconds, usually because of a rule that repeats very often. | Same as above; with a very large calendar, publish a smaller one. |
 
 Where to find each link: [Calendar links](calendar-sources.md).
 

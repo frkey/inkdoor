@@ -9,6 +9,18 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Security
+
+- Calendars and task lists are read in a separate process with a 30-second limit and at most
+  5,000 occurrences in the window read. A calendar that goes past either counts as unreadable
+  (the door falls back on today's data or **Knock first**) instead of stalling the server.
+- If the server stops finishing refreshes (more than 15 minutes late) or the image on disk is
+  from before a long outage, the Kindle gets an error screen instead of a status that may be old.
+
+### Changed
+
+- `inkdoor check` and **Test link** list the next events in order of start.
+
 ## [1.0.0] - 2026-10-15
 
 The first public release. Kindle scripts: 1.2.0.

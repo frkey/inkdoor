@@ -29,6 +29,9 @@ class ServerState:
     sets ``render_event``. (Config writes are serialized by ``config_edit``.)
     """
     MANUAL_INTERVAL: ClassVar[float] = 30.0
+    # How long past its scheduled start a render may still be running before /kindle.png stops
+    # serving the image on disk: room for several slow links, each with its own time limits
+    STALE_AFTER: ClassVar[float] = 15 * 60.0
 
     config_path: str
     output_dir: str
@@ -48,6 +51,20 @@ class ServerState:
     using_defaults: bool = False
     _manual_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _last_manual: float | None = field(default=None, init=False, repr=False)
+
+    def image_stale(self, now: float, image_mtime: float) -> bool:
+        """True when the image on disk may show an old status, because the render loop is far
+        past its next render (stuck on something) or, before this run's first render, the file
+        is older than one refresh (the server was down). ``now`` and ``image_mtime`` are wall
+        time, like ``next_render_at``."""
+        due = self.next_render_at
+        if due is None:
+            try:
+                minutes = float(self.cfg["server"]["refresh_minutes"])
+            except (KeyError, TypeError, ValueError):
+                minutes = 5.0
+            due = image_mtime + minutes * 60
+        return now > due + self.STALE_AFTER
 
     def request_render(self, manual: bool = False) -> bool:
         """Wakes the render loop. Manual requests ("Update now") are limited to one per 30 s;

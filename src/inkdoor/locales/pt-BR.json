@@ -52,6 +52,7 @@
     "unknown_detail": "Não consegui ler: {sources}",
     "error_headline": "erro no painel",
     "error_detail": "Confira o computador que roda o inkdoor serve",
+    "stalled": "A tela parou de atualizar, então o último status pode estar desatualizado.",
     "no_busy_headline": "sem agenda que marque ocupado",
     "no_busy_detail": "Nenhuma agenda marca você como ocupado",
     "setup": "Configuração",

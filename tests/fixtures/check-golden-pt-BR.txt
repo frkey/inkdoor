@@ -3,8 +3,8 @@
   ✔ agenda acessível (1 KB)
   ✔ 12 compromissos nos próximos 14 dias
      14/10     9:00  Daily
-     15/10     9:00  Daily
-     16/10     9:00  Daily
+     14/10    13:30  Roadmap review
+     14/10    13:30  Roadmap Review
 
 ■ Company
   ✔ agenda acessível (1 KB)
