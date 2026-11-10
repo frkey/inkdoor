@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import pytest
 
 from inkdoor import config
 from inkdoor.i18n import Translator
+
+EXAMPLE = Path(__file__).resolve().parent.parent / "config.example.toml"
 
 
 def write(tmp_path, text):
@@ -106,6 +110,13 @@ def test_well_typed_calendar_and_tasks_load(tmp_path):
                                       '[[calendar]]\nname = "B"\n\n'
                                       '[tasks]\nurl = "https://tasks.example/t.ics"\n'))
     assert cfg["calendar"][0]["busy"] is False and "url" not in cfg["calendar"][1]
+
+
+def test_example_leaves_the_door_word_to_the_language():
+    # real configs start from the example (copied by hand, and whole by the first installer), and
+    # a status_label is shown as written: it would put English on a pt-BR door
+    cfg = config.load(str(EXAMPLE), language="pt-BR")
+    assert [c.get("status_label") for c in cfg["calendar"]] == [None] * len(cfg["calendar"])
 
 
 @pytest.mark.parametrize("value", [None, "", 5, ["x"], {"a": 1}, True])
