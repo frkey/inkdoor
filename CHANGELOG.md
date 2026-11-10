@@ -9,6 +9,13 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- `config.example.toml` no longer sets `status_label = "Busy"` on the Personal calendar, which
+  showed **BUSY** in English on doors in other languages. A config started from it (by hand, or by
+  the first installer) keeps the label: if your door shows a word in the wrong language, clear
+  **Door word** for that calendar in the admin to get the translated default.
+
 ## [1.1.0] - 2026-10-16
 
 A security release. Kindle scripts: 1.2.0 (unchanged).

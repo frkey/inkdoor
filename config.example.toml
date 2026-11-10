@@ -24,7 +24,8 @@ refresh_minutes = 5         # re-read the calendars on the clock (10:00, 10:05..
 #   name          shown on the screen and in the legend
 #   style         marker on the screen (e-ink has no color): "solid", "striped" or "outline"
 #   busy          true: makes the door say "In a meeting"; false: listed only (e.g. reminders)
-#   status_label  big word on the door during this calendar's events (default: "In a meeting")
+#   status_label  big word on the door during this calendar's events, e.g. "Busy". Shown as
+#                 written whatever the language; leave it out for "In a meeting", translated
 #   url           ICS link (see docs/calendar-sources.md)
 
 [[calendar]]
@@ -43,7 +44,6 @@ url = "PASTE_YOUR_SECOND_ICS_LINK"
 name = "Personal"
 style = "outline"
 busy = true
-status_label = "Busy"
 url = "PASTE_YOUR_GOOGLE_SECRET_ICAL_ADDRESS"
 
 # ---------- Tasks ----------
