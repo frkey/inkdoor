@@ -16,6 +16,12 @@ It is shown next to each release.
   the first installer) keeps the label: if your door shows a word in the wrong language, clear
   **Door word** for that calendar in the admin to get the translated default.
 
+### Security
+
+- Installs and updates with `deploy/install.sh` get Pillow 13.0.0, setuptools 84.2.1 and certifi
+  2026.10.23, which fix known vulnerabilities. Pillow 13 needs Python 3.11, so servers on Python
+  3.10 (Ubuntu 22.04) keep Pillow 12.3.0 for now.
+
 ## [1.1.0] - 2026-10-16
 
 A security release. Kindle scripts: 1.2.0 (unchanged).
