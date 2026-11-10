@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- The dashed line after a free gap in today's list ("free · 1h") no longer runs a few pixels past
+  the right margin.
+
 ## [1.1.1] - 2026-11-10
 
 A security and bug-fix release. Kindle scripts: 1.2.0 (unchanged).
