@@ -7,8 +7,8 @@ from PIL import Image
 from inkdoor.config import SCREENS, with_defaults
 from inkdoor.demo import demo_config, demo_snapshot
 from inkdoor.i18n import Translator
-from inkdoor.render import (H, W, M, compute_status, render, render_error, render_host_rejected,
-                            render_setup, screen_size, translator_for)
+from inkdoor.render import (H, W, M, Canvas, Row, compute_status, draw_rows, render, render_error,
+                            render_host_rejected, render_setup, screen_size, translator_for)
 from inkdoor.sources import Snapshot, collect
 
 KINDLE_GRAYS = {i * 17 for i in range(16)}
@@ -49,6 +49,18 @@ def test_never_free_when_a_busy_calendar_is_unreadable(cfg):
     cfg["calendar"][0]["url"] = "/does/not/exist.ics"   # Work fails, no cache
     st = compute_status(collect(cfg, at("10:00")), cfg, Translator("en-US"))
     assert st.busy and st.word == "Knock first" and "Work" in st.detail
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+def test_gap_dashes_stay_inside_the_right_margin(language):
+    # the dashes start right after the text, so where the last one ends depends on its width
+    t = Translator(language)
+    for minutes in range(30, 600, 7):
+        img = Image.new("L", (W, H), 255)
+        text = t("agenda.gap", duration=t.duration(minutes))
+        draw_rows(Canvas(img), [Row("gap", 52, text=text)], 0, H, at("10:00"), t)
+        right = img.point(lambda v: 255 - v).getbbox()[2] - 1   # last column that is not white
+        assert right <= W - M, text
 
 
 def test_workday_end_24_is_accepted(cfg):

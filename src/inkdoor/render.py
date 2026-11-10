@@ -395,7 +395,7 @@ def draw_rows(d, rows: list[Row], y, y_max, now, t: Translator):
             f = font("Medium", 26)
             d.text((col_text, mid - 17), r.text, font=f, fill=GRAY)
             x = col_text + d.textlength(r.text, font=f) + 18
-            while x < W - M:
+            while x + 8 <= W - M:    # the whole dash inside the margin, not just its start
                 d.line((x, mid, x + 8, mid), fill=LIGHT, width=3)
                 x += 18
         elif r.kind == "now":
