@@ -9,6 +9,10 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-10
+
+A bug-fix release. Kindle scripts: 1.2.0 (unchanged).
+
 ### Fixed
 
 - The dashed line after a free gap in today's list ("free · 1h") no longer runs a few pixels past
@@ -125,7 +129,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/frkey/inkdoor/releases/tag/v1.1.2
 [1.1.1]: https://github.com/frkey/inkdoor/releases/tag/v1.1.1
 [1.1.0]: https://github.com/frkey/inkdoor/releases/tag/v1.1.0
 [1.0.0]: https://github.com/frkey/inkdoor/releases/tag/v1.0.0
