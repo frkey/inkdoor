@@ -466,23 +466,18 @@ select[aria-invalid="true"] {
   gap: 8px;
 }
 
-.choice,
-.check {
+.choice {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 500;
   cursor: pointer;
-}
-
-.choice {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
 }
 
-.choice input,
-.check input {
+.choice input {
   width: 18px;
   height: 18px;
   margin: 0;
@@ -525,68 +520,8 @@ select[aria-invalid="true"] {
   max-width: 640px;
 }
 
-.sources {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .card + .form-card {
   margin-top: 16px;
-}
-
-.source-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin-bottom: 8px;
-}
-
-/* marker and name stay together; the badge drops below a long name */
-.source-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.source-head h2 {
-  margin: 0;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
-.badge {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 10px;
-  color: var(--ink);
-}
-
-.badge-quiet {
-  color: var(--muted);
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 4px 16px;
-  margin: 0 0 14px;
-}
-
-.facts dt {
-  color: var(--muted);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .mask {
@@ -773,16 +708,6 @@ input[readonly] {
   color: var(--muted);
 }
 
-.field-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 16px;
-}
-
-.field-pair .field {
-  margin-bottom: 6px;
-}
-
 .field-pair-help {
   margin: 0 0 20px;
 }
@@ -888,14 +813,6 @@ input[readonly] {
     font-size: 1.75rem;
   }
 
-  .facts {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
-  .facts dd {
-    margin-bottom: 6px;
-  }
 }
 
 /* Home: the Kindle files download, above the address to copy by hand */
@@ -1293,5 +1210,112 @@ html {
     width: 100%;
     padding: 0 2px;
     font-size: 0.875rem;
+  }
+}
+
+/* --- lists of sources: one card, one row each (Calendars) --- */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 20px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 16px;
+  padding: 16px 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.row-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.row-main {
+  min-width: 0;
+}
+
+.row-main h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-actions form {
+  margin: 0;
+}
+
+/* the link test's result, under the whole row */
+.row .test-slot {
+  grid-column: 1 / -1;
+}
+
+/* a form or a column of cards that should not stretch across the page */
+.form-col {
+  max-width: 640px;
+}
+
+/* removing something: its own card, last on the page */
+.danger-zone .help {
+  margin-bottom: 14px;
+}
+
+.danger-zone form {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .rows {
+    padding: 0 16px;
+  }
+
+  .row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 12px;
+  }
+
+  .row-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+/* a link test's result inside a settings card sits between the header and the form */
+.settings .test-slot:not(:empty) {
+  margin: -4px 0 20px;
+}
+
+/* the way from the link field to the help in the side column, where that column is below */
+.side-jump {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .side-jump {
+    display: block;
+    margin: -12px 0 20px;
   }
 }

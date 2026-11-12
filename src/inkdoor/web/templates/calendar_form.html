@@ -5,41 +5,58 @@
 {% block title %}{{ heading }} · {{ t("admin.title") }}{% endblock %}
 {% block content %}
 <p class="back"><a href="/calendars">{{ t("admin.back_calendars") }}</a></p>
-<section class="card form-card">
+<div class="page-head">
   <h1>{{ heading }}</h1>
-  {% if form_error %}<p class="alert" role="alert">{{ form_error }}</p>{% endif %}
-  <form method="post" action="{{ '/calendars/new' if index is none else '/calendars/%d' % index }}"
-        class="form">
-    {{ m.form_fields(digest) }}
-    {{ m.text_field("name", t("admin.field_name"), values.name, errors,
-                    help=t("admin.field_name_help"), maxlength=60, required=True) }}
-    <fieldset class="field">
-      <legend>{{ t("admin.field_style") }}</legend>
-      <div class="choices">
-        {% for style in styles %}
-        <label class="choice">
-          <input type="radio" name="style" value="{{ style }}"{% if values.style == style %} checked{% endif %}>
-          <span class="marker marker-{{ style }}" aria-hidden="true"></span>
-          {{ t("admin.style_" ~ style) }}
-        </label>
-        {% endfor %}
-      </div>
-      {{ m.field_error("style", errors) }}
-    </fieldset>
-    <div class="field">
-      <label class="check">
-        <input type="checkbox" name="busy" value="1"{% if values.busy %} checked{% endif %}
-               aria-describedby="busy-help">
-        {{ t("admin.field_busy") }}
-      </label>
-      <p class="help" id="busy-help">{{ t("admin.field_busy_help") }}</p>
-    </div>
-    {{ m.text_field("status_label", t("admin.field_status_label"), values.status_label, errors,
-                    help=t("admin.field_status_label_help", default=default_label), maxlength=30,
-                    placeholder=default_label) }}
-    {{ m.link_field(errors, link, index is none,
-                    t("admin.field_link_help_new") if index is none else t("admin.field_link_help_edit"),
-                    repaste) }}
+</div>
+<div class="split">
+  <div class="settings">
+    <section class="card">
+      {% if form_error %}<p class="alert" role="alert">{{ form_error }}</p>{% endif %}
+      <form method="post" action="{{ '/calendars/new' if index is none else '/calendars/%d' % index }}">
+        {{ m.form_fields(digest) }}
+        {{ m.text_field("name", t("admin.field_name"), values.name, errors,
+                        help=t("admin.field_name_help"), maxlength=60, required=True) }}
+        <fieldset class="field">
+          <legend>{{ t("admin.field_style") }}</legend>
+          <div class="choices">
+            {% for style in styles %}
+            <label class="choice">
+              <input type="radio" name="style" value="{{ style }}"{% if values.style == style %} checked{% endif %}>
+              <span class="marker marker-{{ style }}" aria-hidden="true"></span>
+              {{ t("admin.style_" ~ style) }}
+            </label>
+            {% endfor %}
+          </div>
+          {{ m.field_error("style", errors) }}
+        </fieldset>
+        <div class="field">
+          {{ m.switch("busy", t("admin.field_busy"), values.busy, described_by="busy-help") }}
+          <p class="help" id="busy-help">{{ t("admin.field_busy_help") }}</p>
+        </div>
+        {{ m.text_field("status_label", t("admin.field_status_label"), values.status_label, errors,
+                        help=t("admin.field_status_label_help", default=default_label), maxlength=30,
+                        placeholder=default_label) }}
+        {{ m.link_field(errors, link, index is none,
+                        t("admin.field_link_help_new") if index is none else t("admin.field_link_help_edit"),
+                        repaste) }}
+        {# on a phone the side column is below the form: a way to it from the link field #}
+        <p class="help side-jump"><a href="#link-howto">{{ t("admin.howto_link_title") }}</a></p>
+        <div class="form-actions">
+          <button type="submit">{{ t("admin.save") }}</button>
+          <a class="button-secondary" href="/calendars">{{ t("admin.cancel") }}</a>
+        </div>
+      </form>
+    </section>
+    {% if index is not none %}
+    <section class="card danger-zone" aria-labelledby="remove-title">
+      <h2 id="remove-title">{{ t("admin.remove_calendar_title") }}</h2>
+      <p class="help">{{ t("admin.remove_calendar_help") }}</p>
+      {{ m.action("/calendars/%d/delete" % index, digest, t("admin.remove"), "button-danger",
+                  confirm=t("admin.confirm_remove_calendar", name=name)) }}
+    </section>
+    {% endif %}
+  </div>
+  <aside class="side" id="link-howto">
     {% call m.howto(t("admin.howto_link_title"), open=index is none) %}
     <h3>{{ t("admin.howto_outlook_title") }}</h3>
     {{ m.steps("admin.howto_outlook") }}
@@ -51,10 +68,6 @@
     <p class="help">{{ t("admin.howto_secret") }}
       <a href="{{ docs_url('calendar-sources.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_more") }}</a></p>
     {% endcall %}
-    <div class="form-actions">
-      <button type="submit">{{ t("admin.save") }}</button>
-      <a class="button-secondary" href="/calendars">{{ t("admin.cancel") }}</a>
-    </div>
-  </form>
-</section>
+  </aside>
+</div>
 {% endblock %}
