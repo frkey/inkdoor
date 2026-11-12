@@ -20,7 +20,7 @@ def test_defaults_and_language_override(tmp_path):
     assert cfg["server"] == {"port": 3667, "refresh_minutes": 5}
 
 
-@pytest.mark.parametrize("text, key", [
+INVALID = [
     ("[display\n", "syntax"),
     ('[display]\ntimezone = "Mars/Olympus"\n', "timezone"),
     ("[display]\nworkday_end = 25\n", "hour"),
@@ -39,11 +39,25 @@ def test_defaults_and_language_override(tmp_path):
     ('admin = true\n', "section"),
     ('[display]\nscreen = "1080x1440"\n', "screen"),
     ('[display]\nscreen = 1072\n', "screen"),
-])
+]
+
+
+@pytest.mark.parametrize("text, key", INVALID)
 def test_invalid_values_are_explained(tmp_path, text, key):
     with pytest.raises(config.ConfigInvalid) as err:
         config.load(write(tmp_path, text))
     assert err.value.key == key
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("text, key", INVALID)
+def test_every_config_error_translates(tmp_path, language, text, key):
+    # every caller translates with t(f"config_error.{ex.key}", **ex.details): a detail named "key"
+    # must not clash with the translator's own parameter
+    with pytest.raises(config.ConfigInvalid) as err:
+        config.load(write(tmp_path, text))
+    message = Translator(language)(f"config_error.{err.value.key}", **err.value.details)
+    assert message and "{" not in message
 
 
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])
