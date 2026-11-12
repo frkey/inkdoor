@@ -932,7 +932,19 @@ def test_a_change_on_another_day_carries_its_date_and_no_word(app, state, render
     page = home_page(app)
     assert EN("admin.next_change_on", date=EN.date_short(day_at("09:00", 15)),
               time=EN.time(day_at("09:00", 15))) in page
-    assert EN("admin.next_change", time=EN.time(day_at("09:00", 15))) not in page
+    assert EN("admin.screen_change", time=EN.time(day_at("09:00", 15))) not in page
+
+
+def test_a_change_that_keeps_the_word_is_told_as_the_screens(app, state, rendered):
+    """The next change can be a listed event or the "in 15 min" notice: the status stays, so
+    the line must not read as a change of status."""
+    state.last_render = info(word="In a meeting", headline="until 11:00 AM",
+                             next_word="In a meeting", next_change=day_at("10:45"))
+    page = home_page(app)
+    line = EN("admin.screen_change", time=EN.time(day_at("10:45")))
+    assert "screen" in line and line in page
+    assert str(escape(EN("admin.next_change_to", word="In a meeting",
+                         time=EN.time(day_at("10:45"))))) not in page
 
 
 def test_home_preview_names_the_night_light_hours(app, state, rendered):

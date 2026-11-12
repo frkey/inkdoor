@@ -251,7 +251,7 @@
     "last_update": "Last update: {date}, {time}",
     "not_rendered": "The screen has not been drawn yet.",
     "status_stale": "The image is out of date, so the Kindle shows a notice instead of the status. The server may be stuck reading a calendar.",
-    "next_change": "Next change at {time}",
+    "screen_change": "The screen changes again at {time}",
     "next_change_on": "Next change {date}, {time}",
     "next_change_to": "Changes to “{word}” at {time}",
     "next_update": "Next update at {time}",
