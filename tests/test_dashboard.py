@@ -79,3 +79,11 @@ def test_next_word_is_the_status_at_the_next_change():
     assert next_word(snap, cfg(), t, None) is None
     assert next_word(snapshot(configured="nothing"), cfg(), t, at("11:00")) is None
     assert snap.now == at("10:20")                                   # the snapshot is not changed
+
+
+def test_no_next_word_for_a_change_on_another_day():
+    # the snapshot's status only knows today's events: tomorrow 9:00 would wrongly read as free
+    snap = snapshot(now="20:00", events=[event("10:00", "11:00")])
+    snap.tomorrow = [event("09:00", "10:00", day=15)]
+    assert next_word(snap, cfg(), Translator("en-US"), at("09:00", 15)) is None
+    assert next_word(snap, cfg(), Translator("en-US"), at("00:00", 15)) is None

@@ -69,8 +69,9 @@ def timeline_view(t, timeline, now: dt.datetime) -> dict | None:
         ticks.append(moment)
         moment += step
     ticks.append(timeline.end)
-    periods = ", ".join(f"{t.time(b.start)}–{t.time(b.end)}" for b in timeline.blocks if b.busy)
-    return {"width": TIMELINE_WIDTH, "blocks": blocks,
+    periods = ", ".join(t("admin.timeline_period", start=t.time(b.start), end=t.time(b.end))
+                        for b in timeline.blocks if b.busy)
+    return {"blocks": blocks,
             "now_x": x(now) if timeline.start <= now <= timeline.end else None,
             "ticks": [(t.time(tick), x(tick)) for tick in ticks],
             "summary": t("admin.timeline_alt", periods=periods) if periods
@@ -85,7 +86,10 @@ def status_facts(t, last, next_render_at: float | None, last_fetch_at: float | N
     facts = []
     if known and last.next_change is not None:
         when = t.time(last.next_change)
-        if last.next_word and last.next_word != last.word:
+        if last.next_change.date() != last.at.date():
+            facts.append(t("admin.next_change_on", date=t.date_short(last.next_change),
+                           time=when))
+        elif last.next_word and last.next_word != last.word:
             facts.append(t("admin.next_change_to", word=last.next_word, time=when))
         else:
             facts.append(t("admin.next_change", time=when))

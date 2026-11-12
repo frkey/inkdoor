@@ -47,7 +47,8 @@ def build_timeline(snap: Snapshot, cfg: dict) -> Timeline | None:
 
 def next_word(snap: Snapshot, cfg: dict, t: Translator, when: dt.datetime | None) -> str | None:
     """The door's word at ``when`` (its next change) as far as this snapshot knows, or None
-    when there is no next change or nothing is set up."""
-    if when is None or snap.configured == "nothing":
+    when there is no next change, nothing is set up, or the change is on another day (the
+    status is worked out from today's events only)."""
+    if when is None or snap.configured == "nothing" or when.date() != snap.now.date():
         return None
     return compute_status(dataclasses.replace(snap, now=when), cfg, t).word

@@ -1468,8 +1468,8 @@ html {
     padding: 20px;
   }
 
-  /* fewer hour labels: every other one */
-  .tl-tick:nth-of-type(even) {
+  /* fewer hour labels: every other one, and always the end of the day */
+  .tl-tick:nth-of-type(even):not(.tl-last) {
     display: none;
   }
 }

@@ -926,6 +926,22 @@ def test_home_says_when_no_kindle_fetched_the_image(app, state, rendered, clock)
     assert EN("admin.last_fetch_now") in home_page(app)
 
 
+def test_a_change_on_another_day_carries_its_date_and_no_word(app, state, rendered):
+    state.last_render = info(word="Free", headline="after hours", at="20:00",
+                             next_change=day_at("09:00", 15))
+    page = home_page(app)
+    assert EN("admin.next_change_on", date=EN.date_short(day_at("09:00", 15)),
+              time=EN.time(day_at("09:00", 15))) in page
+    assert EN("admin.next_change", time=EN.time(day_at("09:00", 15))) not in page
+
+
+def test_home_preview_names_the_night_light_hours(app, state, rendered):
+    state.last_render = info()
+    assert "Light off" not in home_page(app)
+    state.cfg["display"].update(light_off="22:00", light_on="07:00")
+    assert EN("admin.preview_light", off="10:00 PM", on="7:00 AM") in home_page(app)
+
+
 def test_status_json_keeps_its_fields(app, state, rendered):
     state.last_render = info(sources=[health("Work", "ok")])
     data = get(logged_in(app), "/status.json").get_json()
@@ -940,6 +956,7 @@ def test_timeline_view_places_blocks_in_a_1000_wide_box():
     assert view["ticks"][0][0] == "8:00 AM" and view["ticks"][-1][0] == "6:00 PM"
     late = home.timeline_view(EN, timeline(start="08:00", end="18:00"), day_at("20:00"))
     assert late["now_x"] is None and late["summary"] == EN("admin.timeline_none")
+    assert "width" not in view
     assert home.timeline_view(EN, None, day_at("13:00")) is None
 
 
