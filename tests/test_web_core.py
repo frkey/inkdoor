@@ -1,12 +1,16 @@
 """The admin app core: guards, login, sessions, headers and the public Kindle route."""
+import datetime as dt
 import io
 import logging
+import os
 import re
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from PIL import Image
 
+from inkdoor import light
 from inkdoor.config import with_defaults
 from inkdoor.i18n import Translator
 from inkdoor.state import RenderInfo, ServerState
@@ -704,3 +708,72 @@ def test_kindle_png_from_an_earlier_run_is_replaced_when_old(app, state, clock, 
     old = clock.now - refresh - state.STALE_AFTER - 60               # the server was down
     os.utime(rendered, (old, old))
     assert _is_stale_screen(get(c, "/kindle.png").data)
+
+
+# --- night light ------------------------------------------------------------------------------
+
+def epoch(y, m, d, h, mi, tz="America/Sao_Paulo") -> float:
+    return dt.datetime(y, m, d, h, mi, tzinfo=ZoneInfo(tz)).timestamp()
+
+
+def at_time(clock, rendered, when: float) -> None:
+    """Moves the clock and the image together, so image_stale never depends on the real date."""
+    clock.now = when
+    os.utime(rendered, (when, when))
+
+
+def night(state):
+    state.cfg["display"].update(light_off="22:00", light_on="07:00")
+
+
+def test_kindle_png_turns_the_light_off_at_night(app, state, clock, rendered):
+    night(state)
+    at_time(clock, rendered, epoch(2026, 11, 11, 23, 0))
+    assert get(client(app), "/kindle.png").headers["X-Inkdoor-Light"] == "off"
+    at_time(clock, rendered, epoch(2026, 11, 12, 7, 0))
+    assert get(client(app), "/kindle.png").headers["X-Inkdoor-Light"] == "on"
+
+
+def test_kindle_png_says_on_when_the_schedule_is_not_set(app, clock, rendered):
+    at_time(clock, rendered, epoch(2026, 11, 11, 23, 0))
+    assert get(client(app), "/kindle.png").headers["X-Inkdoor-Light"] == "on"
+
+
+def test_kindle_png_comes_back_right_after_a_light_change(app, state, clock, rendered):
+    night(state)
+    at_time(clock, rendered, epoch(2026, 11, 11, 21, 58))             # 120 s before 22:00
+    c = client(app)
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "125"   # the light alone
+    state.next_render_at, state.render_seconds = clock.now + 600, 0
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "125"   # the sooner one wins
+    state.next_render_at = clock.now + 60
+    assert get(c, "/kindle.png").headers["X-Inkdoor-Next"] == "65"
+
+
+def test_light_header_only_on_real_images(app, state, clock, rendered):
+    night(state)
+    at_time(clock, rendered, epoch(2026, 11, 11, 23, 0))
+    rejected = get(client(app), "/kindle.png", headers={"Host": "evil.com"})
+    assert rejected.status_code == 200 and "X-Inkdoor-Light" not in rejected.headers
+    rendered.unlink()
+    missing = get(client(app), "/kindle.png")
+    assert missing.status_code == 503 and "X-Inkdoor-Light" not in missing.headers
+
+
+def test_stale_image_still_carries_the_light(app, state, clock, rendered):
+    night(state)
+    at_time(clock, rendered, epoch(2026, 11, 11, 23, 0))
+    state.next_render_at = clock.now - state.STALE_AFTER - 60          # far past its render
+    r = get(client(app), "/kindle.png")
+    assert _is_stale_screen(r.data) and r.headers["X-Inkdoor-Light"] == "off"
+
+
+def test_a_light_bug_never_stops_the_door(app, state, clock, rendered, monkeypatch):
+    def boom(*_):
+        raise RuntimeError("bug")
+    night(state)
+    at_time(clock, rendered, epoch(2026, 11, 11, 23, 0))
+    monkeypatch.setattr(light, "light_state", boom)
+    r = get(client(app), "/kindle.png")
+    assert r.status_code == 200 and r.data == rendered.read_bytes()
+    assert "X-Inkdoor-Light" not in r.headers
