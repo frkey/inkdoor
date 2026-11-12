@@ -37,8 +37,10 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 
 - Both absent: the feature is off (the default; `DISPLAY_DEFAULTS` gets no entry for them).
 - Validation in `config.validate` raises `ConfigInvalid` (new translated keys under
-  `config_error`) when only one of them is set, when a value is not a string matching
-  `^([01][0-9]|2[0-3]):[0-5][0-9]$`, or when both are equal.
+  `config_error`) when only one of them is set, when a value is not a string fully matching
+  `([01][0-9]|2[0-3]):[0-5][0-9]` (ASCII digits only), or when both are equal. The error names the
+  key in a `field` detail, never `key` (that name clashes with `Translator.__call__`'s own
+  parameter), and never repeats the value.
 - The period may cross midnight (`22:00` → `07:00`) or not (`13:00` → `14:00`).
 - Strings rather than TOML local times: `22:00` without seconds is not valid TOML 1.0, and a
   hand-edited file should accept what people naturally type.
@@ -70,8 +72,9 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
   leaving it off for good.
 - Not sent with the 503 "not rendered yet" text or the rejected-host image: the Kindle only acts on
   the light after a valid image download, and a request the server rejects should change nothing.
-  Defensively, it is not sent when `state.cfg` is not a dict (`state.cfg` is otherwise always a
-  validated config, the last valid one or the defaults).
+  The route reads `state.cfg` once for both light values, and an unexpected error in the light
+  code drops the light headers but still serves the image: a light bug must never stop the door
+  from updating.
 - `X-Inkdoor-Next` becomes the smaller of the current wait and the seconds until
   `next_light_change` plus `NEXT_MARGIN`, so the Kindle comes back just after 22:00 instead of up
   to `INTERVAL` later. When `state.next_render_at` is `None` but a light change is ahead, the header
@@ -88,8 +91,15 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 
 ### `kindle/inkdoor/common.sh`
 
-- `BACKLIGHT=/sys/class/backlight` and `LIGHT_SAVED="$DIR/light-saved"` near the other paths (the
-  tests redirect both).
+- `LIGHT_SAVED="$DIR/light-saved"` and `LIGHT_NODES` near the other paths (the tests redirect
+  both). `LIGHT_NODES` lists the white-light brightness files of the models where `lipc` level 0
+  still glows (KOReader's `canTurnFrontlightOff = no`): Paperwhite 1
+  (`/sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity`) and Paperwhite 2, Voyage and
+  Paperwhite 3 (`/sys/class/backlight/max77696-bl/brightness`). A fixed list rather than a glob:
+  warm-light models (Oasis 3, Paperwhite 5, ...) turn off at `lipc` 0 and have amber nodes in
+  `/sys/class/backlight` that must not be touched.
+- Every `apply_light` variable starts with `light_` (POSIX sh has no `local`, and `loop.sh` has
+  its own variables), and every path returns 0.
 - New `apply_light`, reading `X-Inkdoor-Light` from `$HEADERS` case-insensitively, the same way
   `next_wait` reads `X-Inkdoor-Next` (curl and `wget -S` header formats):
   - `off`:
@@ -97,12 +107,16 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
        if the answer is a whole number, write it to `$LIGHT_SAVED` and log
        `light off (saved level N)`; otherwise stop here and leave the light alone, since a light
        turned off without a saved level could never be restored;
-    2. `lipc-set-prop com.lab126.powerd flIntensity 0`;
-    3. then write `0` to every writable `$BACKLIGHT/*/brightness`. On some models level 0 through
-       `lipc` still leaves a faint glow; the sysfs write turns the LEDs fully off. `lipc` goes first
-       so `powerd` also believes the level is 0, and restoring later is a real change for it.
+    2. if the current level is not already 0, `lipc-set-prop com.lab126.powerd flIntensity 0`
+       (skipping it when it is 0 spares `powerd` a preference write on every fetch); if that set
+       fails, stop here;
+    3. then write `0` to each existing, writable file in `LIGHT_NODES` that does not already read
+       0. `lipc` goes first so `powerd` also believes the level is 0, and restoring later is a real
+       change for it; never writing sysfs after a failed `lipc` set keeps `powerd` and the
+       hardware in step.
 
-    Repeated on every fetch during the night: cheap and idempotent.
+    Repeated on every fetch during the night, so a level `powerd` re-applies on its own lasts at
+    most `INTERVAL`.
   - `on`: if `$LIGHT_SAVED` holds a whole number, `lipc-set-prop com.lab126.powerd flIntensity N`;
     only when that succeeds, remove the file and log `light on (level N)` (a failure keeps the file
     for the next fetch). A file with anything else is removed without changing the light. No file: nothing happens, so users who never set a schedule see no
@@ -124,11 +138,14 @@ Calls `apply_light` right after a successful `download`, before drawing the imag
 `kindle_files.KINDLE_VERSION` goes to `(1, 3, 0)` and `SCRIPTS_SHA256` is updated. The KPM
 uninstall hook already removes `/mnt/us/inkdoor`, including `light-saved`; it needs no change.
 
-### Accepted edge case
+### Accepted edge cases
 
-If the Kindle is restarted at night to use it normally, its frontlight may be at 0 and the user
-raises it by hand. If inkdoor later runs during the day, it restores the level saved before that
-night. Rare, and harmless.
+- If the Kindle is restarted at night to use it normally, or inkdoor is uninstalled through KPM at
+  night, its frontlight may be at 0 and the user raises it by hand. If inkdoor later runs during
+  the day, it restores the level saved before that night. Rare, and harmless.
+- When clocks go back and `light_on` falls in the repeated hour (e.g. `01:30` in New York on
+  2026-11-01), the wall-time state turns the light on at the first `01:30` and off again for the
+  repeated part of the hour. Once a year, only with such a schedule in such a zone.
 
 ## Web admin
 
@@ -139,8 +156,8 @@ fieldset after the workday settings:
 - two `<input type="time">` fields, "Off at" (`light_off`) and "On at" (`light_on`). When the file
   has no schedule they are prefilled with `22:00` and `07:00` as a suggestion, written only if the
   box is checked;
-- a short help text: it needs the Kindle scripts 1.3.0 or newer (updated through KPM), and the
-  light returns to the level it had before.
+- a short help text: it needs the Kindle scripts 1.3.0 or newer (`;kpm update`, then
+  `;kpm upgrade`), and the light returns to the level it had before.
 
 `forms.screen_form` validates them when the box is checked (both required, `HH:MM`, different) with
 translated errors. `_apply_screen` writes both keys when the box is checked and removes both when it
@@ -155,6 +172,9 @@ is not; the rest of the page keeps its "do not write unchanged defaults" behavio
   the server is unreachable.
 - The `[display]` row of the key table in `README.md` and `README.pt-BR.md`.
 - `config.example.toml`: both keys, commented out.
+- `CLAUDE.md`, "Conventions": the bullet on the `/kindle.png` header contract also names
+  `X-Inkdoor-Light`.
+- en-US docs write times as 10:00 PM / 7:00 AM, except when quoting config values (`"22:00"`).
 - `CHANGELOG.md`: a line under `## [Unreleased]`.
 
 ## Testing
@@ -173,11 +193,12 @@ Python (`pytest`):
 - Admin: the Screen form round trip (enable, edit, disable removes both keys, validation errors).
 - `kindle_files`: the version and hash test.
 
-Shell (`tests/test_kindle_scripts.py`, stub `lipc-get-prop`/`lipc-set-prop` on `PATH`, `BACKLIGHT`
-and `LIGHT_SAVED` redirected into `tmp_path`):
+Shell (`tests/test_kindle_scripts.py`, stub `lipc-get-prop`/`lipc-set-prop` on `PATH`,
+`LIGHT_NODES` and `LIGHT_SAVED` redirected into `tmp_path`):
 
-- `off` saves the level once and sets 0 through lipc and sysfs; a second `off` keeps the first
-  saved level;
+- `off` saves the level once and sets 0 through lipc and the listed sysfs files, leaving other
+  files in `/sys/class/backlight` (an amber node) alone; a second `off` keeps the first saved
+  level; a level already at 0 skips the lipc set; a failing lipc set leaves sysfs alone;
 - `on` restores the saved level and removes the file; `on` without a file does nothing; a failing
   `lipc-set-prop` keeps the file;
 - no header, an unknown value, a non-numeric `lipc-get-prop` answer and a missing `lipc` change
@@ -189,10 +210,11 @@ ShellCheck on `kindle/` as in CI.
 
 ### Hardware
 
-The tests cannot show that `flIntensity 0` plus the sysfs write really turns the LEDs off, or that
-the level comes back, on a given model. The PR's test plan gets an item for the maintainer to check
-on a real Kindle (off at the start of the period, on at its end, the previous level restored, and
-after a reboot during the night). If that check is still pending when the PR merges, an issue with
+The tests cannot show that `powerd` still answers `lipc` after `stop lab126_gui` (`loop.sh` only
+calls wifid after it today), that `flIntensity 0` plus the sysfs write really turns the LEDs off,
+or that the level comes back, on a given model. The PR's test plan gets an item for the maintainer
+to check on a real Kindle (off at the start of the period, on at its end, the previous level
+restored, and after a reboot during the night), naming the model checked. If that check is still pending when the PR merges, an issue with
 `status: needs hardware` tracks it.
 
 ## Tracking
