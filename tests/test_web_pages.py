@@ -1622,3 +1622,16 @@ def test_account_page_has_a_single_log_out(logged):
     page = logged.get("/account").get_data(as_text=True)
     assert page.count('action="/logout"') == 1
     assert Translator("en-US")("admin.session_help") in page
+
+
+def test_macros_find_the_current_value_whatever_its_type(app):
+    """config.toml holds numbers (workday_start = 8) where the form options are strings."""
+    m = _macros(app)
+    html = str(m.time_select("workday_start", "Starts at", 8, [("0", "0:00"), ("8", "8:00")], {}))
+    assert re.search(r'<option value="8"\s+selected', html) and html.count("selected") == 1
+    chips = str(m.chips("workdays", "Days", [0, 2], [("0", "Mon"), ("1", "Tue"), ("2", "Wed")], {}))
+    assert chips.count("checked") == 2 and not re.search(r'value="1"\s+checked', chips)
+    seg = str(m.segmented("n", "N", 2, [("1", "One"), ("2", "Two")], {}))
+    assert re.search(r'value="2"\s+checked', seg) and seg.count("checked") == 1
+    none = str(m.time_select("light_off", "Off", None, [("None", "?"), ("", "-")], {}))
+    assert "selected" not in none

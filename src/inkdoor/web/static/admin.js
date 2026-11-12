@@ -7,7 +7,8 @@
 //                           element with that id; data-error is shown when the test cannot run
 //   button[data-copy]       copies the text of the element with that id (shown only with JS)
 //   [data-preview]          the home page's preview: with data-poll (after a save or Update now),
-//                           asks /status.json every 3 s for a minute and shows the new screen
+//                           asks /status.json every 3 s for a minute and reloads the page when
+//                           a new screen was drawn
 (function () {
   "use strict";
 
@@ -143,29 +144,6 @@
   var POLL_EVERY = 3000;
   var POLL_TIMES = 20;  // one minute
 
-  function setStatus(name, text) {
-    var element = document.querySelector("[data-status=" + name + "]");
-    if (element) {
-      element.textContent = text || "";
-    }
-    return element;
-  }
-
-  function showErrors(errors) {
-    var box = document.querySelector("[data-status=errors]");
-    var list = box ? box.querySelector("ul") : null;
-    if (!list) {
-      return;
-    }
-    list.textContent = "";
-    (errors || []).forEach(function (source) {
-      var item = document.createElement("li");
-      item.textContent = source;
-      list.appendChild(item);
-    });
-    box.hidden = !errors || errors.length === 0;
-  }
-
   function pollPreview(frame) {
     if (!window.fetch || !window.JSON) {
       return;
@@ -179,19 +157,6 @@
 
     function stop() {
       window.clearInterval(timer);
-    }
-
-    function show(data) {
-      var image = frame.querySelector("img");
-      if (!image || !setStatus("word", data.word)) {
-        window.location.reload();  // nothing drawn when the page loaded: load it whole
-        return;
-      }
-      image.src = "/kindle.png?t=" + Date.now();
-      setStatus("headline", data.headline);
-      setStatus("updated", data.updated);
-      showErrors(data.errors);
-      frame.setAttribute("data-at", data.at);
     }
 
     function check() {
@@ -211,9 +176,9 @@
         })
         .then(function (data) {
           if (data && data.at && data.at !== at) {
-            at = data.at;
             stop();
-            show(data);
+            // the whole page: the status, the preview and the chip in the top bar change together
+            window.location.reload();
           }
         })
         .catch(function () {

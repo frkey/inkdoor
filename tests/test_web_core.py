@@ -810,3 +810,20 @@ def test_pages_carry_no_inline_style_or_script(app, rendered):
         assert " style=" not in page and "<style" not in page, path
         assert re.search(r"<script(?![^>]*\bsrc=)", page) is None, path
         assert re.search(r"\son[a-z]+=", page) is None, path
+
+
+def test_no_door_chip_while_the_image_is_stale(app, state, clock, rendered):
+    """A stuck render loop: the Kindle gets the stale notice, so the chip must not repeat an
+    old status as what the door says."""
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "Free", "until 5:00 PM", [])
+    at_time(clock, rendered, 2_000_000.0)
+    state.next_render_at = clock()
+    c = logged_in(app)
+    assert 'class="door-chip"' in get(c, "/screen").get_data(as_text=True)
+    clock.advance(ServerState.STALE_AFTER + 1)
+    assert 'class="door-chip"' not in get(c, "/screen").get_data(as_text=True)
+
+
+def test_no_door_chip_without_an_image(app, state):
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "Free", "until 5:00 PM", [])
+    assert 'class="door-chip"' not in get(logged_in(app), "/screen").get_data(as_text=True)

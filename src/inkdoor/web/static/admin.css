@@ -455,7 +455,8 @@ button[data-busy-label]:disabled {
   margin: 0;
 }
 
-input[aria-invalid="true"] {
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
   border-color: var(--danger);
 }
 

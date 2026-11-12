@@ -353,6 +353,19 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
             response.headers[name] = value
         return response
 
+    def door_status():
+        """What the door says, for the chip in the top bar, or None when nobody knows: nothing
+        rendered yet, no image, or an image so old that /kindle.png serves the stale notice
+        instead (the chip must not repeat an old "Free")."""
+        last = state.last_render
+        if last is None:
+            return None
+        try:
+            mtime = os.stat(os.path.join(state.output_dir, IMAGE_NAME)).st_mtime
+        except OSError:
+            return None
+        return None if state.image_stale(clock(), mtime) else last
+
     @app.context_processor
     def _template_globals():
         session = g.get("session")
@@ -363,8 +376,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
 
         # notices are taken only when a full page calls notices(), never by a fragment
         return {"t": t(), "csrf_field": csrf_field, "logged_in": session is not None,
-                # what the door says, for the chip in the top bar: only for a logged-in admin
-                "door": state.last_render if session is not None else None,
+                "door": door_status() if session is not None else None,
                 "notices": lambda: pop_notices(session),
                 "docs_url": lambda page: docs_url(t().language, page)}
 
