@@ -21,6 +21,7 @@ while true; do
     else
       eips -g "$IMG"
     fi
+    apply_light             # after the image: the light can never delay the door
     count=$((count + 1))
     failures=0
     pause="$(next_wait)"    # sooner when the server renders again soon (a meeting starts or ends)

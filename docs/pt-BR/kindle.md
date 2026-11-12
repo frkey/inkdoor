@@ -127,6 +127,13 @@ não inicia sozinho depois de reiniciar.
   e avisa o Kindle quando voltar, então o status muda em segundos. O `INTERVAL` é só a espera
   máxima entre atualizações; isso precisa dos scripts do Kindle a partir da versão 1.2
   (`;kpm upgrade` ou um zip novo).
+- **Escuro à noite**: a tela e-ink não emite luz; só a luz frontal do Kindle emite. Para ela não
+  iluminar o cômodo, ligue "Apagar a luz à noite" na página Tela do admin (ou `light_off` e
+  `light_on` no `config.toml`), por exemplo das 22:00 às 07:00. A porta continua mostrando o seu
+  status no escuro e, de manhã, a luz volta ao nível que tinha. Isso precisa dos scripts do Kindle
+  a partir da versão 1.3 (`;kpm update` e depois `;kpm upgrade`, ou um zip novo). Enquanto o
+  servidor estiver fora do ar a luz fica como está, e se você reiniciar o Kindle ou desinstalar o
+  inkdoor durante a noite, suba a luz na mão.
 - **Uma instância só**: tocar duas vezes em "start display" não inicia dois painéis.
 - **Sem conexão**: depois de 3 falhas seguidas, aparece "sem conexao com o PC" no canto da tela.
   O histórico fica em `inkdoor/log.txt`, e a

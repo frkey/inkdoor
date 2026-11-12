@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, request
 
 from .. import i18n
 from ..config import DISPLAY_DEFAULTS, SCREENS, SERVER_DEFAULTS
+from ..light import parse_time
 from . import forms
 from .editing import Editor
 
@@ -18,6 +19,8 @@ SCREEN_KEYS = [("display", key, DISPLAY_DEFAULTS[key])
                            "workdays", "min_gap_minutes")]
 SCREEN_KEYS += [("display", "clock", ""), ("server", "refresh_minutes",
                                             SERVER_DEFAULTS["refresh_minutes"])]
+# the night light times the form suggests when the file has none; written only when the box is ticked
+LIGHT_SUGGESTED = {"light_off": "22:00", "light_on": "07:00"}
 
 
 @lru_cache(maxsize=1)
@@ -44,6 +47,14 @@ def _screen_values(data: dict) -> dict:
     values["workdays"] = [d for d in forms.WEEKDAYS if d in days]
     values["refresh_minutes"] = server.get("refresh_minutes", SERVER_DEFAULTS["refresh_minutes"])
     values["port"] = server.get("port", SERVER_DEFAULTS["port"])
+    values["light_enabled"] = all(key in display for key in LIGHT_SUGGESTED)
+    for key, suggested in LIGHT_SUGGESTED.items():
+        # the suggestion only for a missing key: a bad hand-edited time shows empty, so a save
+        # asks for a time instead of quietly writing the suggestion over it
+        if key not in display:
+            values[key] = suggested
+        else:
+            values[key] = display[key] if parse_time(display[key]) else ""
     return values
 
 
@@ -62,6 +73,12 @@ def _apply_screen(data: dict, values: dict, keep_language: bool) -> None:
             table[key] = value
         elif value != default:
             data.setdefault(section, {})[key] = value
+    display = data.get("display")
+    if values["light_enabled"]:
+        data.setdefault("display", {}).update({key: values[key] for key in LIGHT_SUGGESTED})
+    elif display is not None:
+        for key in LIGHT_SUGGESTED:
+            display.pop(key, None)
 
 
 def register(bp: Blueprint, ed: Editor) -> None:

@@ -6,6 +6,8 @@ import os
 import sys
 from zoneinfo import ZoneInfo
 
+from .light import parse_time
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover
@@ -120,6 +122,22 @@ def _has_port(host: str) -> bool:
     return host.count(":") == 1                  # an unbracketed IPv6 address has several
 
 
+def _validate_light(display: dict) -> None:
+    """The night light schedule: both keys or neither, valid "HH:MM", not equal. The detail is
+    ``field`` and the value is never repeated back."""
+    keys = ("light_off", "light_on")
+    present = [key in display for key in keys]
+    if not any(present):
+        return
+    if not all(present):
+        raise ConfigInvalid("light_pair")
+    for key in keys:
+        if parse_time(display[key]) is None:
+            raise ConfigInvalid("light_time", field=key)
+    if display["light_off"] == display["light_on"]:
+        raise ConfigInvalid("light_same")
+
+
 def validate(cfg: dict) -> dict:
     display, server = cfg["display"], cfg["server"]
     try:
@@ -131,6 +149,7 @@ def validate(cfg: dict) -> dict:
             raise ConfigInvalid("hour", key=key, value=display[key])
     if not (isinstance(display["workdays"], list) and all(_is_int(d, 0, 6) for d in display["workdays"])):
         raise ConfigInvalid("workdays")
+    _validate_light(display)
     if display.get("clock") not in (None, "12h", "24h"):
         raise ConfigInvalid("clock", value=display["clock"])
     if not isinstance(display["screen"], str) or display["screen"] not in SCREENS:

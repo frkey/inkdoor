@@ -181,7 +181,7 @@ opção está explicada no [`config.example.toml`](config.example.toml):
 
 | Seção | Opções |
 |---|---|
-| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
+| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes`, `light_off`, `light_on` |
 | `[server]` | `port` (padrão 3667), `refresh_minutes` |
 | `[[calendar]]` | uma por agenda: `name`, `url`, `style` (`solid`, `striped`, `outline`), `busy` (se muda o status da porta), `status_label` (a palavra grande, por exemplo `"Ocupado"` para compromissos pessoais) |
 | `[tasks]` | o `url` da assinatura do TickTick, `overdue_days` |

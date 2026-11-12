@@ -10,6 +10,7 @@ import unicodedata
 
 from ..config import SCREENS, STYLES
 from ..i18n import Translator
+from ..light import parse_time
 from . import links
 
 NAME_MAX = 60
@@ -180,4 +181,16 @@ def screen_form(form, t: Translator, *, languages, timezones, language: str | No
         _text(form, "refresh_minutes")[:8]
     if refresh is None:
         errors["refresh_minutes"] = t("admin.error_refresh", low=REFRESH_MIN, high=REFRESH_MAX)
+
+    # the night light: both times are checked only when the box is ticked, and a time is shown
+    # back only when it is one, so nothing pasted there is ever repeated
+    values["light_enabled"] = _text(form, "light_enabled") == "1"
+    for key in ("light_off", "light_on"):
+        text = _text(form, key)
+        values[key] = text if parse_time(text) else ""
+        if values["light_enabled"] and not values[key]:
+            errors[key] = t("admin.error_light_time")
+    if values["light_enabled"] and not errors.keys() & {"light_off", "light_on"} and \
+            values["light_off"] == values["light_on"]:
+        errors["light_on"] = t("admin.error_light_same")
     return values, errors

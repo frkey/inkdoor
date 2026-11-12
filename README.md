@@ -179,7 +179,7 @@ setting is explained in [`config.example.toml`](config.example.toml):
 
 | Section | Settings |
 |---|---|
-| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes` |
+| `[display]` | `screen`, `language`, `timezone`, `clock`, `workday_start`, `workday_end`, `workdays`, `min_gap_minutes`, `light_off`, `light_on` |
 | `[server]` | `port` (default 3667), `refresh_minutes` |
 | `[[calendar]]` | one per calendar: `name`, `url`, `style` (`solid`, `striped`, `outline`), `busy` (whether it changes the door), `status_label` (the big word, e.g. `"Busy"` for personal events) |
 | `[tasks]` | the TickTick subscription `url`, `overdue_days` |

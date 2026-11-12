@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Added
+
+- An optional schedule turns the Kindle's frontlight off at night and brings it back to its
+  previous level in the morning (Screen page, or `light_off`/`light_on` in `[display]`). Needs the
+  Kindle scripts 1.3.0.
+
 ### Fixed
 
 - A whole-hour setting out of range in `config.toml` (for example `workday_end = 25`) is explained

@@ -16,6 +16,7 @@ and the app has no secret key.
 """
 from __future__ import annotations
 
+import datetime as dt
 import hmac
 import io
 import math
@@ -31,7 +32,7 @@ from flask import Flask, abort, g, redirect, render_template, request, send_from
 from markupsafe import Markup, escape
 from werkzeug.exceptions import HTTPException
 
-from .. import kindle_files
+from .. import kindle_files, light
 from ..i18n import Translator
 from ..render import render_error, render_host_rejected
 from ..render import screen_size as render_screen_size
@@ -48,8 +49,12 @@ SAFE_METHODS = frozenset({"GET", "HEAD"})
 PUBLIC_ENDPOINTS = frozenset({"kindle", "login", "static", "kpm_index", "kpm_package"})
 HOST_IMAGE_CACHE = 16
 # The Kindle comes back this long after the next render starts: time for that render to finish
-# (the last one's duration) plus this margin. Header: "X-Inkdoor-Next: <seconds>".
+# (the last one's duration) plus this margin, or this margin after the next light change, whichever
+# is sooner. Header: "X-Inkdoor-Next: <seconds>".
 NEXT_HEADER = "X-Inkdoor-Next"
+# Whether the Kindle's frontlight should be on now ("on" also when no schedule is set, so turning the
+# schedule off brings the light back). Header: "X-Inkdoor-Light: on|off".
+LIGHT_HEADER = "X-Inkdoor-Light"
 NEXT_MARGIN = 5
 NEXT_MAX = 86400
 # Rejected hosts: renders of new names per second (the rest get one generic image per language),
@@ -396,9 +401,23 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         if state.image_stale(clock(), mtime):  # the door must not keep an old "Free"
             body = stale_image()
         headers = {"Cache-Control": "no-store"}
+        waits = []
         if state.next_render_at is not None:
-            wait = max(0.0, state.next_render_at - clock()) + state.render_seconds + NEXT_MARGIN
-            headers[NEXT_HEADER] = str(min(NEXT_MAX, math.ceil(wait)))
+            waits.append(max(0.0, state.next_render_at - clock()) + state.render_seconds
+                         + NEXT_MARGIN)
+        cfg = state.cfg  # read once: a reload between the two calls must not mix two configs
+        try:
+            now = dt.datetime.fromtimestamp(clock(), dt.timezone.utc)
+            light_now = light.light_state(now, cfg)
+            change = light.next_light_change(now, cfg)
+        except Exception as e:  # a light bug must never stop the door from updating
+            app.logger.error(t()("admin.log_error", error=type(e).__name__))
+        else:
+            headers[LIGHT_HEADER] = light_now
+            if change is not None:
+                waits.append(max(0.0, change.timestamp() - clock()) + NEXT_MARGIN)
+        if waits:
+            headers[NEXT_HEADER] = str(min(NEXT_MAX, math.ceil(min(waits))))
         return app.response_class(body, mimetype="image/png", headers=headers)
 
     # --- KPM repository: ";kpm add-repo http://<server>/kpm.json" on the Kindle ----------------

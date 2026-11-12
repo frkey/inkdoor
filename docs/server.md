@@ -169,7 +169,7 @@ After logging in you can:
 - **Calendars** and **Tasks**: add, edit, reorder and remove calendars and the TickTick link,
   and test each link. A saved link is never shown again in full, only its start.
 - **Screen**: the Kindle model, language, time zone, clock, workday hours and days, the shortest free gap to
-  list, refresh interval. The port is shown read-only: changing it means editing `config.toml`
+  list, refresh interval, and when the Kindle's light turns off at night. The port is shown read-only: changing it means editing `config.toml`
   and restarting the service.
 - **Account**: change the password, log out.
 

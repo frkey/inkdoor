@@ -669,6 +669,14 @@ def test_screen_save_of_the_defaults_pins_nothing(logged):
     ({"clock": "13h"}, "clock", "admin.error_clock"),
     ({"language": "xx-YY"}, "language", "admin.error_language"),
     ({"screen": "1080x1440"}, "screen", "admin.error_screen"),
+    ({"light_enabled": "1", "light_off": "", "light_on": "07:00"}, "light_off",
+     "admin.error_light_time"),                                               # Review Focus 4
+    ({"light_enabled": "1", "light_off": "22:00", "light_on": "25:00"}, "light_on",
+     "admin.error_light_time"),
+    ({"light_enabled": "1", "light_off": "22:00", "light_on": "22:00:00"}, "light_on",
+     "admin.error_light_time"),
+    ({"light_enabled": "1", "light_off": "07:00", "light_on": "07:00"}, "light_on",
+     "admin.error_light_same"),
 ])
 def test_screen_tampered_values_show_field_errors(logged, state, fields, field, error):
     write_config(state, '[display]\nlanguage = "en-US"\n')
@@ -706,6 +714,48 @@ def test_screen_empty_clock_removes_the_key(logged, state):
     logged.post("/screen", data=screen_form(logged, clock="12h"))
     assert logged.raw() == {"display": {"clock": "12h"}}
 
+
+
+def test_screen_light_schedule_round_trip(logged, state):
+    page = body(logged.get("/screen"))
+    assert EN("admin.field_light") in page and str(escape(EN("admin.field_light_help"))) in page
+    assert 'value="22:00"' in page and 'value="07:00"' in page        # suggested, not saved
+    assert not re.search(r'name="light_enabled"[^>]*checked', page)
+    r = logged.post("/screen", data=screen_form(logged, light_enabled="1",
+                                                light_off="23:30", light_on="06:45"))
+    assert r.status_code == 303
+    assert logged.raw() == {"display": {"light_off": "23:30", "light_on": "06:45"}}
+    page = body(logged.get("/screen"))
+    assert re.search(r'name="light_enabled"[^>]*checked', page) and 'value="23:30"' in page
+    logged.post("/screen", data=screen_form(logged))                          # unchecked
+    assert logged.raw() == {"display": {}}
+
+
+def test_screen_unchecked_light_ignores_its_fields(logged, state):           # Review Focus 5
+    write_config(state, '[display]\nlight_off = "22:00"\nlight_on = "07:00"\n')
+    r = logged.post("/screen", data=screen_form(logged, light_off="https://x.example/a.ics",
+                                                light_on="nonsense"))
+    assert r.status_code == 303 and logged.raw() == {"display": {}}
+
+
+
+def test_screen_never_replaces_a_bad_hand_edited_time(logged, state):
+    write_config(state, '[display]\nlight_off = 23:00:00\nlight_on = "07:00"\n')
+    page = body(logged.get("/screen"))
+    assert re.search(r'name="light_enabled"[^>]*checked', page)
+    assert not re.search(r'name="light_off"[^>]*value="22:00"', page)    # not the suggestion
+    before = logged.digest()
+    fields = re.search(r'name="light_off"[^>]*value="([^"]*)"', page).group(1)
+    r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=fields,
+                                                light_on="07:00"))
+    assert r.status_code == 200 and 'id="light_off-error"' in body(r)
+    assert logged.digest() == before
+
+def test_screen_never_shows_a_pasted_value_back(logged):
+    link = "https://calendar.example/private-not-real.ics"
+    r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=link,
+                                                light_on="07:00"))
+    assert r.status_code == 200 and link not in body(r)
 
 def test_screen_language_is_read_only_under_an_override(tmp_path):
     state = make_state(tmp_path)

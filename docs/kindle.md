@@ -126,6 +126,13 @@ start by itself after a restart.
   Kindle when to come back, so the status changes within seconds. `INTERVAL` is only the
   longest wait between updates; this needs the Kindle scripts from version 1.2 (`;kpm upgrade`
   or a new zip).
+- **Dark at night**: the e-ink screen gives off no light; only the Kindle's frontlight does. To
+  keep it from lighting up the room, set "Turn the light off at night" on the admin's Screen page
+  (or `light_off` and `light_on` in `config.toml`), for example from 10:00 PM to 7:00 AM. The door
+  keeps showing your status in the dark, and in the morning the light comes back to the level it
+  had. This needs the Kindle scripts from version 1.3 (`;kpm update`, then `;kpm upgrade`, or a new
+  zip). While the server cannot be reached the light stays as it is, and if you restart the Kindle
+  or uninstall inkdoor during the night, raise the light by hand.
 - **Single instance**: tapping "start display" twice does not start two loops.
 - **No connection**: after 3 failures in a row, "cannot reach the computer" appears in the
   corner of the screen. The history is in `inkdoor/log.txt`, and
