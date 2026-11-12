@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-12
+
+A feature release: an optional night schedule for the Kindle's light. Kindle scripts: 1.3.0
+(update them with `;kpm update`, then `;kpm upgrade`, to use the night light).
+
 ### Added
 
 - An optional schedule turns the Kindle's frontlight off at night and brings it back to its
@@ -143,7 +148,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/frkey/inkdoor/releases/tag/v1.2.0
 [1.1.2]: https://github.com/frkey/inkdoor/releases/tag/v1.1.2
 [1.1.1]: https://github.com/frkey/inkdoor/releases/tag/v1.1.1
 [1.1.0]: https://github.com/frkey/inkdoor/releases/tag/v1.1.0
