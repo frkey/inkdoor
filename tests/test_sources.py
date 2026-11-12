@@ -412,3 +412,27 @@ def test_save_writes_only_what_changed_since_the_last_save(cfg, tmp_path, monkey
     collect(cfg, now=at("12:10"), cache=cache)                    # a calendar was removed
     cache.save()
     assert len(SourceCache(path)._data) == 3
+
+
+def test_a_title_that_is_not_valid_unicode_is_still_saved(tmp_path):
+    path, day = str(tmp_path / "sources-cache.json"), dt.date(2026, 10, 14)
+    event = sources.Event(at("10:00"), at("11:00"), "Broken \udc80 title", "Work")
+    cache = SourceCache(path)
+    cache.put(("calendar", "Work", "aaa"), day, [event], at("09:00"))
+    cache.save()
+    assert SourceCache(path).get(("calendar", "Work", "aaa"), day) == [event]
+
+
+def test_another_days_data_is_dropped_not_kept_in_the_file(cfg, tmp_path, monkeypatch):
+    path, _, cache = restarted(cfg, tmp_path, at("12:00"))
+    break_fetch(monkeypatch, FetchError("timeout"))
+    collect(cfg, now=at("12:00") + dt.timedelta(days=1), cache=cache)
+    cache.save()
+    assert cache._data == {} and SourceCache(path)._data == {}
+
+
+def test_a_version_that_is_not_the_number_is_ignored(tmp_path):
+    path = tmp_path / "sources-cache.json"
+    path.write_text('{"version": true, "sources": [{"key": ["calendar", "Work", "aa"],'
+                    ' "day": "2026-10-14", "at": null, "items": []}]}')
+    assert SourceCache(str(path))._data == {}

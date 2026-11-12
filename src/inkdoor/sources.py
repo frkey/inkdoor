@@ -115,7 +115,7 @@ class SourceCache:
     A flaky calendar link must never flip the door to "Free" in the middle of a meeting, so
     the server keeps the last successful read of each source for the current day. Entries are
     keyed by kind, name and link, so a replaced link never falls back to the old link's data, and
-    `keep` drops the entries of sources that are no longer in the config.
+    `keep` drops the entries of sources that are no longer in the config and those of other days.
 
     With a ``path`` the entries are also kept in a private file (`save`), which a new process
     starts from: a restart while a calendar is failing must not take the day's data away. The
@@ -146,10 +146,12 @@ class SourceCache:
             cached = self._data.get(key)
         return cached[2] if cached and cached[0] == day else None
 
-    def keep(self, keys: set) -> None:
-        """Drops every entry whose key is not in `keys`."""
+    def keep(self, keys: set, day: dt.date | None = None) -> None:
+        """Drops every entry whose key is not in `keys` and, with a ``day``, every entry of
+        another day (`get` never returns those, and they must not stay in the file)."""
         with self._lock:
-            kept = {key: value for key, value in self._data.items() if key in keys}
+            kept = {key: value for key, value in self._data.items()
+                    if key in keys and (day is None or value[0] == day)}
             self._dirty = self._dirty or len(kept) != len(self._data)
             self._data = kept
 
@@ -183,8 +185,8 @@ def _dump_cache(data: dict) -> bytes:
                 "at": at.isoformat() if at is not None else None,
                 "items": [_dump_item(item) for item in items]}
                for key, (day, items, at) in data.items()]
-    return json.dumps({"version": _CACHE_VERSION, "sources": entries},
-                      ensure_ascii=False).encode("utf-8")
+    # ASCII with escapes: a title that is not valid Unicode (a lone surrogate) is saved too
+    return json.dumps({"version": _CACHE_VERSION, "sources": entries}).encode("ascii")
 
 
 def _dump_item(item) -> dict:
@@ -204,7 +206,7 @@ def _load_cache(path: str) -> dict:
     try:
         with open(path, "rb") as f:
             raw = json.loads(f.read().decode("utf-8"))
-        if raw["version"] != _CACHE_VERSION:
+        if _typed(raw["version"], int) != _CACHE_VERSION:
             return {}
         data = {}
         for entry in raw["sources"]:
@@ -468,7 +470,7 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
         tasks_health.items = len(tasks)
 
     if cache is not None:
-        cache.keep(keys)                 # links replaced or removed since the last cycle
+        cache.keep(keys, today)          # links replaced or removed since the last cycle
 
     events = deduplicate(events)
     today_events = [e for e in events if e.start < tomorrow_start and e.end > day_start]

@@ -291,7 +291,8 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
         print(t("cli.serving", address=address, port=port))
         if state.admin_enabled and auth.read_password_hash(auth.password_path(path)) is None:
             print(t("cli.no_password"))
-        threading.Thread(target=render_loop, args=(state, SourceCache(cache_path(output_dir)), stop),
+        cache = SourceCache(cache_path(output_dir))  # today's data from before a restart, if any
+        threading.Thread(target=render_loop, args=(state, cache, stop),
                          name="inkdoor-render", daemon=True).start()
         _run(httpd)
     finally:
