@@ -1257,7 +1257,6 @@ def test_a_problem_elsewhere_in_the_file_refuses_the_save(logged, state):
     assert open(state.config_path, "rb").read() == before
 
 
-
 def test_a_bad_hour_in_the_file_is_explained_not_a_crash(logged, state):
     write_config(state, "[display]\nworkday_end = 25\n")
     for path in ("/", "/screen"):
@@ -1265,6 +1264,7 @@ def test_a_bad_hour_in_the_file_is_explained_not_a_crash(logged, state):
         assert r.status_code == 200, path
         message = EN("config_error.hour", key="workday_end", value=25)
         assert str(escape(message)) in body(r), path
+
 
 def test_a_write_error_is_reported_and_changes_nothing(logged, state, monkeypatch):
     add(logged, name="Work", url=LINK)
