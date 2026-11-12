@@ -9,8 +9,12 @@
 {% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>{% endif %}
 {%- endmacro %}
 
+{# described_by: the id of a help text outside the field (one shared by a pair of fields) #}
 {% macro text_field(name, label, value, errors, help=None, maxlength=None, required=False,
-                    placeholder=None, type="text", inputmode=None, min=None, max=None) -%}
+                    placeholder=None, type="text", inputmode=None, min=None, max=None,
+                    described_by=None) -%}
+{%- set ids = ([name ~ "-help"] if help else []) + ([described_by] if described_by else [])
+              + ([name ~ "-error"] if errors.get(name) else []) %}
 <div class="field">
   <label for="{{ name }}">{{ label }}</label>
   <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
@@ -21,9 +25,7 @@
          {%- if min is not none %} min="{{ min }}"{% endif %}
          {%- if max is not none %} max="{{ max }}"{% endif %}
          {%- if errors.get(name) %} aria-invalid="true"{% endif %}
-         {%- if help or errors.get(name) %} aria-describedby="
-         {%- if help %}{{ name }}-help{% endif %}{% if help and errors.get(name) %} {% endif %}
-         {%- if errors.get(name) %}{{ name }}-error{% endif %}"{% endif %}>
+         {%- if ids %} aria-describedby="{{ ids | join(" ") }}"{% endif %}>
   {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
   {{ field_error(name, errors) }}
 </div>

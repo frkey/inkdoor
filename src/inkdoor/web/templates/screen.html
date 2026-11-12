@@ -68,11 +68,13 @@
 
     <div class="field-pair">
       {{ m.text_field("workday_start", t("admin.field_workday_start"), values.workday_start, errors,
-                      type="number", inputmode="numeric", min=0, max=24, required=True) }}
+                      type="number", inputmode="numeric", min=0, max=24, required=True,
+                      described_by="hours-help") }}
       {{ m.text_field("workday_end", t("admin.field_workday_end"), values.workday_end, errors,
-                      type="number", inputmode="numeric", min=0, max=24, required=True) }}
+                      type="number", inputmode="numeric", min=0, max=24, required=True,
+                      described_by="hours-help") }}
     </div>
-    <p class="help field-pair-help">{{ t("admin.field_hours_help") }}</p>
+    <p class="help field-pair-help" id="hours-help">{{ t("admin.field_hours_help") }}</p>
 
     <fieldset class="field"{% if errors.get("workdays") %} aria-describedby="workdays-error"{% endif %}>
       <legend>{{ t("admin.field_workdays") }}</legend>
@@ -88,12 +90,15 @@
     <fieldset class="field">
       <legend>{{ t("admin.field_light") }}</legend>
       <label class="choice"><input type="checkbox" name="light_enabled" value="1"
+        aria-describedby="light-help"
         {%- if values.light_enabled %} checked{% endif %}> {{ t("admin.field_light_enabled") }}</label>
       <div class="field-pair">
-        {{ m.text_field("light_off", t("admin.field_light_off"), values.light_off, errors, type="time") }}
-        {{ m.text_field("light_on", t("admin.field_light_on"), values.light_on, errors, type="time") }}
+        {{ m.text_field("light_off", t("admin.field_light_off"), values.light_off, errors, type="time",
+                        described_by="light-help") }}
+        {{ m.text_field("light_on", t("admin.field_light_on"), values.light_on, errors, type="time",
+                        described_by="light-help") }}
       </div>
-      <p class="help field-pair-help">{{ t("admin.field_light_help") }}</p>
+      <p class="help field-pair-help" id="light-help">{{ t("admin.field_light_help") }}</p>
     </fieldset>
 
     {{ m.text_field("min_gap_minutes", t("admin.field_min_gap"), values.min_gap_minutes, errors,
