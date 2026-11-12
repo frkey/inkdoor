@@ -53,8 +53,11 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 - `next_light_change(now: datetime, cfg: dict) -> datetime | None`: the next moment after `now`
   at which `light_state` changes (today's or tomorrow's `light_off`/`light_on`, in local time).
   `None` when the feature is not configured.
-- Both work on local wall time, so a daylight-saving change never shifts the period. When a
-  boundary falls in a skipped hour, the change happens at the transition.
+- `light_state` works on local wall time, so a daylight-saving change never shifts the period.
+  `next_light_change` picks the earliest boundary that is later than `now` as an instant (compared
+  by timestamp, not by wall time). On the rare night when a boundary falls in a skipped or repeated
+  hour, the header may be off, which costs at most `INTERVAL`: the Kindle never waits longer, and
+  every fetch gets the wall-time state.
 
 `render.py` and `render.next_change` do not change: the image is the same at night.
 
