@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Changed
+
+- Admin: a new look (ink on paper), with what the door says shown on every page. "Log out" is
+  now only in the top bar.
+
 ## [1.2.0] - 2026-11-12
 
 A feature release: an optional night schedule for the Kindle's light. Kindle scripts: 1.3.0

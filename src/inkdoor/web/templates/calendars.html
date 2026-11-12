@@ -42,13 +42,13 @@
       {% if card.link %}
       {{ m.test_form("/calendars/%d/test" % card.index, digest, "test-%d" % card.index) }}
       {% endif %}
-      <a class="button button-quiet" href="/calendars/{{ card.index }}">{{ t("admin.edit") }}</a>
+      <a class="button-secondary" href="/calendars/{{ card.index }}">{{ t("admin.edit") }}</a>
       {% if not loop.first %}
-      {{ m.action("/calendars/%d/move" % card.index, digest, t("admin.move_up"), "button-quiet",
+      {{ m.action("/calendars/%d/move" % card.index, digest, t("admin.move_up"), "button-secondary",
                   name="direction", value="up") }}
       {% endif %}
       {% if not loop.last %}
-      {{ m.action("/calendars/%d/move" % card.index, digest, t("admin.move_down"), "button-quiet",
+      {{ m.action("/calendars/%d/move" % card.index, digest, t("admin.move_down"), "button-secondary",
                   name="direction", value="down") }}
       {% endif %}
       {{ m.action("/calendars/%d/delete" % card.index, digest, t("admin.remove"), "button-danger",

@@ -9,10 +9,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
   <script src="{{ url_for('static', filename='admin.js') }}" defer></script>
 </head>
+{% import "_icons.html" as icons %}
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/">inkdoor</a>
+      <a class="brand" href="/">{{ icons.icon("door") }}inkdoor</a>
       {% if logged_in %}
       <nav class="menu" aria-label="{{ t('admin.nav.label') }}">
         {% for key, href in [("home", "/"), ("calendars", "/calendars"), ("tasks", "/tasks"),
@@ -20,9 +21,14 @@
         <a href="{{ href }}"{% if active == key %} aria-current="page"{% endif %}>{{ t("admin.nav." ~ key) }}</a>
         {% endfor %}
       </nav>
+      {% if door %}
+      <a class="door-chip" href="/"><span class="visually-hidden">{{ t("admin.door_chip_label") }}</span>
+        <span class="door-chip-word">{{ door.word }}</span>
+        <span class="door-chip-headline">{{ door.headline }}</span></a>
+      {% endif %}
       <form class="logout" method="post" action="/logout">
         {{ csrf_field() }}
-        <button type="submit" class="button-quiet">{{ t("admin.logout") }}</button>
+        <button type="submit" class="button-secondary">{{ t("admin.logout") }}</button>
       </form>
       {% endif %}
     </div>

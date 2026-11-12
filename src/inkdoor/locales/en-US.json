@@ -228,6 +228,7 @@
       "account": "Account",
       "label": "Main menu"
     },
+    "door_chip_label": "The door says",
     "logout": "Log out",
     "login_title": "Log in",
     "password_label": "Password",
@@ -409,7 +410,6 @@
     "generated_title": "Your new password",
     "generated_label": "New password",
     "generated_help": "Save it now, for example in a password manager: it will not be shown again. Other browsers were logged out.",
-    "session_title": "This browser",
     "session_help": "Log out when you are done on a shared computer.",
     "config_problem_detail": "Details: {message}",
     "howto_link_title": "Where do I find the link?",

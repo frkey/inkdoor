@@ -1,4 +1,5 @@
 {# Shared pieces of the admin forms. Import with: {% import "_macros.html" as m with context %} #}
+{% import "_icons.html" as icons %}
 
 {% macro form_fields(digest) -%}
 {{ csrf_field() }}
@@ -9,12 +10,17 @@
 {% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ errors[name] }}</p>{% endif %}
 {%- endmacro %}
 
+{# ids of the texts that describe a field: its unit, its help, a shared help, its error #}
+{% macro _described(name, errors, extra=[]) -%}
+{%- set ids = (extra | select | list) + ([name ~ "-error"] if errors.get(name) else []) -%}
+{%- if errors.get(name) %} aria-invalid="true"{% endif -%}
+{%- if ids %} aria-describedby="{{ ids | join(" ") }}"{% endif -%}
+{%- endmacro %}
+
 {# described_by: the id of a help text outside the field (one shared by a pair of fields) #}
 {% macro text_field(name, label, value, errors, help=None, maxlength=None, required=False,
                     placeholder=None, type="text", inputmode=None, min=None, max=None,
                     described_by=None) -%}
-{%- set ids = ([name ~ "-help"] if help else []) + ([described_by] if described_by else [])
-              + ([name ~ "-error"] if errors.get(name) else []) %}
 <div class="field">
   <label for="{{ name }}">{{ label }}</label>
   <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
@@ -24,8 +30,7 @@
          {%- if inputmode %} inputmode="{{ inputmode }}"{% endif %}
          {%- if min is not none %} min="{{ min }}"{% endif %}
          {%- if max is not none %} max="{{ max }}"{% endif %}
-         {%- if errors.get(name) %} aria-invalid="true"{% endif %}
-         {%- if ids %} aria-describedby="{{ ids | join(" ") }}"{% endif %}>
+         {{- _described(name, errors, [(name ~ "-help") if help else None, described_by]) }}>
   {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
   {{ field_error(name, errors) }}
 </div>
@@ -93,7 +98,7 @@
   <div class="copy-row">
     <code id="{{ id }}" class="copy-value" aria-labelledby="{{ id }}-label"
           {%- if help %} aria-describedby="{{ id }}-help"{% endif %}>{{ value }}</code>
-    <button type="button" class="button-quiet" data-copy="{{ id }}"
+    <button type="button" class="button-secondary" data-copy="{{ id }}"
             data-copied-label="{{ t('admin.copied') }}" hidden>{{ t("admin.copy") }}</button>
   </div>
   {% if help %}<p class="help" id="{{ id }}-help">{{ help }}</p>{% endif %}
@@ -117,3 +122,106 @@
 </ol>
 {%- endmacro %}
 
+
+{# The only time control in the admin. options: (value, label) pairs, labels from Translator.time().
+   Values are compared as text: config.toml holds numbers where a form posts strings. #}
+{% macro time_select(name, label, value, options, errors, described_by=None) -%}
+<div class="field field-time">
+  <label for="{{ name }}">{{ label }}</label>
+  <select id="{{ name }}" name="{{ name }}" class="input-short"{{ _described(name, errors, [described_by]) }}>
+    {% for option, text in options %}
+    <option value="{{ option }}"{% if value is not none and option | string == value | string %} selected{% endif %}>{{ text }}</option>
+    {% endfor %}
+  </select>
+  {{ field_error(name, errors) }}
+</div>
+{%- endmacro %}
+
+{# A short number with its unit beside it, not in the label #}
+{% macro number_field(name, label, value, errors, unit, help=None, min=None, max=None,
+                      required=True) -%}
+<div class="field">
+  <label for="{{ name }}">{{ label }}</label>
+  <div class="with-unit">
+    <input id="{{ name }}" name="{{ name }}" type="number" inputmode="numeric" class="input-short"
+           value="{{ value }}"
+           {%- if min is not none %} min="{{ min }}"{% endif %}
+           {%- if max is not none %} max="{{ max }}"{% endif %}
+           {%- if required %} required{% endif %}
+           {{- _described(name, errors, [name ~ "-unit", (name ~ "-help") if help else None]) }}>
+    <span class="unit" id="{{ name }}-unit">{{ unit }}</span>
+  </div>
+  {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
+  {{ field_error(name, errors) }}
+</div>
+{%- endmacro %}
+
+{# One choice of a few, drawn as joined segments: radios, the drawn part is the span #}
+{% macro segmented(name, legend, value, options, errors) -%}
+<fieldset class="field segmented"{% if errors.get(name) %} aria-describedby="{{ name }}-error"{% endif %}>
+  <legend>{{ legend }}</legend>
+  <div class="segments">
+    {% for option, text in options %}
+    <label><input type="radio" name="{{ name }}" value="{{ option }}"
+      {%- if value is not none and option | string == value | string %} checked{% endif %}><span>{{ text }}</span></label>
+    {% endfor %}
+  </div>
+  {{ field_error(name, errors) }}
+</fieldset>
+{%- endmacro %}
+
+{# Several choices drawn as toggle chips: checkboxes. values: the checked ones #}
+{% macro chips(name, legend, values, options, errors) -%}
+{%- set checked = values | map("string") | list %}
+<fieldset class="field chips"{% if errors.get(name) %} aria-describedby="{{ name }}-error"{% endif %}>
+  <legend>{{ legend }}</legend>
+  <div class="chip-row">
+    {% for option, text in options %}
+    <label><input type="checkbox" name="{{ name }}" value="{{ option }}"
+      {%- if option | string in checked %} checked{% endif %}><span>{{ text }}</span></label>
+    {% endfor %}
+  </div>
+  {{ field_error(name, errors) }}
+</fieldset>
+{%- endmacro %}
+
+{# A checkbox drawn as a switch. enables: ids admin.js disables while it is off #}
+{% macro switch(name, label, checked, described_by=None, enables=None) -%}
+<label class="switch"><input type="checkbox" name="{{ name }}" value="1"
+  {%- if described_by %} aria-describedby="{{ described_by }}"{% endif %}
+  {%- if enables %} data-enables="{{ enables }}"{% endif %}
+  {%- if checked %} checked{% endif %}><span class="switch-track" aria-hidden="true"></span>
+  <span class="switch-label">{{ label }}</span></label>
+{%- endmacro %}
+
+{# A source's state in an icon and words, never color alone: ok, stale, failed or unset #}
+{% macro source_state(state, text) -%}
+<span class="state state-{{ state }}">
+  {%- if state == "ok" %}{{ icons.icon("check") }}
+  {%- elif state == "stale" %}{{ icons.icon("warning") }}
+  {%- elif state == "failed" %}{{ icons.icon("error") }}{% endif -%}
+  {{ text }}</span>
+{%- endmacro %}
+
+{# A value the admin shows but cannot change #}
+{% macro readonly_row(label, value, help=None) -%}
+<dl class="readonly">
+  <dt>{{ label }}</dt>
+  <dd>{{ value }}</dd>
+  {% if help %}<dd class="help">{{ help }}</dd>{% endif %}
+</dl>
+{%- endmacro %}
+
+{# The door as it is now, in a Kindle-shaped frame. token: the t of the image's address, or none #}
+{% macro door_preview(token, size, caption=None) -%}
+<figure class="door-preview">
+  <div class="kindle-frame">
+    {% if token is not none %}
+    <img src="/kindle.png?t={{ token }}" alt="{{ t('admin.preview_alt') }}" width="{{ size[0] }}" height="{{ size[1] }}">
+    {% else %}
+    <p class="muted">{{ t("admin.not_rendered") }}</p>
+    {% endif %}
+  </div>
+  {% if caption %}<figcaption class="help">{{ caption }}</figcaption>{% endif %}
+</figure>
+{%- endmacro %}
