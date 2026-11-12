@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-12
+
+A feature release: a redesigned web admin, with Home as a dashboard of the door. Nothing changes
+in `config.toml` or on the Kindle. Kindle scripts: 1.3.0 (unchanged).
+
 ### Changed
 
 - Admin: a new look (ink on paper), with what the door says shown on every page. "Log out" is
@@ -160,7 +165,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/frkey/inkdoor/releases/tag/v1.3.0
 [1.2.0]: https://github.com/frkey/inkdoor/releases/tag/v1.2.0
 [1.1.2]: https://github.com/frkey/inkdoor/releases/tag/v1.1.2
 [1.1.1]: https://github.com/frkey/inkdoor/releases/tag/v1.1.1
