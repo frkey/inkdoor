@@ -820,10 +820,37 @@ input[readonly] {
     --space: 16px;
   }
 
-  /* brand, chip and log out on the first row; the menu below, scrolling sideways */
+  /* brand, chip and log out on the first row (a grid, so the chip shrinks instead of pushing
+     "Log out" onto its own row); the menu below, scrolling sideways */
+  .topbar-inner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .brand,
+  .door-chip,
+  .logout {
+    grid-row: 1;
+  }
+
+  .door-chip {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .door-chip-word {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .logout {
+    grid-column: 3;
+  }
+
   .menu {
-    order: 3;
-    flex: none;
+    grid-row: 2;
+    grid-column: 1 / -1;
     width: calc(100% + 2 * var(--space));
     margin: 0 calc(-1 * var(--space));
     padding: 0 calc(var(--space) - 14px);
@@ -834,7 +861,6 @@ input[readonly] {
 
   .door-chip {
     min-width: 0;
-    flex: 0 1 auto;
   }
 
   .split {
