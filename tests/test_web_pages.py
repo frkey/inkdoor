@@ -715,7 +715,6 @@ def test_screen_empty_clock_removes_the_key(logged, state):
     assert logged.raw() == {"display": {"clock": "12h"}}
 
 
-
 def test_screen_light_schedule_round_trip(logged, state):
     page = body(logged.get("/screen"))
     assert EN("admin.field_light") in page and str(escape(EN("admin.field_light_help"))) in page
@@ -738,7 +737,6 @@ def test_screen_unchecked_light_ignores_its_fields(logged, state):           # R
     assert r.status_code == 303 and logged.raw() == {"display": {}}
 
 
-
 def test_screen_never_replaces_a_bad_hand_edited_time(logged, state):
     write_config(state, '[display]\nlight_off = 23:00:00\nlight_on = "07:00"\n')
     page = body(logged.get("/screen"))
@@ -751,11 +749,41 @@ def test_screen_never_replaces_a_bad_hand_edited_time(logged, state):
     assert r.status_code == 200 and 'id="light_off-error"' in body(r)
     assert logged.digest() == before
 
+
 def test_screen_never_shows_a_pasted_value_back(logged):
     link = "https://calendar.example/private-not-real.ics"
     r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=link,
                                                 light_on="07:00"))
     assert r.status_code == 200 and link not in body(r)
+
+
+def described_by(page, name):
+    """The ids in aria-describedby of the input with this name."""
+    tag = re.search(rf'<input[^>]*name="{name}"[^>]*>', page).group(0)
+    match = re.search(r'aria-describedby="([^"]*)"', tag)
+    return match.group(1).split() if match else []
+
+
+@pytest.mark.parametrize("fields", [{}, {"workday_start": "x", "light_enabled": "1",
+                                         "light_off": "", "light_on": "07:00"}])
+def test_screen_pair_help_texts_describe_their_fields(logged, fields):
+    if fields:
+        page = body(logged.post("/screen", data=screen_form(logged, **fields)))
+    else:
+        page = body(logged.get("/screen"))
+    pairs = {"hours-help": ("workday_start", "workday_end"),
+             "light-help": ("light_enabled", "light_off", "light_on")}
+    for help_id, names in pairs.items():
+        assert page.count(f'id="{help_id}"') == 1, help_id
+        for name in names:
+            assert help_id in described_by(page, name), name
+    for ids in re.findall(r'aria-describedby="([^"]+)"', page):
+        for id_ in ids.split():
+            assert f'id="{id_}"' in page, id_
+    if fields:                                    # errors still come along with the shared help
+        assert described_by(page, "workday_start") == ["hours-help", "workday_start-error"]
+        assert described_by(page, "light_off") == ["light-help", "light_off-error"]
+
 
 def test_screen_language_is_read_only_under_an_override(tmp_path):
     state = make_state(tmp_path)

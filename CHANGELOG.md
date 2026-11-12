@@ -20,6 +20,8 @@ It is shown next to each release.
 - A whole-hour setting out of range in `config.toml` (for example `workday_end = 25`) is explained
   again: `inkdoor check` and the admin's pages crashed while describing it, and `inkdoor serve`
   logged only an error type.
+- Screen readers read the help text under the workday hours and the Kindle light fields on the
+  admin's Screen page.
 
 ## [1.1.2] - 2026-11-10
 
