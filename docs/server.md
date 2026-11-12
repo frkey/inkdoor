@@ -20,6 +20,7 @@ Either way you get the same layout, and you configure inkdoor from a browser wit
 | `/etc/inkdoor/admin-password` | the admin password, stored as a hash |
 | `/opt/inkdoor` | the code and its Python environment |
 | `/var/lib/inkdoor/kindle.png` | the rendered screen |
+| `/var/lib/inkdoor/sources-cache.json` | today's last good read of each calendar, private to the `inkdoor` user; lets a restart keep the door's status while a calendar cannot be read |
 | `inkdoor.service` | the systemd service, started at boot and restarted if it fails |
 | `/usr/local/bin/inkdoor` | runs inkdoor with that config: `inkdoor password`, `inkdoor check` |
 

@@ -1,7 +1,9 @@
 import datetime as dt
+import os
+import stat
 
 import pytest
-from helpers import TZ, at, fixture
+from helpers import FIXTURES, TZ, at, fixture
 
 from inkdoor import sources
 from inkdoor.demo import demo_config, demo_snapshot
@@ -318,3 +320,119 @@ def test_health_never_holds_a_link_or_exception_text(cfg, monkeypatch):
 ])
 def test_failure_reason_is_a_category(error, reason):
     assert sources.failure_reason(error) == reason
+
+
+# --- the day's data across a restart -----------------------------------------------------------
+
+def restarted(cfg, tmp_path, now):
+    """A good read saved by one server, then the cache a new process starts with."""
+    path = str(tmp_path / "state" / "sources-cache.json")
+    (tmp_path / "state").mkdir()
+    first = SourceCache(path)
+    good = collect(cfg, now=now, cache=first)
+    first.save()
+    return path, good, SourceCache(path)
+
+
+def test_the_days_data_survives_a_restart(cfg, tmp_path, monkeypatch):
+    now = at("12:00")
+    _, good, cache = restarted(cfg, tmp_path, now)
+    break_fetch(monkeypatch, FetchError("timeout"))
+    snap = collect(cfg, now=now + dt.timedelta(minutes=5), cache=cache)
+    assert snap.unknown == []
+    assert snap.today == good.today and snap.tomorrow == good.tomorrow
+    assert rows(snap.today) == rows(good.today)                  # the same wall clock too
+    assert snap.tasks == good.tasks and snap.tasks
+    assert all((h.state, h.read_at) == ("stale", now) for h in snap.health)
+
+
+def test_saved_data_from_another_day_is_not_reused(cfg, tmp_path, monkeypatch):
+    now = at("12:00")
+    _, _, cache = restarted(cfg, tmp_path, now)
+    break_fetch(monkeypatch, FetchError("timeout"))
+    snap = collect(cfg, now=now + dt.timedelta(days=1), cache=cache)
+    assert "Work" in snap.unknown and snap.today == [] and snap.tasks == []
+
+
+def test_a_replaced_link_does_not_reuse_saved_data(cfg, tmp_path, monkeypatch):
+    now = at("12:00")
+    _, _, cache = restarted(cfg, tmp_path, now)
+    cfg["calendar"][0]["url"] = "https://calendar.example/another/basic.ics"
+    break_fetch(monkeypatch, FetchError("timeout"))
+    snap = collect(cfg, now=now, cache=cache)
+    assert snap.unknown == ["Work"]
+    assert not [e for e in snap.today if e.source == "Work"]
+
+
+def test_the_saved_file_is_private_and_holds_no_link(cfg, tmp_path):
+    cfg["calendar"][0]["url"] = write_ics(tmp_path / "c4n4ry-link.ics", "")
+    path, _, _ = restarted(cfg, tmp_path, at("12:00"))
+    if os.name == "posix":
+        assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    assert "c4n4ry-link" not in text and FIXTURES not in text
+
+
+@pytest.mark.parametrize("content", [
+    b"", b"not json", b"\xff\xfe", b"[]", b'{"version": 99, "sources": []}',
+    b'{"version": 1}', b'{"version": 1, "sources": [{"key": ["calendar", "Work"]}]}',
+    b'{"version": 1, "sources": [{"key": ["calendar", "Work", "aa"], "day": "2026-10-14",'
+    b' "at": null, "items": [{"type": "event", "start": "nope"}]}]}',
+    b'{"version": 1, "sources": [{"key": ["calendar", "Work", "aa"], "day": "2026-10-14",'
+    b' "at": null, "items": [{"type": "surprise"}]}]}',
+])
+def test_a_damaged_file_is_ignored(cfg, tmp_path, content):
+    path = tmp_path / "sources-cache.json"
+    path.write_bytes(content)
+    cache = SourceCache(str(path))
+    assert cache._data == {}
+    collect(cfg, now=at("12:00"), cache=cache)                    # and the next save replaces it
+    cache.save()
+    assert len(SourceCache(str(path))._data) == 4
+
+
+def test_a_missing_file_or_no_path_starts_empty(tmp_path):
+    assert SourceCache(str(tmp_path / "nothing.json"))._data == {}
+    cache = SourceCache()
+    cache.put(("calendar", "Work", "aaa"), dt.date(2026, 10, 14), [])
+    cache.save()                                                   # nowhere to save: nothing happens
+
+
+def test_save_writes_only_what_changed_since_the_last_save(cfg, tmp_path, monkeypatch):
+    path, _, cache = restarted(cfg, tmp_path, at("12:00"))
+    os.remove(path)
+    cache.save()                                                   # nothing read since it was loaded
+    assert not os.path.exists(path)
+    break_fetch(monkeypatch, FetchError("timeout"))
+    collect(cfg, now=at("12:05"), cache=cache)                    # reuses the data: nothing new
+    cache.save()
+    assert not os.path.exists(path)
+    cfg["calendar"].pop()
+    collect(cfg, now=at("12:10"), cache=cache)                    # a calendar was removed
+    cache.save()
+    assert len(SourceCache(path)._data) == 3
+
+
+def test_a_title_that_is_not_valid_unicode_is_still_saved(tmp_path):
+    path, day = str(tmp_path / "sources-cache.json"), dt.date(2026, 10, 14)
+    event = sources.Event(at("10:00"), at("11:00"), "Broken \udc80 title", "Work")
+    cache = SourceCache(path)
+    cache.put(("calendar", "Work", "aaa"), day, [event], at("09:00"))
+    cache.save()
+    assert SourceCache(path).get(("calendar", "Work", "aaa"), day) == [event]
+
+
+def test_another_days_data_is_dropped_not_kept_in_the_file(cfg, tmp_path, monkeypatch):
+    path, _, cache = restarted(cfg, tmp_path, at("12:00"))
+    break_fetch(monkeypatch, FetchError("timeout"))
+    collect(cfg, now=at("12:00") + dt.timedelta(days=1), cache=cache)
+    cache.save()
+    assert cache._data == {} and SourceCache(path)._data == {}
+
+
+def test_a_version_that_is_not_the_number_is_ignored(tmp_path):
+    path = tmp_path / "sources-cache.json"
+    path.write_text('{"version": true, "sources": [{"key": ["calendar", "Work", "aa"],'
+                    ' "day": "2026-10-14", "at": null, "items": []}]}')
+    assert SourceCache(str(path))._data == {}

@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Changed
+
+- `inkdoor serve` keeps today's last good read of each calendar in a private file next to the
+  image (`sources-cache.json`), so a restart or an update while a calendar cannot be read no
+  longer turns the door to "Knock first". ([#131](https://github.com/frkey/inkdoor/issues/131))
+
 ## [1.3.0] - 2026-11-12
 
 A feature release: a redesigned web admin, with Home as a dashboard of the door. Nothing changes

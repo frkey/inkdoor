@@ -1,4 +1,5 @@
 """`inkdoor serve` against a real Waitress socket: Host parsing and the startup path."""
+import datetime as dt
 import http.client
 import io
 import os
@@ -12,6 +13,7 @@ from PIL import Image
 
 from inkdoor import net, server
 from inkdoor.i18n import Translator
+from inkdoor.sources import SourceCache
 
 EN = Translator("en-US")
 
@@ -152,7 +154,7 @@ def test_missing_host(running, version):
 
 def test_unknown_paths_are_404(running):
     port, _, _ = running
-    for path in ("/config.toml", "/out/kindle.png", "/kindle.png/", "/../config.toml"):
+    for path in ("/config.toml", "/out/kindle.png", "/sources-cache.json", "/kindle.png/", "/../config.toml"):
         assert request(port, path, f"127.0.0.1:{port}")[0] == 404
 
 
@@ -304,3 +306,18 @@ def test_no_language_override_leaves_the_field_editable(tmp_path, monkeypatch, n
     config_path.write_text('[display]\nlanguage = "pt-BR"\n')
     state = started_state(monkeypatch, config_path, tmp_path / "out")
     assert state.language is None
+
+
+def test_serve_starts_from_the_days_saved_data(tmp_path, monkeypatch, no_bind):
+    monkeypatch.delenv("INKDOOR_LANG", raising=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    saved = SourceCache(server.cache_path(str(out)))
+    saved.put(("calendar", "Work", "aaa"), dt.date(2026, 10, 14), [])
+    saved.save()
+    (tmp_path / "config.toml").write_text(f"[server]\nport = {free_port()}\n")
+    seen = []
+    monkeypatch.setattr(server, "_run", lambda httpd: None)
+    monkeypatch.setattr(server, "render_loop", lambda state, cache, stop: seen.append(cache))
+    server.serve(str(tmp_path / "config.toml"), str(out), None)
+    assert seen[0].get(("calendar", "Work", "aaa"), dt.date(2026, 10, 14)) == []

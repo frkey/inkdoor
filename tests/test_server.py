@@ -475,3 +475,26 @@ def test_the_loop_publishes_when_it_renders_next(state, monkeypatch):
     state.render_event = OneWait()
     server.render_loop(state, SourceCache(), stop)
     assert OneWait.timeout == 240 and state.next_render_at == 5240.0
+
+
+# ------------------------------------------------------------ the day's data across a restart
+
+def test_cycle_saves_the_days_data_next_to_the_image(state):
+    path = server.cache_path(state.output_dir)
+    assert os.path.dirname(path) == state.output_dir
+    server.run_cycle(state, SourceCache(path))
+    assert os.path.exists(image_path(state))
+    assert len(SourceCache(path)._data) == 4               # what a restarted server starts with
+
+
+def test_a_cache_that_cannot_be_saved_does_not_touch_the_door(state, monkeypatch, capsys):
+    def refuse(path, data):
+        raise PermissionError(f"cannot write {CANARY}")
+
+    monkeypatch.setattr("inkdoor.files.write_private", refuse)
+    server.run_cycle(state, SourceCache(server.cache_path(state.output_dir)))
+    out = capsys.readouterr()
+    assert EN("cli.error", error="PermissionError") in out.out
+    assert CANARY not in out.out + out.err
+    assert state.last_render.word != EN("status.unknown")
+    assert state.last_render.sources and state.last_render.timeline is not None

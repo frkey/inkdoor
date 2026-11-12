@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import re
 import threading
 import unicodedata
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo
 import icalendar
 import recurring_ical_events
 
-from . import isolate, net
+from . import files, isolate, net
 from .config import is_configured
 
 # Online-meeting locations only add noise on the screen
@@ -114,17 +115,25 @@ class SourceCache:
     A flaky calendar link must never flip the door to "Free" in the middle of a meeting, so
     the server keeps the last successful read of each source for the current day. Entries are
     keyed by kind, name and link, so a replaced link never falls back to the old link's data, and
-    `keep` drops the entries of sources that are no longer in the config.
+    `keep` drops the entries of sources that are no longer in the config and those of other days.
+
+    With a ``path`` the entries are also kept in a private file (`save`), which a new process
+    starts from: a restart while a calendar is failing must not take the day's data away. The
+    file holds what the calendars hold (titles, times), so it is mode 600 and is never served; a
+    missing or damaged file is the same as no file.
     """
 
-    def __init__(self):
-        self._data: dict = {}
+    def __init__(self, path: str | None = None):
+        self._path = path
         self._lock = threading.Lock()
+        self._data: dict = _load_cache(path) if path else {}
+        self._dirty = False
 
     def put(self, key: tuple, day: dt.date, items: list, at: dt.datetime | None = None) -> None:
         """Keeps a good read; ``at`` is when it was made."""
         with self._lock:
             self._data[key] = (day, items, at)
+            self._dirty = True
 
     def get(self, key: tuple, day: dt.date):
         with self._lock:
@@ -137,10 +146,108 @@ class SourceCache:
             cached = self._data.get(key)
         return cached[2] if cached and cached[0] == day else None
 
-    def keep(self, keys: set) -> None:
-        """Drops every entry whose key is not in `keys`."""
+    def keep(self, keys: set, day: dt.date | None = None) -> None:
+        """Drops every entry whose key is not in `keys` and, with a ``day``, every entry of
+        another day (`get` never returns those, and they must not stay in the file)."""
         with self._lock:
-            self._data = {key: value for key, value in self._data.items() if key in keys}
+            kept = {key: value for key, value in self._data.items()
+                    if key in keys and (day is None or value[0] == day)}
+            self._dirty = self._dirty or len(kept) != len(self._data)
+            self._data = kept
+
+    def save(self) -> None:
+        """Writes the entries to the file when something changed since the last save.
+
+        Raises OSError when the file cannot be written; the entries stay in memory and the next
+        save tries again.
+        """
+        if not self._path:
+            return
+        with self._lock:
+            if not self._dirty:
+                return
+            data = _dump_cache(self._data)
+            self._dirty = False
+        try:
+            files.write_private(self._path, data)
+        except BaseException:
+            with self._lock:
+                self._dirty = True
+            raise
+
+
+# The cache file: JSON only (never pickle: loading it must not be able to run anything).
+_CACHE_VERSION = 1
+
+
+def _dump_cache(data: dict) -> bytes:
+    entries = [{"key": list(key), "day": day.isoformat(),
+                "at": at.isoformat() if at is not None else None,
+                "items": [_dump_item(item) for item in items]}
+               for key, (day, items, at) in data.items()]
+    # ASCII with escapes: a title that is not valid Unicode (a lone surrogate) is saved too
+    return json.dumps({"version": _CACHE_VERSION, "sources": entries}).encode("ascii")
+
+
+def _dump_item(item) -> dict:
+    if isinstance(item, Event):
+        return {"type": "event", "start": item.start.isoformat(), "end": item.end.isoformat(),
+                "title": item.title, "source": item.source, "style": item.style,
+                "busy": item.busy, "status_label": item.status_label, "all_day": item.all_day,
+                "location": item.location}
+    return {"type": "task", "title": item.title, "due": item.due.isoformat(),
+            "time": item.time.isoformat() if item.time is not None else None,
+            "priority": item.priority, "overdue": item.overdue}
+
+
+def _load_cache(path: str) -> dict:
+    """The entries of a cache file; nothing when the file is missing, damaged or from a version
+    this code does not know. One bad entry drops the whole file: half a day is not the day."""
+    try:
+        with open(path, "rb") as f:
+            raw = json.loads(f.read().decode("utf-8"))
+        if _typed(raw["version"], int) != _CACHE_VERSION:
+            return {}
+        data = {}
+        for entry in raw["sources"]:
+            kind, name, digest = entry["key"]
+            at = _aware(entry["at"]) if entry["at"] is not None else None
+            items = [_load_item(item) for item in entry["items"]]
+            data[(_typed(kind, str), _typed(name, str), _typed(digest, str))] = (
+                dt.date.fromisoformat(entry["day"]), items, at)
+        return data
+    except Exception:  # whatever is wrong with it, the server starts as it does without a file
+        return {}
+
+
+def _typed(value, kind: type):
+    if type(value) is not kind:
+        raise ValueError
+    return value
+
+
+def _aware(text: str) -> dt.datetime:
+    """A saved moment. It comes back with the UTC offset it had, which is the same instant and
+    the same wall clock as before the restart."""
+    moment = dt.datetime.fromisoformat(_typed(text, str))
+    if moment.tzinfo is None:
+        raise ValueError
+    return moment
+
+
+def _load_item(raw: dict):
+    if raw["type"] == "event":
+        label = raw["status_label"]
+        return Event(_aware(raw["start"]), _aware(raw["end"]), _typed(raw["title"], str),
+                     _typed(raw["source"], str), _typed(raw["style"], str),
+                     _typed(raw["busy"], bool), None if label is None else _typed(label, str),
+                     _typed(raw["all_day"], bool), _typed(raw["location"], str))
+    if raw["type"] == "task":
+        time = raw["time"]
+        return Task(_typed(raw["title"], str), dt.date.fromisoformat(_typed(raw["due"], str)),
+                    None if time is None else dt.time.fromisoformat(_typed(time, str)),
+                    _typed(raw["priority"], int), _typed(raw["overdue"], bool))
+    raise ValueError
 
 
 # ---------------------------------------------------------------- reading
@@ -363,7 +470,7 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
         tasks_health.items = len(tasks)
 
     if cache is not None:
-        cache.keep(keys)                 # links replaced or removed since the last cycle
+        cache.keep(keys, today)          # links replaced or removed since the last cycle
 
     events = deduplicate(events)
     today_events = [e for e in events if e.start < tomorrow_start and e.end > day_start]

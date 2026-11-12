@@ -9,6 +9,9 @@ from dataclasses import dataclass, field
 from typing import Callable, ClassVar
 
 IMAGE_NAME = "kindle.png"  # the file the render loop writes and /kindle.png serves
+# the day's last good read of each source (sources.SourceCache), next to the image; private and
+# never served
+CACHE_NAME = "sources-cache.json"
 
 
 @dataclass
