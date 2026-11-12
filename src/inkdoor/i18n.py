@@ -58,7 +58,8 @@ class Translator:
         value = _lookup(self._own, key)
         return value if value is not None else _lookup(self._fallback, key)
 
-    def __call__(self, key: str, **kwargs) -> str:
+    def __call__(self, key: str, /, **kwargs) -> str:
+        # positional-only: a placeholder may itself be called "key" (config_error.hour)
         value = self.get(key)
         if value is None:
             raise KeyError(f"missing translation: {key}")

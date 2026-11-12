@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A whole-hour setting out of range in `config.toml` (for example `workday_end = 25`) is explained
+  again: `inkdoor check` and the admin's pages crashed while describing it, and `inkdoor serve`
+  logged only an error type.
+
 ## [1.1.2] - 2026-11-10
 
 A bug-fix release. Kindle scripts: 1.2.0 (unchanged).
