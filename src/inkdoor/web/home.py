@@ -34,8 +34,6 @@ def register(bp: Blueprint, ed: Editor) -> None:
     @bp.get("/")
     def home():
         last = state.last_render
-        watch_render = "watch_render" in g.session.flags
-        g.session.flags.discard("watch_render")
         raw, problem = ed.read()
         warning = ed.invalid(raw.data) if raw is not None else None
         # from the file as it is now: state.config_problem lags until the next render, so a
@@ -46,9 +44,7 @@ def register(bp: Blueprint, ed: Editor) -> None:
         return render_template(
             "home.html", active="home", last=last, updated=updated_text(last),
             preview=ed.preview_token(), at=last.at.isoformat() if last is not None else "",
-            # watch for the new screen after a save or "Update now", while a render is pending,
-            # or while none happened yet
-            poll=watch_render or state.render_event.is_set() or last is None,
+            poll=ed.watching(),
             kindle_url=url, screen=screen_size(state.cfg),
             # the zip needs the address it writes into config.sh, and the scripts beside the code
             kindle_zip=url is not None and kindle_files.find_dir() is not None,

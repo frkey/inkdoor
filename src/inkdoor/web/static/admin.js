@@ -8,9 +8,9 @@
 //   button[data-copy]       copies the text of the element with that id (shown only with JS)
 //   input[data-enables]     a switch: the fields with the ids it lists are disabled while it is off
 //   form[data-dirty]        gets the class "is-dirty" once something in it changed
-//   [data-preview]          the home page's preview: with data-poll (after a save or Update now),
+//   [data-preview]          the door's preview: with data-poll (after a save or Update now),
 //                           asks /status.json every 3 s for a minute and reloads the page when
-//                           a new screen was drawn
+//                           a new screen was drawn, unless a form on it has unsaved changes
 (function () {
   "use strict";
 
@@ -156,6 +156,8 @@
     }
 
     input.addEventListener("change", apply);
+    // again once the page is shown: a browser restores a form's state (Back, reload) after this ran
+    window.addEventListener("pageshow", apply);
     apply();
   }
 
@@ -204,6 +206,9 @@
         .then(function (data) {
           if (data && data.at && data.at !== at) {
             stop();
+            if (document.querySelector("form.is-dirty")) {
+              return;  // a reload would throw the changes away; the next save watches again
+            }
             // the whole page: the status, the preview and the chip in the top bar change together
             window.location.reload();
           }

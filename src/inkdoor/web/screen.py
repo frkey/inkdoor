@@ -51,13 +51,20 @@ def light_options(t: i18n.Translator, current) -> list[tuple[str, str]]:
     return [(time.strftime("%H:%M"), t.time(time)) for time in sorted(times)]
 
 
-def or_choose(t: i18n.Translator, options: list, value) -> list[tuple[str, str]]:
-    """The options, led by an empty "Choose" when ``value`` is not one of them (a bad value
-    edited by hand, or none): the browser would otherwise show the first option as if it were
-    the setting, and a save would quietly write it."""
+def choice(t: i18n.Translator, options: list, value) -> tuple[list[tuple[str, str]], str]:
+    """(options, the selected value) for a select. When ``value`` is not one of the options (a
+    bad value edited by hand, or none) they are led by an empty "Choose", which is the one
+    selected: the browser would otherwise show the first option as if it were the setting, and
+    a save would quietly write it."""
     if any(option == str(value) for option, _ in options):
-        return options
-    return [("", t("admin.choose"))] + options
+        return options, str(value)
+    return [("", t("admin.choose"))] + options, ""
+
+
+def weekday_options(t: i18n.Translator) -> list[tuple[int, str, str]]:
+    """(day, short name, full name) for the workday chips, Monday first."""
+    short, full = t.get("admin.weekdays_short"), t.get("weekdays")
+    return [(day, short[day], full[day]) for day in forms.WEEKDAYS]
 
 
 def _screen_values(data: dict) -> dict:
@@ -128,9 +135,8 @@ def register(bp: Blueprint, ed: Editor) -> None:
                        "light_off": light_options(t(), shown["light_off"]),
                        "light_on": light_options(t(), shown["light_on"])}
             for key, options in selects.items():
-                selects[key] = or_choose(t(), options, shown[key])
-                if selects[key] is not options:
-                    shown[key] = ""  # the empty choice is the one selected
+                selects[key], shown[key] = choice(t(), options, shown[key])
+            last = state.last_render
             context.update(values=shown, errors=errors or {},
                            digest=raw.digest, warning=warning, form_error=form_error,
                            languages=languages(), timezones=timezones(),
@@ -139,7 +145,10 @@ def register(bp: Blueprint, ed: Editor) -> None:
                            end_hours=selects["workday_end"],
                            light_off_options=selects["light_off"],
                            light_on_options=selects["light_on"],
-                           preview=ed.preview_token(), screen_size=screen_size(state.cfg))
+                           weekdays=weekday_options(t()),
+                           preview=ed.preview_token(), screen_size=screen_size(state.cfg),
+                           at=last.at.isoformat() if last is not None else "",
+                           poll=ed.watching())
         context["restore"] = ed.restore_offer(raw, problem, context.get("warning"))
         if context["locked"]:
             context["locked_name"] = dict(languages()).get(i18n.normalize(state.language),

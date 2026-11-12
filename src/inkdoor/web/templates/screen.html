@@ -75,11 +75,7 @@
                          end_hours, errors, described_by="hours-help") }}
       </div>
       <p class="help field-pair-help" id="hours-help">{{ t("admin.section_workday_help") }}</p>
-      {% set days = [] %}
-      {% for day in range(7) %}
-      {% set _ = days.append((day, t.get("admin.weekdays_short")[day], t.get("weekdays")[day])) %}
-      {% endfor %}
-      {{ m.chips("workdays", t("admin.field_workdays"), values.workdays, days, errors) }}
+      {{ m.chips("workdays", t("admin.field_workdays"), values.workdays, weekdays, errors) }}
       {{ m.number_field("min_gap_minutes", t("admin.field_min_gap"), values.min_gap_minutes, errors,
                         t("admin.unit_minutes"), help=t("admin.field_min_gap_help"),
                         min=0, max=240) }}
@@ -114,7 +110,8 @@
     </div>
   </form>
   <aside class="side side-sticky">
-    {{ m.door_preview(preview, screen_size, caption=t("admin.preview_after_save")) }}
+    {{ m.door_preview(preview, screen_size, caption=t("admin.preview_after_save"), at=at,
+                      poll=poll) }}
   </aside>
 </div>
 {% endif %}

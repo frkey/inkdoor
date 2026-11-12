@@ -215,9 +215,10 @@
 </dl>
 {%- endmacro %}
 
-{# The door as it is now, in a Kindle-shaped frame. token: the t of the image's address, or none #}
-{% macro door_preview(token, size, caption=None) -%}
-<figure class="door-preview">
+{# The door as it is now, in a Kindle-shaped frame. token: the t of the image's address, or none.
+   at: the time of the render on the page; with poll, admin.js watches for a newer one #}
+{% macro door_preview(token, size, caption=None, at=None, poll=False) -%}
+<figure class="door-preview"{% if at is not none %} data-preview data-at="{{ at }}"{% if poll %} data-poll{% endif %}{% endif %}>
   <div class="kindle-frame">
     {% if token is not none %}
     <img src="/kindle.png?t={{ token }}" alt="{{ t('admin.preview_alt') }}" width="{{ size[0] }}" height="{{ size[1] }}">

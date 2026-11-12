@@ -56,6 +56,13 @@ class Editor:
             return None
         return int((last.at.timestamp() if last is not None else mtime) * 1000)
 
+    def watching(self) -> bool:
+        """True when the door preview should watch for a new screen: once after a save or
+        "Update now", while a render is pending, and while none happened yet."""
+        asked = "watch_render" in g.session.flags
+        g.session.flags.discard("watch_render")
+        return asked or self.state.render_event.is_set() or self.state.last_render is None
+
     def describe(self, ex: config.ConfigInvalid) -> str:
         return self.t()(f"config_error.{ex.key}", **ex.details)
 

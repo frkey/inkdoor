@@ -1234,6 +1234,11 @@ input:disabled {
   cursor: not-allowed;
 }
 
+/* room for the save bar below a field the browser scrolls to (Tab, an error's anchor) */
+html {
+  scroll-padding-bottom: 88px;
+}
+
 .save-bar {
   position: sticky;
   bottom: 0;

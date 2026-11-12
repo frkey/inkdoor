@@ -900,12 +900,28 @@ def test_light_options_keep_a_hand_set_time_off_the_grid():        # Review Focu
     assert len(screen.light_options(Translator("pt-BR"), "not a time")) == 48
 
 
-def test_or_choose_offers_an_empty_choice_only_for_a_value_outside_the_options():
+def test_choice_offers_an_empty_choice_only_for_a_value_outside_the_options():
     t = Translator("en-US")
     hours = screen.hour_options(t, 0, 23)
-    assert screen.or_choose(t, hours, 8) == hours and screen.or_choose(t, hours, "8") == hours
+    assert screen.choice(t, hours, 8) == (hours, "8") and screen.choice(t, hours, "8") == (hours, "8")
     for value in (25, "", "8h", None):
-        assert screen.or_choose(t, hours, value) == [("", t("admin.choose"))] + hours
+        assert screen.choice(t, hours, value) == ([("", t("admin.choose"))] + hours, "")
+
+
+def test_weekday_options_carry_the_short_and_the_full_name():
+    options = screen.weekday_options(Translator("pt-BR"))
+    assert options[0] == (0, "Seg", "Segunda") and options[6] == (6, "Dom", "Domingo")
+
+
+def test_screen_preview_watches_for_the_new_screen_after_a_save(logged, state):
+    state.last_render = RenderInfo(dt.datetime(2026, 1, 5, 10, 0, tzinfo=dt.timezone.utc),
+                                   "Free", "until 2:00 PM", [])
+    page = body(logged.get("/screen"))
+    assert f'data-at="{state.last_render.at.isoformat()}"' in page and "data-poll" not in page
+    logged.post("/screen", data=screen_form(logged, refresh_minutes="9"))
+    state.render_event.clear()                       # the render loop took the request
+    assert "data-poll" in body(logged.get("/screen"))                    # watches once
+    assert "data-poll" not in body(logged.get("/screen"))
 
 
 def test_preview_token_is_the_last_render_time_or_the_image_time(logged, state):
