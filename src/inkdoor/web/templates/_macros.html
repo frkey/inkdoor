@@ -61,7 +61,7 @@
   {# set to 1 by admin.js once the browser asked; without JavaScript the server asks instead #}
   {% if confirm %}<input type="hidden" name="confirmed" value="">{% endif %}
   <button type="submit"{% if class %} class="{{ class }}"{% endif %}
-          {%- if aria_label %} aria-label="{{ aria_label }}"{% endif %}
+          {%- if aria_label %} aria-label="{{ aria_label }}" title="{{ aria_label }}"{% endif %}
           {%- if disabled %} disabled{% endif %}>{% if caller %}{{ caller() }}{% else %}{{ label }}{% endif %}</button>
 </form>
 {%- endmacro %}

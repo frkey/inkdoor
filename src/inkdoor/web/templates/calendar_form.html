@@ -39,6 +39,8 @@
         {{ m.link_field(errors, link, index is none,
                         t("admin.field_link_help_new") if index is none else t("admin.field_link_help_edit"),
                         repaste) }}
+        {# on a phone the side column is below the form: a way to it from the link field #}
+        <p class="help side-jump"><a href="#link-howto">{{ t("admin.howto_link_title") }}</a></p>
         <div class="form-actions">
           <button type="submit">{{ t("admin.save") }}</button>
           <a class="button-secondary" href="/calendars">{{ t("admin.cancel") }}</a>
@@ -54,7 +56,7 @@
     </section>
     {% endif %}
   </div>
-  <aside class="side">
+  <aside class="side" id="link-howto">
     {% call m.howto(t("admin.howto_link_title"), open=index is none) %}
     <h3>{{ t("admin.howto_outlook_title") }}</h3>
     {{ m.steps("admin.howto_outlook") }}

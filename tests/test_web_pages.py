@@ -489,6 +489,7 @@ def test_move_and_edit_controls_name_their_calendar(logged):
     name = '<b>&"Work'
     for key in ("admin.move_up_named", "admin.move_down_named", "admin.edit_named"):
         assert f'aria-label="{escape(EN(key, name=name))}"' in page, key
+    assert f'title="{escape(EN("admin.move_up_named", name=name))}"' in page    # the tooltip
     assert "<b>&" not in page
 
 
@@ -530,6 +531,16 @@ def test_tasks_page_shows_the_link_once_in_one_card(logged):
     assert page.count('<section class="card') == 2   # the form card and the remove section
     assert 'action="/tasks/delete"' in page and 'data-test-target="test-tasks"' in page
     assert EN("admin.unit_days") in page
+
+
+def test_tasks_card_always_has_a_heading(logged, state):
+    write_config(state, f'[tasks]\nname = ""\nurl = "{TASKS_LINK}"\n')
+    assert f'<h2>{EN("admin.tasks_settings")}</h2>' in body(logged.get("/tasks"))
+
+
+def test_link_field_points_to_the_link_help_in_the_side_column(logged):
+    page = body(logged.get("/calendars/new"))
+    assert 'href="#link-howto"' in page and 'id="link-howto"' in page
 
 
 def test_tasks_page_without_a_list_is_one_card_with_the_howto_open(logged):

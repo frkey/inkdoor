@@ -12,7 +12,7 @@
 <div class="settings form-col">
   <section class="card">
     <div class="card-head">
-      <h2>{{ name if exists else t("admin.tasks_settings") }}</h2>
+      <h2>{{ (name if exists) or t("admin.tasks_settings") }}</h2>
       {% if link %}{{ m.test_form("/tasks/test", digest, "test-tasks") }}{% endif %}
     </div>
     {% if exists %}

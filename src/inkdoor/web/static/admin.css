@@ -466,23 +466,18 @@ select[aria-invalid="true"] {
   gap: 8px;
 }
 
-.choice,
-.check {
+.choice {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 500;
   cursor: pointer;
-}
-
-.choice {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
 }
 
-.choice input,
-.check input {
+.choice input {
   width: 18px;
   height: 18px;
   margin: 0;
@@ -525,68 +520,8 @@ select[aria-invalid="true"] {
   max-width: 640px;
 }
 
-.sources {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .card + .form-card {
   margin-top: 16px;
-}
-
-.source-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin-bottom: 8px;
-}
-
-/* marker and name stay together; the badge drops below a long name */
-.source-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.source-head h2 {
-  margin: 0;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-
-.badge {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 10px;
-  color: var(--ink);
-}
-
-.badge-quiet {
-  color: var(--muted);
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 4px 16px;
-  margin: 0 0 14px;
-}
-
-.facts dt {
-  color: var(--muted);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .mask {
@@ -773,16 +708,6 @@ input[readonly] {
   color: var(--muted);
 }
 
-.field-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 16px;
-}
-
-.field-pair .field {
-  margin-bottom: 6px;
-}
-
 .field-pair-help {
   margin: 0 0 20px;
 }
@@ -888,14 +813,6 @@ input[readonly] {
     font-size: 1.75rem;
   }
 
-  .facts {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
-  .facts dd {
-    margin-bottom: 6px;
-  }
 }
 
 /* Home: the Kindle files download, above the address to copy by hand */
@@ -1389,4 +1306,16 @@ html {
 /* a link test's result inside a settings card sits between the header and the form */
 .settings .test-slot:not(:empty) {
   margin: -4px 0 20px;
+}
+
+/* the way from the link field to the help in the side column, where that column is below */
+.side-jump {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .side-jump {
+    display: block;
+    margin: -12px 0 20px;
+  }
 }
