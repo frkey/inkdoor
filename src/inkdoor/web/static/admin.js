@@ -6,6 +6,8 @@
 //   form[data-test-target]  runs a link test in the background and shows the result in the
 //                           element with that id; data-error is shown when the test cannot run
 //   button[data-copy]       copies the text of the element with that id (shown only with JS)
+//   input[data-enables]     a switch: the fields with the ids it lists are disabled while it is off
+//   form[data-dirty]        gets the class "is-dirty" once something in it changed
 //   [data-preview]          the home page's preview: with data-poll (after a save or Update now),
 //                           asks /status.json every 3 s for a minute and reloads the page when
 //                           a new screen was drawn
@@ -141,6 +143,31 @@
     button.hidden = false;
   }
 
+  function enableWith(input) {
+    var ids = (input.getAttribute("data-enables") || "").split(/\s+/);
+
+    function apply() {
+      ids.forEach(function (id) {
+        var field = id ? document.getElementById(id) : null;
+        if (field) {
+          field.disabled = !input.checked;
+        }
+      });
+    }
+
+    input.addEventListener("change", apply);
+    apply();
+  }
+
+  function markDirty(form) {
+    function dirty() {
+      form.classList.add("is-dirty");
+    }
+
+    form.addEventListener("input", dirty);
+    form.addEventListener("change", dirty);
+  }
+
   var POLL_EVERY = 3000;
   var POLL_TIMES = 20;  // one minute
 
@@ -190,5 +217,7 @@
   document.querySelectorAll("form[data-confirm]").forEach(confirmBeforeSubmit);
   document.querySelectorAll("form[data-test-target]").forEach(testInBackground);
   document.querySelectorAll("button[data-copy]").forEach(copyButton);
+  document.querySelectorAll("input[data-enables]").forEach(enableWith);
+  document.querySelectorAll("form[data-dirty]").forEach(markDirty);
   document.querySelectorAll("[data-preview]").forEach(pollPreview);
 })();

@@ -1028,8 +1028,8 @@ select.input-short {
   cursor: pointer;
 }
 
-.segments span,
-.chip-row span {
+.segments input + span,
+.chip-row input + span {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1037,11 +1037,11 @@ select.input-short {
   padding: 0 16px;
 }
 
-.segments label + label span {
+.segments label + label input + span {
   border-left: 1px solid var(--border-strong);
 }
 
-.chip-row span {
+.chip-row input + span {
   min-width: 52px;
   padding: 0 10px;
   border: 1px solid var(--border-strong);
@@ -1177,4 +1177,116 @@ select.input-short {
   color: inherit;
   margin: 0;
   padding: 40px 8px;
+}
+
+/* --- settings pages: a column of cards with the save bar always in reach --- */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.settings .card > :last-child,
+.settings .card > :last-child > .field:last-child {
+  margin-bottom: 0;
+}
+
+.settings .card > h2,
+.card-head {
+  margin-bottom: 16px;
+}
+
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.card-head h2 {
+  margin: 0;
+}
+
+/* two fields side by side; one under the other on a phone */
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 16px;
+}
+
+/* two times that belong together (from, to), with one help text below both */
+.time-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+}
+
+.time-pair .field {
+  margin-bottom: 6px;
+}
+
+select:disabled,
+input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 12px 0;
+  background: var(--paper);
+  border-top: 1px solid var(--border);
+}
+
+/* shown by admin.js once something in the form changed */
+.unsaved {
+  display: none;
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.is-dirty .unsaved {
+  display: inline;
+}
+
+.side-sticky {
+  position: sticky;
+  top: 16px;
+}
+
+/* after the rules above, so these win on a phone */
+@media (max-width: 640px) {
+  .side-sticky {
+    position: static;
+  }
+
+  .field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* seven weekdays on one row */
+  .chip-row {
+    flex-wrap: nowrap;
+  }
+
+  .chip-row label {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .chip-row input + span {
+    min-width: 0;
+    width: 100%;
+    padding: 0 2px;
+    font-size: 0.875rem;
+  }
 }

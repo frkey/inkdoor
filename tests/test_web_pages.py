@@ -615,6 +615,13 @@ def screen_form(logged, **fields):
     return logged.csrf_data(**data)
 
 
+def selected(page, name):
+    """The value of the selected option of the select with this name, or None with none."""
+    options = re.search(rf'<select[^>]*\bname="{name}"[^>]*>(.*?)</select>', page, re.S).group(1)
+    match = re.search(r'<option value="([^"]*)" selected>', options)
+    return match.group(1) if match else None
+
+
 def write_config(state, text):
     with open(state.config_path, "w", encoding="utf-8") as f:
         f.write(text)
@@ -624,7 +631,7 @@ def test_screen_shows_the_settings_and_the_port_read_only(logged, state):
     write_config(state, '[display]\ntimezone = "Europe/Lisbon"\nworkday_start = 9\n'
                         '[server]\nport = 8123\n')
     page = body(logged.get("/screen"))
-    assert 'value="Europe/Lisbon"' in page and 'value="9"' in page
+    assert 'value="Europe/Lisbon"' in page and selected(page, "workday_start") == "9"
     assert '<datalist id="timezones">' in page and '<option value="America/New_York">' in page
     assert "8123" in page and 'name="port"' not in page
     assert EN("admin.port_note") in page
@@ -709,7 +716,7 @@ def test_screen_stale_form_is_refused(logged, state):
 def test_screen_empty_clock_removes_the_key(logged, state):
     write_config(state, '[display]\nclock = "24h"\n')
     page = body(logged.get("/screen"))
-    assert re.search(r'<option value="24h" selected>', page)
+    assert re.search(r'<input type="radio" name="clock" value="24h" checked>', page)
     logged.post("/screen", data=screen_form(logged, clock=""))
     assert logged.raw() == {"display": {}}
     logged.post("/screen", data=screen_form(logged, clock="12h"))
@@ -718,15 +725,16 @@ def test_screen_empty_clock_removes_the_key(logged, state):
 
 def test_screen_light_schedule_round_trip(logged, state):
     page = body(logged.get("/screen"))
-    assert EN("admin.field_light") in page and str(escape(EN("admin.field_light_help"))) in page
-    assert 'value="22:00"' in page and 'value="07:00"' in page        # suggested, not saved
+    assert EN("admin.section_light") in page and str(escape(EN("admin.section_light_help"))) in page
+    assert (selected(page, "light_off"), selected(page, "light_on")) == ("22:00", "07:00")  # suggested
     assert not re.search(r'name="light_enabled"[^>]*checked', page)
     r = logged.post("/screen", data=screen_form(logged, light_enabled="1",
                                                 light_off="23:30", light_on="06:45"))
     assert r.status_code == 303
     assert logged.raw() == {"display": {"light_off": "23:30", "light_on": "06:45"}}
     page = body(logged.get("/screen"))
-    assert re.search(r'name="light_enabled"[^>]*checked', page) and 'value="23:30"' in page
+    assert re.search(r'name="light_enabled"[^>]*checked', page)
+    assert (selected(page, "light_off"), selected(page, "light_on")) == ("23:30", "06:45")
     logged.post("/screen", data=screen_form(logged))                          # unchecked
     assert logged.raw() == {"display": {}}
 
@@ -742,10 +750,9 @@ def test_screen_never_replaces_a_bad_hand_edited_time(logged, state):
     write_config(state, '[display]\nlight_off = 23:00:00\nlight_on = "07:00"\n')
     page = body(logged.get("/screen"))
     assert re.search(r'name="light_enabled"[^>]*checked', page)
-    assert not re.search(r'name="light_off"[^>]*value="22:00"', page)    # not the suggestion
+    assert selected(page, "light_off") == ""          # "Choose", not the suggestion or 0:00
     before = logged.digest()
-    fields = re.search(r'name="light_off"[^>]*value="([^"]*)"', page).group(1)
-    r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=fields,
+    r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off="",
                                                 light_on="07:00"))
     assert r.status_code == 200 and 'id="light_off-error"' in body(r)
     assert logged.digest() == before
@@ -759,8 +766,8 @@ def test_screen_never_shows_a_pasted_value_back(logged):
 
 
 def described_by(page, name):
-    """The ids in aria-describedby of the input with this name."""
-    tag = re.search(rf'<input[^>]*name="{name}"[^>]*>', page).group(0)
+    """The ids in aria-describedby of the input or select with this name."""
+    tag = re.search(rf'<(?:input|select)[^>]*name="{name}"[^>]*>', page).group(0)
     match = re.search(r'aria-describedby="([^"]*)"', tag)
     return match.group(1).split() if match else []
 
@@ -813,6 +820,65 @@ def test_screen_broken_file_shows_the_error_and_no_form(logged, state):
     assert r.status_code == 200 and "config.toml has a syntax error" in body(r)
     assert 'name="digest"' not in body(r) or 'action="/restore"' in body(r)
     assert 'action="/screen"' not in body(r)
+
+
+def test_screen_times_are_all_selects(logged):
+    page = body(logged.get("/screen"))
+    for name in ("workday_start", "workday_end", "light_off", "light_on"):
+        assert re.search(rf'<select[^>]*\bname="{name}"', page)
+    assert 'type="time"' not in page
+    assert page.count('name="workdays"') == 7 and 'name="port"' not in page
+    assert (selected(page, "workday_start"), selected(page, "workday_end")) == ("8", "19")
+
+
+def test_screen_round_trips_a_workday_ending_at_24(logged, state):           # Review Focus 2
+    r = logged.post("/screen", data=screen_form(logged, workday_start="0", workday_end="24"))
+    assert r.status_code == 303
+    assert logged.raw()["display"] == {"workday_start": 0, "workday_end": 24}
+    page = body(logged.get("/screen"))
+    assert (selected(page, "workday_start"), selected(page, "workday_end")) == ("0", "24")
+
+
+def test_saving_keeps_a_light_time_off_the_grid(logged, state):              # Review Focus 1
+    write_config(state, '[display]\nlight_off = "22:45"\nlight_on = "07:00"\n')
+    page = body(logged.get("/screen"))
+    assert selected(page, "light_off") == "22:45"
+    logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off="22:45",
+                                            light_on="07:00", refresh_minutes="9"))
+    assert logged.raw()["display"]["light_off"] == "22:45"
+
+
+def test_screen_never_replaces_a_bad_hand_edited_hour(logged, state):
+    write_config(state, "[display]\nworkday_start = 25\nworkday_end = 30\n")
+    page = body(logged.get("/screen"))
+    assert (selected(page, "workday_start"), selected(page, "workday_end")) == ("", "")
+    before = logged.digest()
+    r = logged.post("/screen", data=screen_form(logged, workday_start="", workday_end=""))
+    assert r.status_code == 200 and 'id="workday_start-error"' in body(r)
+    assert logged.digest() == before
+
+
+def test_screen_light_times_survive_an_error_elsewhere_with_the_switch_off(logged, state):
+    write_config(state, '[display]\nlight_off = "21:30"\nlight_on = "06:00"\n')
+    fields = screen_form(logged, timezone="Mars/Olympus_Mons")   # switch off, selects not posted
+    page = body(logged.post("/screen", data=fields))
+    assert (selected(page, "light_off"), selected(page, "light_on")) == ("21:30", "06:00")
+    assert not re.search(r'name="light_enabled"[^>]*checked', page)
+
+
+def test_screen_switch_names_the_fields_it_enables_and_the_form_marks_changes(logged):
+    page = body(logged.get("/screen"))
+    assert re.search(r'name="light_enabled"[^>]*data-enables="light_off light_on"', page)
+    assert 'id="light_off"' in page and 'id="light_on"' in page
+    assert re.search(r'<form[^>]*action="/screen"[^>]*data-dirty', page)
+    assert EN("admin.unsaved") in page and page.count('<section class="card"') == 5
+
+
+def test_screen_shows_the_door_preview(logged, state):
+    assert EN("admin.not_rendered") in body(logged.get("/screen"))
+    with open(os.path.join(state.output_dir, "kindle.png"), "wb") as f:
+        f.write(b"png")
+    assert re.search(r'<img src="/kindle\.png\?t=\d+"', body(logged.get("/screen")))
 
 
 def test_hour_options_cover_the_range_and_label_24_as_midnight():

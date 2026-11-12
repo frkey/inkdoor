@@ -170,15 +170,18 @@
 </fieldset>
 {%- endmacro %}
 
-{# Several choices drawn as toggle chips: checkboxes. values: the checked ones #}
+{# Several choices drawn as toggle chips: checkboxes. values: the checked ones. options:
+   (value, text) or (value, short text, full text); the full text is what a screen reader says #}
 {% macro chips(name, legend, values, options, errors) -%}
 {%- set checked = values | map("string") | list %}
 <fieldset class="field chips"{% if errors.get(name) %} aria-describedby="{{ name }}-error"{% endif %}>
   <legend>{{ legend }}</legend>
   <div class="chip-row">
-    {% for option, text in options %}
-    <label><input type="checkbox" name="{{ name }}" value="{{ option }}"
-      {%- if option | string in checked %} checked{% endif %}><span>{{ text }}</span></label>
+    {% for item in options %}
+    <label><input type="checkbox" name="{{ name }}" value="{{ item[0] }}"
+      {%- if item[0] | string in checked %} checked{% endif %}><span>
+      {%- if item | length > 2 %}<span aria-hidden="true">{{ item[1] }}</span><span class="visually-hidden">{{ item[2] }}</span>
+      {%- else %}{{ item[1] }}{% endif %}</span></label>
     {% endfor %}
   </div>
   {{ field_error(name, errors) }}

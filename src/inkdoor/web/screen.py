@@ -123,19 +123,22 @@ def register(bp: Blueprint, ed: Editor) -> None:
                 # with the switch off the times are not checked (and not posted, once admin.js
                 # disabled them): show the file's or the suggested ones, never an empty choice
                 shown.update({key: shown[key] or current[key] for key in LIGHT_SUGGESTED})
+            selects = {"workday_start": hour_options(t(), 0, 23),
+                       "workday_end": hour_options(t(), 1, 24),
+                       "light_off": light_options(t(), shown["light_off"]),
+                       "light_on": light_options(t(), shown["light_on"])}
+            for key, options in selects.items():
+                selects[key] = or_choose(t(), options, shown[key])
+                if selects[key] is not options:
+                    shown[key] = ""  # the empty choice is the one selected
             context.update(values=shown, errors=errors or {},
                            digest=raw.digest, warning=warning, form_error=form_error,
                            languages=languages(), timezones=timezones(),
                            screens=[(key, *size) for key, size in SCREENS.items()],
-                           port=current["port"],
-                           start_hours=or_choose(t(), hour_options(t(), 0, 23),
-                                                 shown["workday_start"]),
-                           end_hours=or_choose(t(), hour_options(t(), 1, 24),
-                                               shown["workday_end"]),
-                           light_off_options=or_choose(t(), light_options(t(), shown["light_off"]),
-                                                       shown["light_off"]),
-                           light_on_options=or_choose(t(), light_options(t(), shown["light_on"]),
-                                                      shown["light_on"]),
+                           port=current["port"], start_hours=selects["workday_start"],
+                           end_hours=selects["workday_end"],
+                           light_off_options=selects["light_off"],
+                           light_on_options=selects["light_on"],
                            preview=ed.preview_token(), screen_size=screen_size(state.cfg))
         context["restore"] = ed.restore_offer(raw, problem, context.get("warning"))
         if context["locked"]:
