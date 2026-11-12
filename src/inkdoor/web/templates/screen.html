@@ -10,7 +10,8 @@
 {% if not problem %}
 <p class="muted intro">{{ t("admin.screen_intro") }}</p>
 <div class="split">
-  <form method="post" action="/screen" class="settings" data-dirty>
+  {# is-dirty: admin.js adds it at the first change; a refused save comes back with it #}
+  <form method="post" action="/screen" class="settings{% if errors or form_error %} is-dirty{% endif %}" data-dirty>
     {{ m.form_fields(digest) }}
     {% if form_error %}<p class="alert" role="alert">{{ form_error }}</p>{% endif %}
 

@@ -788,6 +788,13 @@ def test_screen_missing_fields_are_errors_not_crashes(logged):
     assert logged.raw() == {}
 
 
+def test_screen_refused_save_still_says_unsaved(logged):
+    """The page that answers a save with errors holds values that are not saved yet."""
+    assert 'class="settings"' in body(logged.get("/screen"))
+    r = logged.post("/screen", data=screen_form(logged, timezone="Nowhere/Invalid"))
+    assert r.status_code == 200 and 'class="settings is-dirty"' in body(r)
+
+
 def test_screen_stale_form_is_refused(logged, state):
     stale = screen_form(logged, timezone="Europe/Lisbon")
     write_config(state, "# edited by hand\n")
@@ -1568,6 +1575,10 @@ def test_a_write_error_is_reported_and_changes_nothing(logged, state, monkeypatc
     r = logged.post("/calendars/new", data=logged.form(name="Home", url=LINK))
     assert r.status_code == 200 and EN("admin.error_write", error="PermissionError") in body(r)
     assert open(state.config_path, "rb").read() == before
+    # the Screen form that could not be written still holds unsaved values
+    r = logged.post("/screen", data=screen_form(logged, timezone="Europe/Lisbon"))
+    assert EN("admin.error_write", error="PermissionError") in body(r)
+    assert 'class="settings is-dirty"' in body(r)
 
 
 def test_the_test_slot_is_released_when_a_check_crashes(logged, monkeypatch):
