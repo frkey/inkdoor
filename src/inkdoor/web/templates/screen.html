@@ -85,6 +85,17 @@
       {{ m.field_error("workdays", errors) }}
     </fieldset>
 
+    <fieldset class="field">
+      <legend>{{ t("admin.field_light") }}</legend>
+      <label class="choice"><input type="checkbox" name="light_enabled" value="1"
+        {%- if values.light_enabled %} checked{% endif %}> {{ t("admin.field_light_enabled") }}</label>
+      <div class="field-pair">
+        {{ m.text_field("light_off", t("admin.field_light_off"), values.light_off, errors, type="time") }}
+        {{ m.text_field("light_on", t("admin.field_light_on"), values.light_on, errors, type="time") }}
+      </div>
+      <p class="help field-pair-help">{{ t("admin.field_light_help") }}</p>
+    </fieldset>
+
     {{ m.text_field("min_gap_minutes", t("admin.field_min_gap"), values.min_gap_minutes, errors,
                     help=t("admin.field_min_gap_help"), type="number", inputmode="numeric",
                     min=0, max=240, required=True) }}
