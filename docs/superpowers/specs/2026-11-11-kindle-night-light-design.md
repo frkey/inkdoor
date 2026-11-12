@@ -39,8 +39,8 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 - Validation in `config.validate` raises `ConfigInvalid` (new translated keys under
   `config_error`) when only one of them is set, when a value is not a string fully matching
   `([01][0-9]|2[0-3]):[0-5][0-9]` (ASCII digits only), or when both are equal. The error names the
-  key in a `field` detail, never `key` (that name clashes with `Translator.__call__`'s own
-  parameter), and never repeats the value.
+  key in a `field` detail, never `key` (that name clashed with `Translator.__call__`'s own
+  parameter until #109), and never repeats the value.
 - The period may cross midnight (`22:00` → `07:00`) or not (`13:00` → `14:00`).
 - Strings rather than TOML local times: `22:00` without seconds is not valid TOML 1.0, and a
   hand-edited file should accept what people naturally type.
