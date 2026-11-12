@@ -834,7 +834,7 @@ def test_account_page_has_the_password_form_and_logout(logged):
     assert 'action="/account/password"' in page and 'name="current"' in page
     assert 'name="new"' in page and 'name="generate"' in page
     assert 'autocomplete="current-password"' in page and 'autocomplete="new-password"' in page
-    assert page.count('action="/logout"') >= 2
+    assert page.count('action="/logout"') == 1  # in the top bar only
 
 
 def test_wrong_current_password_changes_nothing(logged, state):
@@ -1544,3 +1544,81 @@ def test_screen_docs_anchor_is_encoded_in_portuguese(logged, state):
     state.cfg["display"]["language"] = "pt-BR"
     page = body(logged.get("/screen"))
     assert "docs/pt-BR/kindle.md#qual-%C3%A9-o-meu-kindle" in page
+
+
+# --- shared form components (_macros.html) ---
+
+def _macros(app):
+    with app.test_request_context("/"):
+        return app.jinja_env.get_template("_macros.html").make_module({"t": Translator("en-US")})
+
+
+def test_time_select_marks_the_current_value(app):
+    html = str(_macros(app).time_select("light_off", "Off", "22:30",
+                                        [("22:00", "10:00 PM"), ("22:30", "10:30 PM")], {}))
+    assert re.search(r'<option value="22:30"\s+selected', html)
+    assert html.count("selected") == 1
+    assert 'for="light_off"' in html and 'id="light_off"' in html and 'name="light_off"' in html
+
+
+def test_time_select_links_its_error_and_shared_help(app):
+    html = str(_macros(app).time_select("light_on", "On", "", [("07:00", "7:00 AM")],
+                                        {"light_on": "Pick a time"}, described_by="light-help"))
+    assert 'aria-describedby="light-help light_on-error"' in html and 'aria-invalid="true"' in html
+    assert 'id="light_on-error"' in html and "Pick a time" in html and "selected" not in html
+
+
+def test_number_field_shows_the_unit_beside_the_input(app):
+    html = str(_macros(app).number_field("refresh_minutes", "Every", 5, {}, "minutes",
+                                         help="How often", min=1, max=1440))
+    assert 'class="unit"' in html and ">minutes<" in html and 'value="5"' in html
+    assert 'min="1"' in html and 'max="1440"' in html and "required" in html
+    assert 'aria-describedby="refresh_minutes-unit refresh_minutes-help"' in html
+
+
+def test_segmented_and_chips_are_real_inputs(app):
+    m = _macros(app)
+    seg = str(m.segmented("clock", "Clock", "24h", [("", "Auto"), ("24h", "24-hour")], {}))
+    assert seg.count('type="radio"') == 2 and seg.count("checked") == 1
+    assert re.search(r'value="24h"\s+checked', seg) and "<legend>Clock</legend>" in seg
+    chips = str(m.chips("workdays", "Days", [0, 2], [(0, "Mon"), (1, "Tue"), (2, "Wed")], {}))
+    assert chips.count('type="checkbox"') == 3 and chips.count("checked") == 2
+    assert not re.search(r'value="1"\s+checked', chips)
+
+
+def test_switch_is_a_checkbox_that_names_what_it_enables(app):
+    m = _macros(app)
+    on = str(m.switch("light_enabled", "On", True, enables="light_off light_on"))
+    assert 'type="checkbox"' in on and 'name="light_enabled"' in on and 'value="1"' in on
+    assert "checked" in on and 'data-enables="light_off light_on"' in on
+    assert "checked" not in str(m.switch("busy", "Busy", False))
+
+
+def test_source_state_is_words_not_color_alone(app):
+    html = str(_macros(app).source_state("stale", "Old data"))
+    assert "state-stale" in html and "Old data" in html and "<svg" in html
+    assert "<svg" not in str(_macros(app).source_state("unset", "No link yet"))
+
+
+def test_readonly_row_is_text_not_an_input(app):
+    html = str(_macros(app).readonly_row("Port", 3667, help="Edit config.toml"))
+    assert "<input" not in html and "3667" in html and "Edit config.toml" in html
+
+
+def test_door_preview_shows_the_image_or_says_nothing_is_drawn(app):
+    m = _macros(app)
+    html = str(m.door_preview(123, (1072, 1448)))
+    assert 'src="/kindle.png?t=123"' in html and 'width="1072"' in html and 'height="1448"' in html
+    assert "<img" not in str(m.door_preview(None, (1072, 1448)))
+    assert Translator("en-US")("admin.not_rendered") in str(m.door_preview(None, (1072, 1448)))
+
+
+def test_macro_values_are_escaped(app):
+    html = str(_macros(app).time_select("x", '<b>"', '"><i>', [('"><i>', "<u>")], {}))
+    assert "<b>" not in html and "<i>" not in html and "<u>" not in html
+
+
+def test_account_page_has_a_single_log_out(logged):
+    page = logged.get("/account").get_data(as_text=True)
+    assert page.count('action="/logout"') == 1
+    assert Translator("en-US")("admin.session_help") in page

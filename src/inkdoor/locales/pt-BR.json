@@ -410,7 +410,6 @@
     "generated_title": "Sua nova senha",
     "generated_label": "Nova senha",
     "generated_help": "Guarde agora, por exemplo num gerenciador de senhas: ela não será mostrada de novo. Os outros navegadores foram desconectados.",
-    "session_title": "Este navegador",
     "session_help": "Saia quando terminar, se estiver num computador compartilhado.",
     "config_problem_detail": "Detalhes: {message}",
     "howto_link_title": "Onde encontro o link?",

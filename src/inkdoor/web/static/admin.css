@@ -946,3 +946,208 @@ input[readonly] {
   white-space: nowrap;
   border: 0;
 }
+
+/* --- shared form components (_macros.html) --- */
+
+.input-short,
+input[type="number"].input-short,
+select.input-short {
+  width: 9rem;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.with-unit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unit {
+  color: var(--muted);
+}
+
+/* the input is hidden, not removed: it keeps the focus and the keyboard; the span is drawn */
+.segments input,
+.chip-row input,
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.segments,
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.segments {
+  align-self: flex-start;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chip-row {
+  gap: 6px;
+}
+
+.segments label,
+.chip-row label {
+  display: flex;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.segments span,
+.chip-row span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control);
+  padding: 0 16px;
+}
+
+.segments label + label span {
+  border-left: 1px solid var(--border-strong);
+}
+
+.chip-row span {
+  min-width: 52px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.segments input:checked + span,
+.chip-row input:checked + span {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ink-contrast);
+  font-weight: 700;
+}
+
+.segments input:focus-visible + span,
+.chip-row input:focus-visible + span,
+.switch input:focus-visible + .switch-track {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.segments input:focus-visible + span {
+  outline-offset: -3px;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control);
+  cursor: pointer;
+}
+
+.switch-track {
+  flex: none;
+  display: flex;
+  align-items: center;
+  width: 48px;
+  height: 28px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.switch-track::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.switch input:checked + .switch-track {
+  background: var(--ink);
+  justify-content: flex-end;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.state-ok {
+  color: var(--ok);
+}
+
+.state-stale {
+  color: var(--warn);
+}
+
+.state-failed {
+  color: var(--fail);
+}
+
+.state-unset {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.readonly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin: 0 0 20px;
+}
+
+.readonly dt {
+  font-weight: 600;
+}
+
+.readonly dd {
+  margin: 0;
+}
+
+.readonly dd.help {
+  flex-basis: 100%;
+}
+
+.door-preview {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* the bezel is the same dark gray in both themes: it is a picture of the device */
+.kindle-frame {
+  width: 100%;
+  max-width: 280px;
+  padding: 16px 16px 34px;
+  border-radius: 18px;
+  background: #2b2b29;
+  color: #c9c7c0;
+}
+
+.kindle-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.kindle-frame .muted {
+  color: inherit;
+  margin: 0;
+  padding: 40px 8px;
+}

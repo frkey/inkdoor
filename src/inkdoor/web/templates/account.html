@@ -40,13 +40,6 @@
     </div>
   </form>
   <p class="help account-hint">{{ t("admin.forgot_password") }}</p>
-</section>
-<section class="card form-card">
-  <h2>{{ t("admin.session_title") }}</h2>
-  <p class="muted">{{ t("admin.session_help") }}</p>
-  <form method="post" action="/logout">
-    {{ csrf_field() }}
-    <button type="submit" class="button-secondary">{{ t("admin.logout") }}</button>
-  </form>
+  <p class="help">{{ t("admin.session_help") }}</p>
 </section>
 {% endblock %}
