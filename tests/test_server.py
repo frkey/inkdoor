@@ -265,6 +265,29 @@ def test_render_info_lists_failing_sources_without_links(tmp_path, cfg, capsys, 
     assert CANARY not in out.out + out.err
 
 
+def test_render_info_carries_sources_timeline_and_next_word(tmp_path, cfg):
+    st = make_state(tmp_path, cfg)
+    server.run_cycle(st, SourceCache())
+    info = st.last_render
+    assert [s.name for s in info.sources] == [c["name"] for c in cfg["calendar"]] + ["TickTick"]
+    assert all(s.state == "ok" for s in info.sources)
+    assert info.timeline is None or info.timeline.start < info.timeline.end
+    assert info.next_word is None or isinstance(info.next_word, str)
+    assert (info.next_word is None) == (info.next_change is None)
+
+
+def test_a_dashboard_bug_never_costs_the_door_its_image(tmp_path, cfg, monkeypatch, capsys):
+    def boom(snap, cfg):
+        raise RuntimeError(CANARY)
+    monkeypatch.setattr(server, "build_timeline", boom)
+    st = make_state(tmp_path, cfg)
+    server.run_cycle(st, SourceCache())
+    info = st.last_render
+    assert info.word and info.timeline is None and len(info.sources) == 4
+    out = capsys.readouterr()
+    assert EN("cli.error", error="RuntimeError") in out.out and CANARY not in out.out + out.err
+
+
 def test_cycle_keeps_last_valid_config_and_never_leaves_a_stale_screen(state, monkeypatch, cfg):
     with open(state.config_path, "w") as f:
         f.write("[server]\nrefresh_minutes = 0\n")       # broken on purpose

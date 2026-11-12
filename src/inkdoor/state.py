@@ -20,6 +20,11 @@ class RenderInfo:
     errors: list[str]
     # when the screen changes next with the clock alone (a meeting starts or ends), if known
     next_change: dt.datetime | None = None
+    # for the dashboard on Home: each source's health (sources.SourceHealth), today's workday
+    # (dashboard.Timeline, or None) and the word at next_change, if known
+    sources: list = field(default_factory=list)
+    timeline: object | None = None
+    next_word: str | None = None
 
 
 @dataclass
@@ -47,6 +52,8 @@ class ServerState:
     # took: /kindle.png tells the Kindle when to come back for it
     next_render_at: float | None = None
     render_seconds: float = 0.0
+    # wall-clock time of the last /kindle.png answered to a Kindle (not to the admin's preview)
+    last_fetch_at: float | None = None
     # True while no config (neither the file nor its .bak) has ever loaded and ``cfg`` holds
     # only the defaults: the door then shows the setup or error screen instead of a status.
     using_defaults: bool = False
@@ -59,6 +66,12 @@ class ServerState:
             return os.stat(os.path.join(self.output_dir, IMAGE_NAME)).st_mtime
         except OSError:
             return None
+
+    def image_current(self, now: float) -> bool:
+        """True when there is an image and /kindle.png serves it as it is (not the stale notice):
+        only then does the admin repeat what the door says."""
+        mtime = self.image_mtime()
+        return mtime is not None and not self.image_stale(now, mtime)
 
     def image_stale(self, now: float, image_mtime: float) -> bool:
         """True when the image on disk may show an old status, because the render loop is far

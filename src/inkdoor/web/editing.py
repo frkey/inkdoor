@@ -7,6 +7,8 @@ loop. Links never leave the server: pages show ``masked``, and the link field is
 """
 from __future__ import annotations
 
+import time
+
 from flask import g, redirect, render_template, request
 
 from .. import config, config_edit
@@ -40,8 +42,9 @@ def confirm_page(question: str, label: str, back: str, active: str):
 class Editor:
     """config.toml as the admin pages read and save it, with messages in the request's language."""
 
-    def __init__(self, state: ServerState):
+    def __init__(self, state: ServerState, clock=time.time):
         self.state = state
+        self.clock = clock  # wall time, like the app's
 
     def t(self):
         if "t" not in g:

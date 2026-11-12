@@ -144,7 +144,7 @@ paste each ICS link and press **Test link**. **Home** shows the door exactly as 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/admin-home-dark-en-US.png">
-  <img alt="The admin's home page: the door's status, the Kindle's address and a preview of the screen" src="docs/img/admin-home-light-en-US.png">
+  <img alt="The admin's home page: what the door says and when it changes, a preview of the screen, today's timeline and each calendar's state" src="docs/img/admin-home-light-en-US.png">
 </picture>
 
 ### 3. Put it on the Kindle

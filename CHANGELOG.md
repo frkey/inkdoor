@@ -18,6 +18,8 @@ It is shown next to each release.
   `config.toml` is kept).
 - Admin: Calendars is one list with a row per calendar, and Tasks is one card. Removing a
   calendar now happens on its edit page.
+- Admin: Home is now a dashboard: what the door says and when it changes next, today's
+  timeline, each source's state in plain words, and when the Kindle last fetched the image.
 
 ## [1.2.0] - 2026-11-12
 

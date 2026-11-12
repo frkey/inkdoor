@@ -1,10 +1,13 @@
-"""The Home page: the door's preview, "Update now", the status the preview polls, and restoring
-the previous config."""
+"""The Home page: what the door says and when it changes next, today's timeline, each source's
+state, the door's preview, "Update now", the status the preview polls, and restoring the
+previous config."""
 from __future__ import annotations
+
+import datetime as dt
 
 from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request
 
-from .. import config, config_edit, kindle_files, net
+from .. import config, config_edit, kindle_files, light, net
 from ..config import is_configured
 from ..render import screen_size
 from . import add_notice
@@ -18,6 +21,97 @@ def _nothing_configured(data: dict) -> bool:
         not is_configured(tasks.get("url"))
 
 
+TIMELINE_WIDTH = 1000     # the timeline's box; the template prints positions as tenths of a percent
+MIN_BLOCK = 4             # the narrowest a block is drawn, so a 5-minute event is still seen
+
+
+def source_rows(t, sources) -> list[dict]:
+    """Each source's state for the Sources card, in words: never a link or an exception's text."""
+    rows = []
+    for source in sources:
+        reason = t(f"admin.reason_{source.reason}") if source.reason else ""
+        if source.state == "ok":
+            key = "admin.tasks_ok" if source.kind == "tasks" else "admin.source_ok"
+            sentence = t(key, n=source.items, time=t.time(source.read_at))
+        elif source.state == "stale" and source.read_at is not None:
+            sentence = t("admin.source_stale", reason=reason, time=t.time(source.read_at))
+        elif source.state in ("stale", "failed"):
+            sentence = t("admin.source_failed", reason=reason)
+        else:
+            sentence = t("admin.link_not_set")
+        rows.append({"name": source.name, "style": source.style, "kind": source.kind,
+                     "state": source.state, "state_text": t(f"admin.state_{source.state}"),
+                     "sentence": sentence})
+    return rows
+
+
+def timeline_view(t, timeline, now: dt.datetime) -> dict | None:
+    """The workday as the template draws it: positions in a box TIMELINE_WIDTH wide."""
+    if timeline is None:
+        return None
+    total = (timeline.end - timeline.start).total_seconds()
+    if total <= 0:
+        return None
+
+    def x(moment: dt.datetime) -> int:
+        return round((moment - timeline.start).total_seconds() / total * TIMELINE_WIDTH)
+
+    blocks = []
+    for block in timeline.blocks:
+        width = max(x(block.end) - x(block.start), MIN_BLOCK)
+        blocks.append({"x": min(x(block.start), TIMELINE_WIDTH - width), "w": width,
+                       "style": block.style, "busy": block.busy})
+    # a label at both ends and every second hour between (every fourth on a long day), leaving
+    # out one that would sit against the end
+    step = dt.timedelta(hours=2 if total <= 12 * 3600 else 4)
+    ticks, moment = [timeline.start], timeline.start + step
+    while moment + step / 2 < timeline.end:
+        ticks.append(moment)
+        moment += step
+    ticks.append(timeline.end)
+
+    def minor(index: int) -> bool:
+        """An hour label a narrow screen leaves out: every other one between the ends, and one
+        less than two steps before the end, where it would run into the end's label."""
+        inner = 0 < index < len(ticks) - 1
+        return inner and (index % 2 == 1 or timeline.end - ticks[index] < 2 * step)
+    periods = ", ".join(t("admin.timeline_period", start=t.time(b.start), end=t.time(b.end))
+                        for b in timeline.blocks if b.busy)
+    return {"blocks": blocks,
+            "now_x": x(now) if timeline.start <= now <= timeline.end else None,
+            "ticks": [(t.time(tick), x(tick), minor(i)) for i, tick in enumerate(ticks)],
+            "summary": t("admin.timeline_alt", periods=periods) if periods
+            else t("admin.timeline_none")}
+
+
+def status_facts(t, last, next_render_at: float | None, last_fetch_at: float | None,
+                 now: float, known: bool = True) -> list[str]:
+    """The lines under the door's status: its next change (only while the status is ``known``:
+    the line names the next word), the last and next update, and when a Kindle last fetched
+    the image. ``now`` and the two times are wall time."""
+    facts = []
+    if known and last.next_change is not None:
+        when = t.time(last.next_change)
+        if last.next_change.date() != last.at.date():
+            facts.append(t("admin.next_change_on", date=t.date_short(last.next_change),
+                           time=when))
+        elif last.next_word and last.next_word != last.word:
+            facts.append(t("admin.next_change_to", word=last.next_word, time=when))
+        else:
+            facts.append(t("admin.next_change", time=when))
+    facts.append(t("admin.last_update", date=t.date_short(last.at), time=t.time(last.at)))
+    if next_render_at is not None and next_render_at > now:
+        facts.append(t("admin.next_update",
+                       time=t.time(dt.datetime.fromtimestamp(next_render_at, last.at.tzinfo))))
+    if last_fetch_at is None:
+        facts.append(t("admin.last_fetch_never"))
+    else:
+        minutes = int(max(0.0, now - last_fetch_at) // 60)
+        facts.append(t("admin.last_fetch", duration=t.duration(minutes)) if minutes
+                     else t("admin.last_fetch_now"))
+    return facts
+
+
 def register(bp: Blueprint, ed: Editor) -> None:
     state, t = ed.state, ed.t
 
@@ -25,6 +119,13 @@ def register(bp: Blueprint, ed: Editor) -> None:
         """The image address for other devices on the network, as Home shows it."""
         base = net.admin_url(state.cfg)
         return base + "/kindle.png" if base else None
+
+    def preview_caption() -> str | None:
+        """The night light's hours, under the preview, when a schedule is set."""
+        times = light.schedule(state.cfg)
+        if times is None:
+            return None
+        return t()("admin.preview_light", off=t().time(times[0]), on=t().time(times[1]))
 
     def updated_text(last) -> str | None:
         if last is None:
@@ -41,8 +142,18 @@ def register(bp: Blueprint, ed: Editor) -> None:
         missing = raw is not None and not raw.exists
         broken = bool(problem or warning) or (missing and state.config_problem == "broken")
         url = kindle_url()
+        now = ed.clock()
+        timeline = last.timeline if last is not None else None
         return render_template(
-            "home.html", active="home", last=last, updated=updated_text(last),
+            "home.html", active="home", last=last,
+            # "door" in the template is the status as far as anybody knows it (door_status)
+            facts=status_facts(t(), last, state.next_render_at, state.last_fetch_at, now,
+                               known=state.image_current(now))
+            if last is not None else [],
+            sources=source_rows(t(), last.sources) if last is not None else [],
+            timeline=timeline_view(t(), timeline, dt.datetime.fromtimestamp(
+                now, timeline.start.tzinfo)) if timeline is not None else None,
+            caption=preview_caption(),
             preview=ed.preview_token(), at=last.at.isoformat() if last is not None else "",
             poll=ed.watching(),
             kindle_url=url, screen=screen_size(state.cfg),

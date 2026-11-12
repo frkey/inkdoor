@@ -5,6 +5,8 @@ share about reading and saving config.toml is in ``editing``.
 """
 from __future__ import annotations
 
+import time
+
 from flask import Blueprint
 
 from .. import check as checker
@@ -17,9 +19,9 @@ from .editing import Editor
 __all__ = ["TESTS", "blueprint", "checker"]
 
 
-def blueprint(state: ServerState) -> Blueprint:
+def blueprint(state: ServerState, clock=time.time) -> Blueprint:
     bp = Blueprint("pages", __name__)
-    editor = Editor(state)
+    editor = Editor(state, clock)
     for module in (home, calendars, screen, account):
         module.register(bp, editor)
     return bp

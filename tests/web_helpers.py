@@ -78,3 +78,36 @@ def logged_in(app):
     sid = cookie(c, "inkdoor_session").value
     c.csrf = app.extensions["inkdoor"]["sessions"].get(sid).csrf
     return c
+
+
+# --- builders for what the render loop leaves for Home -------------------------------------------
+
+def day_at(hhmm, day=14):
+    """A time on the fixed day the Home tests use (2026-10-14, a Wednesday, in São Paulo)."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    hour, minute = map(int, hhmm.split(":"))                   # "24:00" is the next midnight
+    return dt.datetime(2026, 10, day, tzinfo=ZoneInfo("America/Sao_Paulo")) + \
+        dt.timedelta(hours=hour, minutes=minute)
+
+
+def health(name, state, kind="calendar", style="solid", busy=True, items=0, reason=None,
+           read_at="10:00"):
+    from inkdoor.sources import SourceHealth
+    known = state in ("ok", "stale")
+    return SourceHealth(kind, name, style if kind == "calendar" else None, busy, state,
+                        items if known else 0, day_at(read_at) if known else None,
+                        reason if state in ("stale", "failed") else None)
+
+
+def timeline(start="08:00", end="19:00", blocks=()):
+    from inkdoor.dashboard import Block, Timeline
+    return Timeline(day_at(start), day_at(end),
+                    [Block(day_at(a), day_at(b), style, True) for a, b, style in blocks])
+
+
+def info(word="In a meeting", headline="until 5:00 PM", sources=(), timeline=None,
+         next_word=None, next_change=None, at="10:20"):
+    from inkdoor.state import RenderInfo
+    return RenderInfo(day_at(at), word, headline, [], next_change, sources=list(sources),
+                      timeline=timeline, next_word=next_word)

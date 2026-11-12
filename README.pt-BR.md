@@ -145,7 +145,7 @@ mostrar.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/admin-home-dark-pt-BR.png">
-  <img alt="A página inicial do admin: o status da porta, o endereço do Kindle e uma prévia da tela" src="docs/img/admin-home-light-pt-BR.png">
+  <img alt="A página inicial do admin: o que a porta diz e quando muda, uma prévia da tela, a linha do tempo de hoje e o estado de cada agenda" src="docs/img/admin-home-light-pt-BR.png">
 </picture>
 
 ### 3. Coloque no Kindle

@@ -357,10 +357,7 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         """What the door says, for the chip in the top bar, or None when nobody knows: nothing
         rendered yet, no image, or an image so old that /kindle.png serves the stale notice
         instead (the chip must not repeat an old "Free")."""
-        last, mtime = state.last_render, state.image_mtime()
-        if last is None or mtime is None:
-            return None
-        return None if state.image_stale(clock(), mtime) else last
+        return state.last_render if state.image_current(clock()) else None
 
     @app.context_processor
     def _template_globals():
@@ -410,6 +407,8 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
                                       mimetype="text/plain", headers={"Cache-Control": "no-store"})
         if state.image_stale(clock(), mtime):  # the door must not keep an old "Free"
             body = stale_image()
+        if "t" not in request.args:  # the admin's preview asks with ?t=; a Kindle does not
+            state.last_fetch_at = clock()
         headers = {"Cache-Control": "no-store"}
         waits = []
         if state.next_render_at is not None:
@@ -516,5 +515,5 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         return response
 
     from .pages import blueprint  # here: pages imports helpers from this module
-    app.register_blueprint(blueprint(state))
+    app.register_blueprint(blueprint(state, clock))
     return app

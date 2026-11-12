@@ -19,6 +19,7 @@ import time
 from zoneinfo import ZoneInfo
 
 from . import config, net
+from .dashboard import build_timeline, next_word
 from .render import compute_status, next_change, render, render_error, render_setup, translator_for
 from .sources import SourceCache, Snapshot, collect
 from .state import IMAGE_NAME, RenderInfo, ServerState
@@ -65,7 +66,14 @@ def _render_snapshot(cfg: dict, path: str, cache: SourceCache | None,
         line += t("cli.rendered_errors", sources="; ".join(snap.errors))
     _log(line)
     change = next_change(snap, cfg) if snap.configured != "nothing" else None
-    return RenderInfo(snap.now, word, headline, list(snap.errors), change)
+    info = RenderInfo(snap.now, word, headline, list(snap.errors), change,
+                      sources=list(snap.health))
+    try:  # extras for the admin's Home: the door is already drawn and must stay that way
+        info.timeline = build_timeline(snap, cfg)
+        info.next_word = next_word(snap, cfg, t, change)
+    except Exception as ex:
+        _log(t("cli.error", error=ex.__class__.__name__))
+    return info
 
 
 def render_once(cfg: dict, output_dir: str, cache: SourceCache | None = None) -> str:

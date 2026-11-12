@@ -69,6 +69,37 @@ class Snapshot:
     # What has a link: "nothing" (no calendar and no tasks), "no_busy" (something, but no busy
     # calendar) or "busy" (at least one busy calendar). The renderer never says Free unless "busy".
     configured: str = "busy"
+    # one SourceHealth per calendar and for the task list, in config order (the admin's Home)
+    health: list = field(default_factory=list)
+
+
+@dataclass
+class SourceHealth:
+    """How one source did in this read, in words the admin can show: never a link, never an
+    exception's text."""
+    kind: str                     # "calendar" | "tasks"
+    name: str
+    style: str | None             # the calendar's marker; None for tasks
+    busy: bool
+    state: str                    # "ok" | "stale" (failed, using today's earlier read) |
+    #                               "failed" (no data today) | "unset" (no link yet)
+    items: int                    # events today (calendar) or tasks shown; 0 when failed or unset
+    read_at: dt.datetime | None   # when the data in use was read; None when failed or unset
+    reason: str | None            # failure category when stale or failed, else None
+
+
+def failure_reason(ex: Exception) -> str:
+    """Why a read failed, as one of a few categories: "timeout", "denied", "not_found", "http",
+    "unreachable" or "other"."""
+    if isinstance(ex, isolate.CalendarTimeout):
+        return "timeout"
+    if isinstance(ex, net.FetchError):
+        if ex.reason == "timeout":
+            return "timeout"
+        if ex.reason == "http":
+            return {401: "denied", 403: "denied", 404: "not_found"}.get(ex.status, "http")
+        return "unreachable"
+    return "other"
 
 
 def cache_key(kind: str, name: str, url: str) -> tuple[str, str, str]:
@@ -90,14 +121,21 @@ class SourceCache:
         self._data: dict = {}
         self._lock = threading.Lock()
 
-    def put(self, key: tuple, day: dt.date, items: list) -> None:
+    def put(self, key: tuple, day: dt.date, items: list, at: dt.datetime | None = None) -> None:
+        """Keeps a good read; ``at`` is when it was made."""
         with self._lock:
-            self._data[key] = (day, items)
+            self._data[key] = (day, items, at)
 
     def get(self, key: tuple, day: dt.date):
         with self._lock:
             cached = self._data.get(key)
         return cached[1] if cached and cached[0] == day else None
+
+    def read_at(self, key: tuple, day: dt.date) -> dt.datetime | None:
+        """When the data ``get`` returns for that day was read, if known."""
+        with self._lock:
+            cached = self._data.get(key)
+        return cached[2] if cached and cached[0] == day else None
 
     def keep(self, keys: set) -> None:
         """Drops every entry whose key is not in `keys`."""
@@ -266,31 +304,50 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
     tomorrow_start = day_start + dt.timedelta(days=1)
     window_end = day_start + dt.timedelta(days=2)
 
-    events, errors, unknown, keys = [], [], [], set()
+    events, errors, unknown, keys, health = [], [], [], set(), []
     any_configured = busy_configured = False
+
+    def failed(source: SourceHealth, key: tuple, ex: Exception):
+        """Notes the failure and returns today's earlier read of that source, if there is one."""
+        errors.append(f"{source.name}: {ex.__class__.__name__}")
+        cached = cache.get(key, today) if cache is not None else None
+        source.state = "failed" if cached is None else "stale"
+        source.read_at = None if cached is None else cache.read_at(key, today)
+        source.reason = failure_reason(ex)
+        return cached
+
     for calendar in cfg.get("calendar", []):
+        busy = bool(calendar.get("busy", True))
+        source = SourceHealth("calendar", str(calendar.get("name", "")),
+                              calendar.get("style", "solid"), busy, "unset", 0, None, None)
+        health.append(source)
         if not is_configured(calendar.get("url")):
             continue
         any_configured = True
-        busy_configured = busy_configured or bool(calendar.get("busy", True))
+        busy_configured = busy_configured or busy
         name = calendar["name"]
         key = cache_key("calendar", name, calendar["url"])
         keys.add(key)
         try:
             fresh = read_calendar(calendar, day_start, window_end, tz)
             if cache is not None:
-                cache.put(key, today, fresh)
+                cache.put(key, today, fresh, now)
             events += fresh
+            source.state, source.read_at = "ok", now
         except Exception as ex:  # one broken calendar must not take the screen down
-            errors.append(f"{name}: {ex.__class__.__name__}")
-            cached = cache.get(key, today) if cache is not None else None
+            cached = failed(source, key, ex)
             if cached is not None:
                 events += cached
-            elif calendar.get("busy", True):
+            elif busy:
                 unknown.append(name)
 
     tasks = []
     tasks_cfg = cfg.get("tasks")
+    tasks_health = None
+    if tasks_cfg:
+        tasks_health = SourceHealth("tasks", str(tasks_cfg.get("name", "TickTick")), None, False,
+                                    "unset", 0, None, None)
+        health.append(tasks_health)
     if tasks_cfg and is_configured(tasks_cfg.get("url")):
         any_configured = True
         name = tasks_cfg.get("name", "TickTick")
@@ -299,10 +356,11 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
         try:
             tasks = read_tasks(tasks_cfg, today, tz)
             if cache is not None:
-                cache.put(key, today, tasks)
+                cache.put(key, today, tasks, now)
+            tasks_health.state, tasks_health.read_at = "ok", now
         except Exception as ex:
-            errors.append(f"{name}: {ex.__class__.__name__}")
-            tasks = (cache.get(key, today) if cache is not None else None) or []
+            tasks = failed(tasks_health, key, ex) or []
+        tasks_health.items = len(tasks)
 
     if cache is not None:
         cache.keep(keys)                 # links replaced or removed since the last cycle
@@ -313,4 +371,7 @@ def collect(cfg: dict, now: dt.datetime | None = None, cache: SourceCache | None
                        if (e.all_day and e.start < window_end and e.end > tomorrow_start)
                        or (not e.all_day and tomorrow_start <= e.start < window_end)]
     configured = "busy" if busy_configured else "no_busy" if any_configured else "nothing"
-    return Snapshot(now, today_events, tomorrow_events, tasks, errors, unknown, configured)
+    for source in health:
+        if source.kind == "calendar" and source.state in ("ok", "stale"):
+            source.items = sum(1 for e in today_events if e.source == source.name)
+    return Snapshot(now, today_events, tomorrow_events, tasks, errors, unknown, configured, health)

@@ -15,8 +15,11 @@ from inkdoor.config import with_defaults
 from inkdoor.i18n import Translator
 from inkdoor.state import RenderInfo, ServerState
 from inkdoor.web import auth, create_app
-from web_helpers import (BASE, CSP, EN, PASSWORD, FakeClock, client, cookie, get, logged_in,
-                         login, login_token, make_app, make_state, post)
+from markupsafe import escape
+
+from inkdoor.web import home
+from web_helpers import (BASE, CSP, EN, PASSWORD, FakeClock, client, cookie, day_at, get, health,
+                         info, logged_in, login, login_token, make_app, make_state, post, timeline)
 
 @pytest.fixture
 def clock():
@@ -464,8 +467,7 @@ def test_pages_have_no_inline_scripts_or_styles(app, rendered):
 
 def test_home_shows_status_and_preview(app, state, rendered):
     import datetime as dt
-    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "In a meeting",
-                                   "until 5:00 PM", ["Work"])
+    state.last_render = info(sources=[health("Work", "failed", reason="unreachable")])
     page = get(logged_in(app), "/").get_data(as_text=True)
     assert "In a meeting" in page and "until 5:00 PM" in page and "Work" in page
     assert re.search(r'<img src="/kindle.png\?t=\d+"', page)
@@ -827,3 +829,152 @@ def test_no_door_chip_while_the_image_is_stale(app, state, clock, rendered):
 def test_no_door_chip_without_an_image(app, state):
     state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "Free", "until 5:00 PM", [])
     assert 'class="door-chip"' not in get(logged_in(app), "/screen").get_data(as_text=True)
+
+
+def test_kindle_fetch_is_recorded_but_the_admin_preview_is_not(app, state, rendered, clock):
+    c = client(app)
+    get(c, "/kindle.png?t=123")
+    assert state.last_fetch_at is None
+    get(c, "/kindle.png")
+    assert state.last_fetch_at == clock()
+
+
+def test_a_503_is_not_a_fetch(app, state):
+    assert get(client(app), "/kindle.png").status_code == 503
+    assert state.last_fetch_at is None
+
+
+# --- Home: the dashboard -----------------------------------------------------------------------
+
+def home_page(app):
+    return get(logged_in(app), "/").get_data(as_text=True)
+
+
+def test_home_shows_status_facts_sources_and_timeline(app, state, rendered, clock):
+    state.last_render = info(
+        sources=[health("Work", "ok", items=3), health("Company", "stale", reason="timeout"),
+                 health("TickTick", "ok", kind="tasks", items=1)],
+        timeline=timeline(blocks=[("10:00", "11:00", "solid"), ("14:00", "15:00", "striped")]),
+        next_word="Free", next_change=day_at("11:00"))
+    state.last_fetch_at = clock() - 125
+    page = home_page(app)
+    assert 'class="timeline"' in page and page.count("<rect") >= 3 and "tl-striped" in page
+    assert "state-ok" in page and "state-stale" in page
+    assert str(escape(EN("admin.next_change_to", word="Free", time=EN.time(day_at("11:00"))))) in page
+    assert EN("admin.source_ok", n=3, time=EN.time(day_at("10:00"))) in page
+    assert EN("admin.tasks_ok", n=1, time=EN.time(day_at("10:00"))) in page
+    assert EN("admin.last_fetch", duration=EN.duration(2)) in page
+    assert EN("admin.timeline_alt", periods="10:00 AM–11:00 AM, 2:00 PM–3:00 PM") in page
+    assert "FetchError" not in page and "timeout" not in page and " style=" not in page
+
+
+def test_a_stale_source_is_never_shown_as_up_to_date(app, state, rendered):     # Review Focus 3
+    state.last_render = info(sources=[health("Company", "stale", reason="timeout")])
+    page = home_page(app)
+    assert "state-ok" not in page and EN("admin.state_stale") in page
+    assert EN("admin.source_stale", reason=EN("admin.reason_timeout"),
+              time=EN.time(day_at("10:00"))) in page
+
+
+def test_a_busy_calendar_without_data_reads_as_no_data(app, state, rendered):   # Review Focus 3
+    state.last_render = info(word=EN("status.unknown"), headline=EN("status.unknown_headline"),
+                             sources=[health("Work", "failed", reason="denied")])
+    page = home_page(app)
+    assert EN("admin.state_failed") in page and "state-ok" not in page
+    assert str(escape(EN("admin.source_failed", reason=EN("admin.reason_denied")))) in page
+    assert EN("status.unknown") in page and EN("status.free") not in page
+
+
+def test_home_without_sources_or_timeline(app, state, rendered):                # Review Focus 5
+    state.last_render = info(sources=[], timeline=None)
+    page = home_page(app)
+    assert 'class="timeline"' not in page and 'class="card sources"' not in page
+    assert EN("admin.install_title") in page
+
+
+def test_source_names_are_escaped_on_home(app, state, rendered):                # Review Focus 5
+    state.last_render = info(sources=[health('<b>&"', "ok")])
+    page = home_page(app)
+    assert "<b>&" not in page and str(escape('<b>&"')) in page
+
+
+def test_a_source_without_a_link_says_so(app, state, rendered):
+    state.last_render = info(sources=[health("Notes", "unset")])
+    page = home_page(app)
+    assert "state-unset" in page and EN("admin.link_not_set") in page
+
+
+def test_home_never_repeats_a_status_the_door_no_longer_shows(app, state, rendered, clock):
+    state.last_render = info(word="Free", headline="until 2:00 PM", next_word="In a meeting",
+                             next_change=day_at("14:00"))
+    state.next_render_at = clock() - ServerState.STALE_AFTER - 60     # the loop is stuck
+    page = home_page(app)
+    assert EN("admin.status_stale") in page
+    assert "Free" not in page and "until 2:00 PM" not in page and "In a meeting" not in page
+
+
+def test_home_before_the_first_render(app, state):
+    page = home_page(app)
+    assert EN("admin.not_rendered") in page and 'action="/render"' in page
+    assert "data-poll" in page
+
+
+def test_home_says_when_no_kindle_fetched_the_image(app, state, rendered, clock):
+    state.last_render = info()
+    assert EN("admin.last_fetch_never") in home_page(app)
+    state.last_fetch_at = clock() - 20
+    assert EN("admin.last_fetch_now") in home_page(app)
+
+
+def test_a_change_on_another_day_carries_its_date_and_no_word(app, state, rendered):
+    state.last_render = info(word="Free", headline="after hours", at="20:00",
+                             next_change=day_at("09:00", 15))
+    page = home_page(app)
+    assert EN("admin.next_change_on", date=EN.date_short(day_at("09:00", 15)),
+              time=EN.time(day_at("09:00", 15))) in page
+    assert EN("admin.next_change", time=EN.time(day_at("09:00", 15))) not in page
+
+
+def test_home_preview_names_the_night_light_hours(app, state, rendered):
+    state.last_render = info()
+    assert "Light off" not in home_page(app)
+    state.cfg["display"].update(light_off="22:00", light_on="07:00")
+    assert EN("admin.preview_light", off="10:00 PM", on="7:00 AM") in home_page(app)
+
+
+def test_status_json_keeps_its_fields(app, state, rendered):
+    state.last_render = info(sources=[health("Work", "ok")])
+    data = get(logged_in(app), "/status.json").get_json()
+    assert set(data) == {"at", "word", "headline", "updated", "errors"}
+
+
+def test_timeline_view_places_blocks_in_a_1000_wide_box():
+    view = home.timeline_view(EN, timeline(start="08:00", end="18:00",
+                                           blocks=[("09:00", "10:00", "solid")]), day_at("13:00"))
+    assert (view["blocks"][0]["x"], view["blocks"][0]["w"], view["now_x"]) == (100, 100, 500)
+    assert [x for _, x, _ in view["ticks"]] == [0, 200, 400, 600, 800, 1000]
+    assert view["ticks"][0][0] == "8:00 AM" and view["ticks"][-1][0] == "6:00 PM"
+    late = home.timeline_view(EN, timeline(start="08:00", end="18:00"), day_at("20:00"))
+    assert late["now_x"] is None and late["summary"] == EN("admin.timeline_none")
+    assert "width" not in view
+    assert home.timeline_view(EN, None, day_at("13:00")) is None
+
+
+def test_a_short_block_stays_visible_and_inside_the_box():
+    view = home.timeline_view(EN, timeline(start="00:00", end="23:00",
+                                           blocks=[("22:58", "23:00", "solid")]), day_at("12:00"))
+    block = view["blocks"][0]
+    assert block["w"] >= 4 and block["x"] + block["w"] <= 1000
+
+
+@pytest.mark.parametrize("start, end, shown", [
+    ("08:00", "18:00", ["8:00 AM", "12:00 PM", "6:00 PM"]),      # 4 PM would run into 6 PM
+    ("08:00", "19:00", ["8:00 AM", "12:00 PM", "7:00 PM"]),
+    ("08:00", "20:00", ["8:00 AM", "12:00 PM", "4:00 PM", "8:00 PM"]),
+    ("09:00", "10:00", ["9:00 AM", "10:00 AM"]),
+    ("00:00", "23:00", ["12:00 AM", "8:00 AM", "11:00 PM"]),         # 4 PM is under two steps away
+    ("00:00", "24:00", ["12:00 AM", "8:00 AM", "4:00 PM", "12:00 AM"]),
+])
+def test_a_phone_keeps_both_ends_and_hour_labels_two_steps_apart(start, end, shown):
+    view = home.timeline_view(EN, timeline(start=start, end=end), day_at("12:00"))
+    assert [label for label, _, minor in view["ticks"] if not minor] == shown
