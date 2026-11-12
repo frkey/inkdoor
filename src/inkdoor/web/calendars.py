@@ -139,6 +139,7 @@ def register(bp: Blueprint, ed: Editor) -> None:
         return render_template(
             "calendar_form.html", index=index, values=values, errors=errors or {},
             link=masked(old.get("url")), digest=raw.digest, styles=STYLES,
+            name=str(old.get("name", "")),  # as saved: what the remove button asks about
             repaste=bool(errors) and link_given(), form_error=form_error,
             default_label=t()("status.busy"))
 

@@ -460,9 +460,82 @@ def test_calendars_page_lists_markers_and_masks(logged):
     add(logged, name="Notes", url="https://calendar.example/notes.ics", busy="", style="outline")
     page = body(logged.get("/calendars"))
     assert "marker-striped" in page and "marker-outline" in page
-    assert EN("admin.busy_no") in page and EN("admin.busy_yes") in page
-    assert 'data-test-target="test-0"' in page and 'data-confirm=' in page
+    assert EN("admin.listed_fact") in page
+    assert str(escape(EN("admin.busy_fact", word=EN("status.busy")))) in page
+    assert 'data-test-target="test-0"' in page
     assert logged.raw()["calendar"][1]["busy"] is False
+
+
+def three_calendars(logged):
+    for name in ("A", "B", "C"):
+        add(logged, name=name, url=f"https://calendar.example/{name}.ics")
+
+
+def test_calendar_rows_have_no_remove_and_keep_both_arrows(logged):
+    three_calendars(logged)
+    page = body(logged.get("/calendars"))
+    assert "/delete" not in page and page.count('<li class="row">') == 3
+    assert page.count('name="direction" value="up"') == 3
+    assert page.count('name="direction" value="down"') == 3
+    assert len(re.findall(r"<button[^>]*\bdisabled", page)) == 2      # first up, last down
+    first, last = page.index('action="/calendars/0/move"'), page.rindex('action="/calendars/2/move"')
+    assert re.search(r'value="up">\s*<button[^>]*\bdisabled', page[first:first + 600])
+    assert re.search(r'value="down">\s*<button[^>]*\bdisabled', page[last:last + 600])
+
+
+def test_move_and_edit_controls_name_their_calendar(logged):
+    add(logged, name='<b>&"Work', url=LINK)
+    page = body(logged.get("/calendars"))
+    name = '<b>&"Work'
+    for key in ("admin.move_up_named", "admin.move_down_named", "admin.edit_named"):
+        assert f'aria-label="{escape(EN(key, name=name))}"' in page, key
+    assert "<b>&" not in page
+
+
+def test_calendar_row_says_what_the_door_says(logged):
+    add(logged, name="Work", url=LINK, status_label="In a call")
+    page = body(logged.get("/calendars"))
+    assert str(escape(EN("admin.busy_fact", word="In a call"))) in page
+    assert page.count("calendar.example") == 1                   # the mask, once
+
+
+def test_remove_lives_on_the_edit_page(logged, state):
+    three_calendars(logged)
+    page = body(logged.get("/calendars/1"))
+    assert 'action="/calendars/1/delete"' in page and "data-confirm=" in page
+    assert str(escape(EN("admin.confirm_remove_calendar", name="B"))) in page
+    assert "/delete" not in body(logged.get("/calendars/new"))
+    r = logged.post("/calendars/1/delete", data=logged.csrf_data())        # no JavaScript: asks
+    assert r.status_code == 200 and logged.raw()["calendar"][1]["name"] == "B"
+
+
+def test_only_add_calendar_is_a_primary_button_on_the_list(logged):
+    three_calendars(logged)
+    page = body(logged.get("/calendars"))
+    assert len(re.findall(r'class="button"', page)) == 1
+    assert all("class=" in tag for tag in re.findall(r"<button[^>]*>", page))   # none is bare
+
+
+def test_calendar_form_uses_a_switch_for_busy(logged):
+    page = body(logged.get("/calendars/new"))
+    assert re.search(r'<label class="switch"><input type="checkbox" name="busy" value="1"[^>]*checked',
+                     page)
+    assert "<details class=\"howto\" open>" in page
+
+
+def test_tasks_page_shows_the_link_once_in_one_card(logged):
+    logged.post("/tasks", data=logged.csrf_data(url=TASKS_LINK, overdue_days="7"))
+    page = body(logged.get("/tasks"))
+    assert page.count("tasks.example") == 1          # the mask, as the link field's placeholder
+    assert page.count('<section class="card') == 2   # the form card and the remove section
+    assert 'action="/tasks/delete"' in page and 'data-test-target="test-tasks"' in page
+    assert EN("admin.unit_days") in page
+
+
+def test_tasks_page_without_a_list_is_one_card_with_the_howto_open(logged):
+    page = body(logged.get("/tasks"))
+    assert page.count('<section class="card') == 1 and "/tasks/delete" not in page
+    assert "<details class=\"howto\" open>" in page and "/tasks/test" not in page
 
 
 def test_broken_file_shows_the_error_and_no_forms(logged, state):
@@ -1342,7 +1415,7 @@ def test_remove_tasks_without_javascript_asks_first(logged):
 
 def test_remove_buttons_carry_an_empty_confirmed_field_for_the_script(logged):
     add(logged, name="Work", url=LINK)
-    page = body(logged.get("/calendars"))
+    page = body(logged.get("/calendars/0"))
     assert 'data-confirm="' in page and '<input type="hidden" name="confirmed" value="">' in page
 
 

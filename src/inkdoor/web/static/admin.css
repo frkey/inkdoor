@@ -1295,3 +1295,98 @@ html {
     font-size: 0.875rem;
   }
 }
+
+/* --- lists of sources: one card, one row each (Calendars) --- */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 20px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 16px;
+  padding: 16px 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.row-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.row-main {
+  min-width: 0;
+}
+
+.row-main h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-actions form {
+  margin: 0;
+}
+
+/* the link test's result, under the whole row */
+.row .test-slot {
+  grid-column: 1 / -1;
+}
+
+/* a form or a column of cards that should not stretch across the page */
+.form-col {
+  max-width: 640px;
+}
+
+/* removing something: its own card, last on the page */
+.danger-zone .help {
+  margin-bottom: 14px;
+}
+
+.danger-zone form {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .rows {
+    padding: 0 16px;
+  }
+
+  .row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 12px;
+  }
+
+  .row-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+/* a link test's result inside a settings card sits between the header and the form */
+.settings .test-slot:not(:empty) {
+  margin: -4px 0 20px;
+}

@@ -51,13 +51,18 @@
 </div>
 {%- endmacro %}
 
-{% macro action(path, digest, label, class=None, confirm=None, name=None, value=None) -%}
+{# A form that is one button. Called with {% call %}, the block is the button's content (an icon)
+   and aria_label names it #}
+{% macro action(path, digest, label, class=None, confirm=None, name=None, value=None,
+                aria_label=None, disabled=False) -%}
 <form method="post" action="{{ path }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
   {{ form_fields(digest) }}
   {% if name %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
   {# set to 1 by admin.js once the browser asked; without JavaScript the server asks instead #}
   {% if confirm %}<input type="hidden" name="confirmed" value="">{% endif %}
-  <button type="submit"{% if class %} class="{{ class }}"{% endif %}>{{ label }}</button>
+  <button type="submit"{% if class %} class="{{ class }}"{% endif %}
+          {%- if aria_label %} aria-label="{{ aria_label }}"{% endif %}
+          {%- if disabled %} disabled{% endif %}>{% if caller %}{{ caller() }}{% else %}{{ label }}{% endif %}</button>
 </form>
 {%- endmacro %}
 
@@ -65,7 +70,7 @@
 <form method="post" action="{{ path }}" data-test-target="{{ target }}"
       data-error="{{ t('admin.test_failed') }}">
   {{ form_fields(digest) }}
-  <button type="submit" data-busy-label="{{ t('admin.testing') }}">{{ t("admin.test") }}</button>
+  <button type="submit" class="button-secondary" data-busy-label="{{ t('admin.testing') }}">{{ t("admin.test") }}</button>
 </form>
 {%- endmacro %}
 

@@ -16,6 +16,8 @@ It is shown next to each release.
 - Admin: the Screen page is grouped into cards, shows the door beside the form, and workday and
   night light times use the same control (the light in half hours; a time set by hand in
   `config.toml` is kept).
+- Admin: Calendars is one list with a row per calendar, and Tasks is one card. Removing a
+  calendar now happens on its edit page.
 
 ## [1.2.0] - 2026-11-12
 
