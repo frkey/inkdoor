@@ -265,15 +265,21 @@ def test_render_info_lists_failing_sources_without_links(tmp_path, cfg, capsys, 
     assert CANARY not in out.out + out.err
 
 
-def test_render_info_carries_sources_timeline_and_next_word(tmp_path, cfg):
+@pytest.mark.parametrize("hour, today", [("10:00", True), ("23:00", False)])
+def test_render_info_carries_sources_timeline_and_next_word(tmp_path, cfg, monkeypatch, hour,
+                                                            today):
+    monkeypatch.setattr(server, "collect",
+                        lambda cfg, cache=None: collect(cfg, now=at(hour), cache=cache))
     st = make_state(tmp_path, cfg)
     server.run_cycle(st, SourceCache())
     info = st.last_render
     assert [s.name for s in info.sources] == [c["name"] for c in cfg["calendar"]] + ["TickTick"]
     assert all(s.state == "ok" for s in info.sources)
-    assert info.timeline is None or info.timeline.start < info.timeline.end
-    assert info.next_word is None or isinstance(info.next_word, str)
-    assert (info.next_word is None) == (info.next_change is None)
+    assert info.timeline.start < info.timeline.end
+    # a word only for a change today: after the day's last one, the next change is midnight
+    assert info.next_change is not None
+    assert (info.next_change.date() == info.at.date()) == today
+    assert isinstance(info.next_word, str) if today else info.next_word is None
 
 
 def test_a_dashboard_bug_never_costs_the_door_its_image(tmp_path, cfg, monkeypatch, capsys):
