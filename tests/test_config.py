@@ -38,12 +38,39 @@ def test_defaults_and_language_override(tmp_path):
     ('[admin]\nallowed_hosts = ["porta.exemplo-ç.com"]\n', "allowed_host"),
     ('admin = true\n', "section"),
     ('[display]\nscreen = "1080x1440"\n', "screen"),
+    ('[display]\nlight_off = "22:00"\n', "light_pair"),
+    ('[display]\nlight_on = "07:00"\n', "light_pair"),
+    ('[display]\nlight_off = "7:00"\nlight_on = "07:00"\n', "light_time"),
+    ('[display]\nlight_off = "22:00"\nlight_on = "7"\n', "light_time"),
+    ('[display]\nlight_off = 22:00:00\nlight_on = "07:00"\n', "light_time"),   # Review Focus 2
+    ('[display]\nlight_off = 22\nlight_on = "07:00"\n', "light_time"),          # Review Focus 2
+    ('[display]\nlight_off = "22:00"\nlight_on = "22:00"\n', "light_same"),
     ('[display]\nscreen = 1072\n', "screen"),
 ])
 def test_invalid_values_are_explained(tmp_path, text, key):
     with pytest.raises(config.ConfigInvalid) as err:
         config.load(write(tmp_path, text))
     assert err.value.key == key
+
+
+def test_light_schedule_loads(tmp_path):
+    cfg = config.load(write(tmp_path, '[display]\nlight_off = "22:00"\nlight_on = "07:00"\n'))
+    assert (cfg["display"]["light_off"], cfg["display"]["light_on"]) == ("22:00", "07:00")
+    assert "light_off" not in config.load(write(tmp_path, "[display]\n"))["display"]
+
+
+@pytest.mark.parametrize("language", ["en-US", "pt-BR"])
+@pytest.mark.parametrize("text", [
+    '[display]\nlight_off = "{secret}"\nlight_on = "07:00"\n',
+    '[display]\nlight_off = "22:00"\n',
+    '[display]\nlight_off = "22:00"\nlight_on = "22:00"\n',
+])
+def test_light_errors_translate_without_the_value(tmp_path, language, text):
+    secret = "https://calendar.example/private-not-real.ics"
+    with pytest.raises(config.ConfigInvalid) as err:
+        config.load(write(tmp_path, text.replace("{secret}", secret)))
+    message = Translator(language)(f"config_error.{err.value.key}", **err.value.details)
+    assert secret not in message and "light_o" in message and "{" not in message
 
 
 @pytest.mark.parametrize("language", ["en-US", "pt-BR"])
