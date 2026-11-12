@@ -228,6 +228,7 @@
       "account": "Account",
       "label": "Main menu"
     },
+    "door_chip_label": "The door says",
     "logout": "Log out",
     "login_title": "Log in",
     "password_label": "Password",

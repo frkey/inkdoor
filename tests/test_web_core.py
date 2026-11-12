@@ -777,3 +777,36 @@ def test_a_light_bug_never_stops_the_door(app, state, clock, rendered, monkeypat
     r = get(client(app), "/kindle.png")
     assert r.status_code == 200 and r.data == rendered.read_bytes()
     assert "X-Inkdoor-Light" not in r.headers
+
+
+# --- the shared shell ---
+
+def test_every_page_shows_the_door_chip_once_rendered(app, state, rendered):
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "In a meeting",
+                                   "until 5:00 PM", [])
+    c = logged_in(app)
+    for path in ("/", "/calendars", "/tasks", "/screen", "/account"):
+        page = get(c, path).get_data(as_text=True)
+        assert page.count('class="door-chip"') == 1, path
+        chip = page.split('class="door-chip"')[1].split("</a>")[0]
+        assert "In a meeting" in chip and "until 5:00 PM" in chip, path
+
+
+def test_no_door_chip_before_the_first_render(app):
+    assert 'class="door-chip"' not in get(logged_in(app), "/screen").get_data(as_text=True)
+
+
+def test_no_door_chip_on_the_login_page(app, state):
+    state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "In a meeting",
+                                   "until 5:00 PM", [])
+    page = get(client(app), "/login").get_data(as_text=True)
+    assert 'class="door-chip"' not in page and "In a meeting" not in page
+
+
+def test_pages_carry_no_inline_style_or_script(app, rendered):
+    c = logged_in(app)
+    for path in ("/", "/calendars", "/calendars/new", "/tasks", "/screen", "/account"):
+        page = get(c, path).get_data(as_text=True)
+        assert " style=" not in page and "<style" not in page, path
+        assert re.search(r"<script(?![^>]*\bsrc=)", page) is None, path
+        assert re.search(r"\son[a-z]+=", page) is None, path

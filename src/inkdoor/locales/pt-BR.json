@@ -228,6 +228,7 @@
       "account": "Conta",
       "label": "Menu principal"
     },
+    "door_chip_label": "A porta diz",
     "logout": "Sair",
     "login_title": "Entrar",
     "password_label": "Senha",

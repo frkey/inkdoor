@@ -93,7 +93,7 @@
   <div class="copy-row">
     <code id="{{ id }}" class="copy-value" aria-labelledby="{{ id }}-label"
           {%- if help %} aria-describedby="{{ id }}-help"{% endif %}>{{ value }}</code>
-    <button type="button" class="button-quiet" data-copy="{{ id }}"
+    <button type="button" class="button-secondary" data-copy="{{ id }}"
             data-copied-label="{{ t('admin.copied') }}" hidden>{{ t("admin.copy") }}</button>
   </div>
   {% if help %}<p class="help" id="{{ id }}-help">{{ help }}</p>{% endif %}

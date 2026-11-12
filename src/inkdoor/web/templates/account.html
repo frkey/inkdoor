@@ -36,7 +36,7 @@
     </div>
     <div class="form-actions">
       <button type="submit">{{ t("admin.change_password") }}</button>
-      <button type="submit" name="generate" value="1" class="button-quiet">{{ t("admin.generate_password") }}</button>
+      <button type="submit" name="generate" value="1" class="button-secondary">{{ t("admin.generate_password") }}</button>
     </div>
   </form>
   <p class="help account-hint">{{ t("admin.forgot_password") }}</p>
@@ -46,7 +46,7 @@
   <p class="muted">{{ t("admin.session_help") }}</p>
   <form method="post" action="/logout">
     {{ csrf_field() }}
-    <button type="submit" class="button-quiet">{{ t("admin.logout") }}</button>
+    <button type="submit" class="button-secondary">{{ t("admin.logout") }}</button>
   </form>
 </section>
 {% endblock %}

@@ -1,0 +1,21 @@
+{# Inline icons, drawn with the text color. Import with: {% import "_icons.html" as icons %} #}
+
+{% macro icon(name) -%}
+{%- if name == "door" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 22 26" fill="none" stroke="currentColor" stroke-width="3"><rect x="1.5" y="1.5" width="19" height="23" rx="2.5"/><rect x="7" y="7" width="8" height="4" fill="currentColor" stroke-width="2"/><circle cx="15" cy="17" r="1" fill="currentColor" stroke-width="2"/></svg>
+{%- elif name == "check" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>
+{%- elif name == "warning" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6.5 11.5h-13L8 2z"/><path d="M8 6.5v3"/><path d="M8 11.6v.1"/></svg>
+{%- elif name == "error" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
+{%- elif name == "up" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l5-5 5 5"/></svg>
+{%- elif name == "down" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l5 5 5-5"/></svg>
+{%- elif name == "plus" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M8 2.5v11M2.5 8h11"/></svg>
+{%- elif name == "tasks" -%}
+<svg class="icon" aria-hidden="true" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7.5"/><path d="M5.5 9.3l2.4 2.3 4.6-4.9"/></svg>
+{%- endif -%}
+{%- endmacro %}
