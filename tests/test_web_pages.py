@@ -13,7 +13,8 @@ from inkdoor.config_edit import read_raw
 from inkdoor.i18n import Translator
 from inkdoor.sources import SourceCache
 from inkdoor.state import RenderInfo
-from inkdoor.web import auth, links, pages
+from inkdoor.web import auth, links, pages, screen
+from inkdoor.web.editing import Editor
 from helpers import fixture
 from web_helpers import (BASE, PASSWORD, FakeClock, client, logged_in, login_token, make_app,
                          make_state)
@@ -812,6 +813,45 @@ def test_screen_broken_file_shows_the_error_and_no_form(logged, state):
     assert r.status_code == 200 and "config.toml has a syntax error" in body(r)
     assert 'name="digest"' not in body(r) or 'action="/restore"' in body(r)
     assert 'action="/screen"' not in body(r)
+
+
+def test_hour_options_cover_the_range_and_label_24_as_midnight():
+    t = Translator("en-US")
+    options = screen.hour_options(t, 1, 24)
+    assert [v for v, _ in options] == [str(h) for h in range(1, 25)]
+    assert options[7] == ("8", "8:00 AM") and options[-1] == ("24", "12:00 AM")
+    assert screen.hour_options(Translator("pt-BR"), 0, 23)[8] == ("8", "8:00")
+
+
+def test_light_options_are_every_half_hour():
+    options = screen.light_options(Translator("pt-BR"), "22:00")
+    assert len(options) == 48 and options[0] == ("00:00", "0:00") and options[45] == ("22:30", "22:30")
+
+
+def test_light_options_keep_a_hand_set_time_off_the_grid():        # Review Focus 1
+    values = [v for v, _ in screen.light_options(Translator("pt-BR"), "22:45")]
+    assert len(values) == 49 and values[values.index("22:45") - 1] == "22:30"
+    assert len(screen.light_options(Translator("pt-BR"), "not a time")) == 48
+
+
+def test_or_choose_offers_an_empty_choice_only_for_a_value_outside_the_options():
+    t = Translator("en-US")
+    hours = screen.hour_options(t, 0, 23)
+    assert screen.or_choose(t, hours, 8) == hours and screen.or_choose(t, hours, "8") == hours
+    for value in (25, "", "8h", None):
+        assert screen.or_choose(t, hours, value) == [("", t("admin.choose"))] + hours
+
+
+def test_preview_token_is_the_last_render_time_or_the_image_time(logged, state):
+    ed = Editor(state)
+    assert ed.preview_token() is None                              # nothing drawn yet
+    with open(os.path.join(state.output_dir, "kindle.png"), "wb") as f:
+        f.write(b"png")
+    os.utime(f.name, (1_700_000_000, 1_700_000_000.5))
+    assert ed.preview_token() == 1_700_000_000_500
+    state.last_render = RenderInfo(dt.datetime(2026, 1, 5, 10, 0, tzinfo=dt.timezone.utc),
+                                   "Free", "until 2:00 PM", [])
+    assert ed.preview_token() == int(state.last_render.at.timestamp() * 1000)
 
 
 # --- account ----------------------------------------------------------------------------------

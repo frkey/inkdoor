@@ -2,14 +2,11 @@
 the previous config."""
 from __future__ import annotations
 
-import os
-
 from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request
 
 from .. import config, config_edit, kindle_files, net
 from ..config import is_configured
 from ..render import screen_size
-from ..state import IMAGE_NAME
 from . import add_notice
 from .editing import Editor
 
@@ -28,14 +25,6 @@ def register(bp: Blueprint, ed: Editor) -> None:
         """The image address for other devices on the network, as Home shows it."""
         base = net.admin_url(state.cfg)
         return base + "/kindle.png" if base else None
-
-    def preview_token(last) -> int | None:
-        """The ``t`` of the preview's address: the last render time, so a new render shows."""
-        try:
-            mtime = os.stat(os.path.join(state.output_dir, IMAGE_NAME)).st_mtime_ns // 1_000_000
-        except OSError:
-            return None  # nothing drawn yet
-        return int(last.at.timestamp() * 1000) if last is not None else mtime
 
     def updated_text(last) -> str | None:
         if last is None:
@@ -56,7 +45,7 @@ def register(bp: Blueprint, ed: Editor) -> None:
         url = kindle_url()
         return render_template(
             "home.html", active="home", last=last, updated=updated_text(last),
-            preview=preview_token(last), at=last.at.isoformat() if last is not None else "",
+            preview=ed.preview_token(), at=last.at.isoformat() if last is not None else "",
             # watch for the new screen after a save or "Update now", while a render is pending,
             # or while none happened yet
             poll=watch_render or state.render_event.is_set() or last is None,

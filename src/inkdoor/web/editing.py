@@ -48,6 +48,14 @@ class Editor:
             g.t = translator(self.state)
         return g.t
 
+    def preview_token(self) -> int | None:
+        """The ``t`` of the door preview's address: the last render time, so a new render shows
+        (the image's own time before this run's first render), or None with nothing drawn yet."""
+        mtime, last = self.state.image_mtime(), self.state.last_render
+        if mtime is None:
+            return None
+        return int((last.at.timestamp() if last is not None else mtime) * 1000)
+
     def describe(self, ex: config.ConfigInvalid) -> str:
         return self.t()(f"config_error.{ex.key}", **ex.details)
 

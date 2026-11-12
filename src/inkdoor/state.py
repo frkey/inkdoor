@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -51,6 +52,13 @@ class ServerState:
     using_defaults: bool = False
     _manual_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _last_manual: float | None = field(default=None, init=False, repr=False)
+
+    def image_mtime(self) -> float | None:
+        """When the image on disk was written (wall time), or None when there is none yet."""
+        try:
+            return os.stat(os.path.join(self.output_dir, IMAGE_NAME)).st_mtime
+        except OSError:
+            return None
 
     def image_stale(self, now: float, image_mtime: float) -> bool:
         """True when the image on disk may show an old status, because the render loop is far
