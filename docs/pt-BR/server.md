@@ -20,6 +20,7 @@ Nos dois casos, o resultado é o mesmo, e você configura o inkdoor pelo navegad
 | `/etc/inkdoor/admin-password` | a senha do admin, guardada como hash |
 | `/opt/inkdoor` | o código e o ambiente Python |
 | `/var/lib/inkdoor/kindle.png` | a tela gerada |
+| `/var/lib/inkdoor/sources-cache.json` | a última leitura boa de hoje de cada agenda, acessível só pelo usuário `inkdoor`; permite que um reinício mantenha o estado da porta enquanto uma agenda não pode ser lida |
 | `inkdoor.service` | o serviço do systemd, que sobe no boot e reinicia se cair |
 | `/usr/local/bin/inkdoor` | roda o inkdoor com essa config: `inkdoor password`, `inkdoor check` |
 

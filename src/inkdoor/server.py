@@ -22,7 +22,7 @@ from . import config, net
 from .dashboard import build_timeline, next_word
 from .render import compute_status, next_change, render, render_error, render_setup, translator_for
 from .sources import SourceCache, Snapshot, collect
-from .state import IMAGE_NAME, RenderInfo, ServerState
+from .state import CACHE_NAME, IMAGE_NAME, RenderInfo, ServerState
 
 THREADS = 8
 _wall_clock = time.time      # when the next render happens, as /kindle.png reads it (tests pin it)
@@ -39,6 +39,11 @@ def save(img, path: str) -> None:
     tmp = path + ".tmp.png"
     img.save(tmp, optimize=True)
     os.replace(tmp, path)  # atomic swap: the Kindle never downloads half an image
+
+
+def cache_path(output_dir: str) -> str:
+    """Where `serve` keeps the day's last good read of each source."""
+    return os.path.join(output_dir, CACHE_NAME)
 
 
 def compose(snap: Snapshot, cfg: dict, admin_url: str | None):
@@ -59,6 +64,11 @@ def _render_snapshot(cfg: dict, path: str, cache: SourceCache | None,
     snap = collect(cfg, cache=cache)
     img, word, headline = compose(snap, cfg, admin_url)
     save(img, path)
+    if cache is not None:
+        try:  # for a restart later today; the door is already drawn and must stay that way
+            cache.save()
+        except Exception as ex:
+            _log(t("cli.error", error=ex.__class__.__name__))
     line = t("cli.rendered", time=t.time(snap.now),
              events=t("cli.rendered_events", n=len(snap.today)),
              tasks=t("cli.rendered_tasks", n=len(snap.tasks)))
@@ -281,7 +291,7 @@ def serve(config_path: str | None, output_dir: str, language: str | None = None)
         print(t("cli.serving", address=address, port=port))
         if state.admin_enabled and auth.read_password_hash(auth.password_path(path)) is None:
             print(t("cli.no_password"))
-        threading.Thread(target=render_loop, args=(state, SourceCache(), stop),
+        threading.Thread(target=render_loop, args=(state, SourceCache(cache_path(output_dir)), stop),
                          name="inkdoor-render", daemon=True).start()
         _run(httpd)
     finally:
