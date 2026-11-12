@@ -952,7 +952,7 @@ def test_timeline_view_places_blocks_in_a_1000_wide_box():
     view = home.timeline_view(EN, timeline(start="08:00", end="18:00",
                                            blocks=[("09:00", "10:00", "solid")]), day_at("13:00"))
     assert (view["blocks"][0]["x"], view["blocks"][0]["w"], view["now_x"]) == (100, 100, 500)
-    assert [x for _, x in view["ticks"]] == [0, 200, 400, 600, 800, 1000]
+    assert [x for _, x, _ in view["ticks"]] == [0, 200, 400, 600, 800, 1000]
     assert view["ticks"][0][0] == "8:00 AM" and view["ticks"][-1][0] == "6:00 PM"
     late = home.timeline_view(EN, timeline(start="08:00", end="18:00"), day_at("20:00"))
     assert late["now_x"] is None and late["summary"] == EN("admin.timeline_none")
@@ -965,3 +965,16 @@ def test_a_short_block_stays_visible_and_inside_the_box():
                                            blocks=[("22:58", "23:00", "solid")]), day_at("12:00"))
     block = view["blocks"][0]
     assert block["w"] >= 4 and block["x"] + block["w"] <= 1000
+
+
+@pytest.mark.parametrize("start, end, shown", [
+    ("08:00", "18:00", ["8:00 AM", "12:00 PM", "6:00 PM"]),      # 4 PM would run into 6 PM
+    ("08:00", "19:00", ["8:00 AM", "12:00 PM", "7:00 PM"]),
+    ("08:00", "20:00", ["8:00 AM", "12:00 PM", "4:00 PM", "8:00 PM"]),
+    ("09:00", "10:00", ["9:00 AM", "10:00 AM"]),
+    ("00:00", "23:00", ["12:00 AM", "8:00 AM", "11:00 PM"]),         # 4 PM is under two steps away
+    ("00:00", "24:00", ["12:00 AM", "8:00 AM", "4:00 PM", "12:00 AM"]),
+])
+def test_a_phone_keeps_both_ends_and_hour_labels_two_steps_apart(start, end, shown):
+    view = home.timeline_view(EN, timeline(start=start, end=end), day_at("12:00"))
+    assert [label for label, _, minor in view["ticks"] if not minor] == shown

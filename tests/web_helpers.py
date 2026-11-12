@@ -86,8 +86,9 @@ def day_at(hhmm, day=14):
     """A time on the fixed day the Home tests use (2026-10-14, a Wednesday, in São Paulo)."""
     import datetime as dt
     from zoneinfo import ZoneInfo
-    hour, minute = map(int, hhmm.split(":"))
-    return dt.datetime(2026, 10, day, hour, minute, tzinfo=ZoneInfo("America/Sao_Paulo"))
+    hour, minute = map(int, hhmm.split(":"))                   # "24:00" is the next midnight
+    return dt.datetime(2026, 10, day, tzinfo=ZoneInfo("America/Sao_Paulo")) + \
+        dt.timedelta(hours=hour, minutes=minute)
 
 
 def health(name, state, kind="calendar", style="solid", busy=True, items=0, reason=None,

@@ -69,11 +69,17 @@ def timeline_view(t, timeline, now: dt.datetime) -> dict | None:
         ticks.append(moment)
         moment += step
     ticks.append(timeline.end)
+
+    def minor(index: int) -> bool:
+        """An hour label a narrow screen leaves out: every other one between the ends, and one
+        less than two steps before the end, where it would run into the end's label."""
+        inner = 0 < index < len(ticks) - 1
+        return inner and (index % 2 == 1 or timeline.end - ticks[index] < 2 * step)
     periods = ", ".join(t("admin.timeline_period", start=t.time(b.start), end=t.time(b.end))
                         for b in timeline.blocks if b.busy)
     return {"blocks": blocks,
             "now_x": x(now) if timeline.start <= now <= timeline.end else None,
-            "ticks": [(t.time(tick), x(tick)) for tick in ticks],
+            "ticks": [(t.time(tick), x(tick), minor(i)) for i, tick in enumerate(ticks)],
             "summary": t("admin.timeline_alt", periods=periods) if periods
             else t("admin.timeline_none")}
 
