@@ -127,14 +127,18 @@ light_turn_off() {
   light_saved="$(cat "$LIGHT_SAVED" 2>/dev/null)"
   case "$light_saved" in
     ''|*[!0-9]*)
-      # nothing saved yet, or a file that is not a level (a write cut short): save it now. A light
-      # turned off without a saved level could never be brought back: leave it alone
+      # nothing saved yet, or a file that is not a level (a write cut short). A light turned off
+      # without a saved level could never be brought back: leave it alone
       [ -n "$light_level" ] || return 0
-      if ! echo "$light_level" > "$LIGHT_SAVED"; then
+      if [ "$light_level" = "0" ]; then
+        # already at 0: nothing to bring back, and saving 0 would make the morning restore darkness
+        rm -f "$LIGHT_SAVED"
+      elif echo "$light_level" > "$LIGHT_SAVED"; then
+        log "light off (saved level $light_level)"
+      else
         rm -f "$LIGHT_SAVED"
         return 0
       fi
-      log "light off (saved level $light_level)"
       ;;
   esac
   if [ "$light_level" != "0" ]; then

@@ -242,3 +242,13 @@ def test_light_off_replaces_a_saved_file_that_is_not_a_level(tmp_path, lipc, nod
     light_headers(tmp_path, "on")
     run(tmp_path, "apply_light", path_dirs=[lipc])
     assert read(tmp_path / "level") == "12"                # the morning still brings it back
+
+
+def test_light_off_never_saves_a_level_of_0(tmp_path, lipc, nodes):
+    # with no valid saved level and the light already at 0 there is nothing to bring back; saving 0
+    # would make the morning "restore" darkness (e.g. after a save lost to a power cut)
+    (tmp_path / "level").write_text("0\n")
+    light_headers(tmp_path, "off")
+    run(tmp_path, "apply_light", path_dirs=[lipc])
+    assert not saved(tmp_path).exists() and not (tmp_path / "calls").exists()
+    assert read(nodes["pw2"]) == read(nodes["pw1"]) == "0"

@@ -738,6 +738,19 @@ def test_screen_unchecked_light_ignores_its_fields(logged, state):           # R
     assert r.status_code == 303 and logged.raw() == {"display": {}}
 
 
+
+def test_screen_never_replaces_a_bad_hand_edited_time(logged, state):
+    write_config(state, '[display]\nlight_off = 23:00:00\nlight_on = "07:00"\n')
+    page = body(logged.get("/screen"))
+    assert re.search(r'name="light_enabled"[^>]*checked', page)
+    assert not re.search(r'name="light_off"[^>]*value="22:00"', page)    # not the suggestion
+    before = logged.digest()
+    fields = re.search(r'name="light_off"[^>]*value="([^"]*)"', page).group(1)
+    r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=fields,
+                                                light_on="07:00"))
+    assert r.status_code == 200 and 'id="light_off-error"' in body(r)
+    assert logged.digest() == before
+
 def test_screen_never_shows_a_pasted_value_back(logged):
     link = "https://calendar.example/private-not-real.ics"
     r = logged.post("/screen", data=screen_form(logged, light_enabled="1", light_off=link,

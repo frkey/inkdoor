@@ -103,10 +103,12 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 - New `apply_light`, reading `X-Inkdoor-Light` from `$HEADERS` case-insensitively, the same way
   `next_wait` reads `X-Inkdoor-Next` (curl and `wget -S` header formats):
   - `off`:
-    1. if `$LIGHT_SAVED` does not exist, read `lipc-get-prop com.lab126.powerd flIntensity`. Only
-       if the answer is a whole number, write it to `$LIGHT_SAVED` and log
-       `light off (saved level N)`; otherwise stop here and leave the light alone, since a light
-       turned off without a saved level could never be restored;
+    1. if `$LIGHT_SAVED` does not hold a whole number (missing, or a write cut short), read
+       `lipc-get-prop com.lab126.powerd flIntensity`. If the answer is not a whole number, stop
+       here and leave the light alone, since a light turned off without a saved level could never
+       be restored. If it is 0, save nothing (there is nothing to bring back, and a saved 0 would
+       make the morning restore darkness). Otherwise write it to `$LIGHT_SAVED` (removing the file
+       if the write fails) and log `light off (saved level N)`;
     2. if the current level is not already 0, `lipc-set-prop com.lab126.powerd flIntensity 0`
        (skipping it when it is 0 spares `powerd` a preference write on every fetch); if that set
        fails, stop here;
@@ -131,7 +133,8 @@ light_on = "07:00"    # ...and back on (to its previous level) at this time
 
 ### `kindle/inkdoor/loop.sh`
 
-Calls `apply_light` right after a successful `download`, before drawing the image.
+Calls `apply_light` after a successful `download` has been drawn, so a slow or stuck `lipc`
+call can never delay the door's image.
 
 ### Versioning
 

@@ -49,7 +49,12 @@ def _screen_values(data: dict) -> dict:
     values["port"] = server.get("port", SERVER_DEFAULTS["port"])
     values["light_enabled"] = all(key in display for key in LIGHT_SUGGESTED)
     for key, suggested in LIGHT_SUGGESTED.items():
-        values[key] = display[key] if parse_time(display.get(key)) else suggested
+        # the suggestion only for a missing key: a bad hand-edited time shows empty, so a save
+        # asks for a time instead of quietly writing the suggestion over it
+        if key not in display:
+            values[key] = suggested
+        else:
+            values[key] = display[key] if parse_time(display[key]) else ""
     return values
 
 
