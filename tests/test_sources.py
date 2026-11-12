@@ -239,3 +239,82 @@ def test_expansion_goes_past_the_window_before_stopping(tmp_path, monkeypatch):
     monkeypatch.setattr(sources.recurring_ical_events, "of", lambda cal, components: Query())
     tasks = sources.parse_tasks(cal, {"overdue_days": 7}, dt.date(2026, 10, 14), TZ)
     assert [t.title for t in tasks] == ["Tonight"]                    # 22:00 on the 14th, local
+
+
+# --- per-source health (what the admin's Home shows) -------------------------------------------
+
+def break_fetch(monkeypatch, error):
+    def fail(url):
+        raise error
+    monkeypatch.setattr(sources, "fetch", fail)
+
+
+def test_health_of_a_good_read(cfg):
+    now = at("12:00")
+    snap = collect(cfg, now=now, cache=SourceCache())
+    assert [(h.kind, h.name, h.style) for h in snap.health] == [
+        ("calendar", "Work", "solid"), ("calendar", "Company", "striped"),
+        ("calendar", "Personal", "outline"), ("tasks", "TickTick", None)]
+    first = snap.health[0]
+    assert (first.state, first.read_at, first.reason, first.busy) == ("ok", now, None, True)
+    assert first.items == len([e for e in snap.today if e.source == "Work"]) > 0
+    assert snap.health[3].items == len(snap.tasks) > 0
+
+
+def test_a_failed_read_with_todays_cache_is_stale(cfg, monkeypatch):     # Review Focus 3
+    cache, now = SourceCache(), at("12:00")
+    good = collect(cfg, now=now, cache=cache)
+    break_fetch(monkeypatch, FetchError("timeout"))
+    snap = collect(cfg, now=now + dt.timedelta(minutes=5), cache=cache)
+    for before, health in zip(good.health, snap.health):
+        assert (health.state, health.read_at, health.reason) == ("stale", now, "timeout")
+        assert health.items == before.items
+    assert snap.unknown == []
+
+
+def test_a_failed_read_without_cache_is_failed(cfg, monkeypatch):        # Review Focus 3
+    break_fetch(monkeypatch, FetchError("http", status=403))
+    snap = collect(cfg, now=at("12:00"), cache=SourceCache())
+    for health in snap.health:
+        assert (health.state, health.reason, health.read_at, health.items) == \
+            ("failed", "denied", None, 0)
+    assert snap.health[0].name in snap.unknown
+
+
+def test_yesterdays_cache_is_not_todays_data(cfg, monkeypatch):
+    cache = SourceCache()
+    collect(cfg, now=at("12:00"), cache=cache)
+    break_fetch(monkeypatch, FetchError("unreachable"))
+    snap = collect(cfg, now=at("12:00") + dt.timedelta(days=1), cache=cache)
+    assert snap.health[0].state == "failed" and snap.health[0].read_at is None
+
+
+def test_a_source_without_a_link_is_unset(cfg):
+    cfg["calendar"][0]["url"] = ""
+    cfg["tasks"]["url"] = "PASTE_YOUR_LINK"
+    health = collect(cfg, now=at("12:00"), cache=SourceCache()).health
+    assert (health[0].name, health[0].state, health[0].items) == ("Work", "unset", 0)
+    assert health[1].state == "ok" and health[3].state == "unset"
+    del cfg["tasks"]
+    assert [h.kind for h in collect(cfg, now=at("12:00")).health] == ["calendar"] * 3
+
+
+def test_health_never_holds_a_link_or_exception_text(cfg, monkeypatch):
+    break_fetch(monkeypatch, RuntimeError("https://secret.example/token"))
+    health = collect(cfg, now=at("12:00"), cache=SourceCache()).health
+    assert "secret.example" not in repr(health) and health[0].reason == "other"
+
+
+@pytest.mark.parametrize("error, reason", [
+    (FetchError("timeout"), "timeout"),
+    (sources.isolate.CalendarTimeout(), "timeout"),
+    (FetchError("http", status=401), "denied"),
+    (FetchError("http", status=403), "denied"),
+    (FetchError("http", status=404), "not_found"),
+    (FetchError("http", status=500), "http"),
+    (FetchError("unreachable"), "unreachable"),
+    (FetchError("too_large"), "unreachable"),
+    (ValueError("not a calendar"), "other"),
+])
+def test_failure_reason_is_a_category(error, reason):
+    assert sources.failure_reason(error) == reason
