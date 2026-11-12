@@ -8,6 +8,11 @@ LOG="$DIR/log.txt"
 LOCKDIR=/tmp/inkdoor.lock      # holds the PID of the running loop
 IMG=/tmp/inkdoor.png
 HEADERS=/tmp/inkdoor.headers   # the last download's response headers
+LIGHT_SAVED="$DIR/light-saved" # the frontlight level from before the night (survives a reboot)
+# White-light brightness files of the models where lipc level 0 still glows: Paperwhite 1, then
+# Paperwhite 2, Voyage and Paperwhite 3. A fixed list, never a glob: warm-light models turn off at
+# lipc level 0, and their amber nodes in /sys/class/backlight must not be touched.
+LIGHT_NODES="/sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity /sys/class/backlight/max77696-bl/brightness"
 
 # Guard against bad values in config.sh
 case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=300 ;; esac
@@ -100,6 +105,54 @@ next_wait() {
   [ "$n" -ge 30 ] || n=30
   [ "$n" -le "$INTERVAL" ] || n=$INTERVAL
   echo "$n"
+}
+
+# Follows the server's X-Inkdoor-Light (a night schedule): "off" saves the frontlight level once and
+# turns the light off, "on" brings the saved level back. Anything else, or an older server that
+# sends nothing, leaves the light alone. POSIX sh has no "local": every variable starts with light_
+# so the loop's own variables are safe, and every path returns 0.
+apply_light() {
+  light_value="$(sed -n 's/^[[:space:]]*[Xx]-[Ii]nkdoor-[Ll]ight:[[:space:]]*\([a-z]*\).*/\1/p' \
+    "$HEADERS" 2>/dev/null | tail -n 1)"
+  case "$light_value" in
+    off) light_turn_off ;;
+    on) light_restore ;;
+  esac
+  return 0
+}
+
+light_turn_off() {
+  light_level="$(lipc-get-prop com.lab126.powerd flIntensity 2>/dev/null)"
+  case "$light_level" in ''|*[!0-9]*) light_level="" ;; esac
+  if [ ! -f "$LIGHT_SAVED" ]; then
+    # a light turned off without a saved level could never be brought back: leave it alone
+    [ -n "$light_level" ] || return 0
+    echo "$light_level" > "$LIGHT_SAVED" || return 0
+    log "light off (saved level $light_level)"
+  fi
+  if [ "$light_level" != "0" ]; then
+    # sysfs only after powerd agrees on 0, so the morning's level is a real change for it
+    lipc-set-prop com.lab126.powerd flIntensity 0 >/dev/null 2>&1 || return 0
+  fi
+  for light_node in $LIGHT_NODES; do
+    [ -w "$light_node" ] || continue
+    [ "$(cat "$light_node" 2>/dev/null)" = "0" ] && continue
+    echo 0 > "$light_node" 2>/dev/null
+  done
+  return 0
+}
+
+light_restore() {
+  [ -f "$LIGHT_SAVED" ] || return 0
+  light_level="$(cat "$LIGHT_SAVED" 2>/dev/null)"
+  case "$light_level" in
+    ''|*[!0-9]*) rm -f "$LIGHT_SAVED"; return 0 ;;   # not a level: nothing to bring back
+  esac
+  # on a failure the file stays, and the next download tries again
+  lipc-set-prop com.lab126.powerd flIntensity "$light_level" >/dev/null 2>&1 || return 0
+  rm -f "$LIGHT_SAVED"
+  log "light on (level $light_level)"
+  return 0
 }
 
 ensure_wifi() {

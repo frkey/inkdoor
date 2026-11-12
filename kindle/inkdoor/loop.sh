@@ -16,6 +16,7 @@ failures=0
 while true; do
   pause=$INTERVAL
   if ensure_wifi && download; then
+    apply_light             # the frontlight follows the server's night schedule, if any
     if [ $((count % FULL_REFRESH_EVERY)) -eq 0 ]; then
       eips -f -g "$IMG"
     else
