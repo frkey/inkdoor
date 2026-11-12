@@ -124,12 +124,19 @@ apply_light() {
 light_turn_off() {
   light_level="$(lipc-get-prop com.lab126.powerd flIntensity 2>/dev/null)"
   case "$light_level" in ''|*[!0-9]*) light_level="" ;; esac
-  if [ ! -f "$LIGHT_SAVED" ]; then
-    # a light turned off without a saved level could never be brought back: leave it alone
-    [ -n "$light_level" ] || return 0
-    echo "$light_level" > "$LIGHT_SAVED" || return 0
-    log "light off (saved level $light_level)"
-  fi
+  light_saved="$(cat "$LIGHT_SAVED" 2>/dev/null)"
+  case "$light_saved" in
+    ''|*[!0-9]*)
+      # nothing saved yet, or a file that is not a level (a write cut short): save it now. A light
+      # turned off without a saved level could never be brought back: leave it alone
+      [ -n "$light_level" ] || return 0
+      if ! echo "$light_level" > "$LIGHT_SAVED"; then
+        rm -f "$LIGHT_SAVED"
+        return 0
+      fi
+      log "light off (saved level $light_level)"
+      ;;
+  esac
   if [ "$light_level" != "0" ]; then
     # sysfs only after powerd agrees on 0, so the morning's level is a real change for it
     lipc-set-prop com.lab126.powerd flIntensity 0 >/dev/null 2>&1 || return 0
@@ -137,7 +144,7 @@ light_turn_off() {
   for light_node in $LIGHT_NODES; do
     [ -w "$light_node" ] || continue
     [ "$(cat "$light_node" 2>/dev/null)" = "0" ] && continue
-    echo 0 > "$light_node" 2>/dev/null
+    echo 0 2>/dev/null > "$light_node"
   done
   return 0
 }

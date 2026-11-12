@@ -231,3 +231,14 @@ def test_light_keeps_the_loops_variables(tmp_path, lipc):
     out = run(tmp_path, 'count=7; failures=2; pause=60; n=5; apply_light; '
                         'echo "$count $failures $pause $n"', path_dirs=[lipc])
     assert out == "7 2 60 5"
+
+
+@pytest.mark.parametrize("bad", ["", "garbage\n"])
+def test_light_off_replaces_a_saved_file_that_is_not_a_level(tmp_path, lipc, nodes, bad):
+    save(tmp_path, bad)                                    # e.g. a write that failed on full storage
+    light_headers(tmp_path, "off")
+    run(tmp_path, "apply_light", path_dirs=[lipc])
+    assert read(saved(tmp_path)) == "12"
+    light_headers(tmp_path, "on")
+    run(tmp_path, "apply_light", path_dirs=[lipc])
+    assert read(tmp_path / "level") == "12"                # the morning still brings it back
