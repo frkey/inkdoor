@@ -410,6 +410,8 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
                                       mimetype="text/plain", headers={"Cache-Control": "no-store"})
         if state.image_stale(clock(), mtime):  # the door must not keep an old "Free"
             body = stale_image()
+        if "t" not in request.args:  # the admin's preview asks with ?t=; a Kindle does not
+            state.last_fetch_at = clock()
         headers = {"Cache-Control": "no-store"}
         waits = []
         if state.next_render_at is not None:

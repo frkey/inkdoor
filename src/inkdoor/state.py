@@ -20,6 +20,11 @@ class RenderInfo:
     errors: list[str]
     # when the screen changes next with the clock alone (a meeting starts or ends), if known
     next_change: dt.datetime | None = None
+    # for the dashboard on Home: each source's health (sources.SourceHealth), today's workday
+    # (dashboard.Timeline, or None) and the word at next_change, if known
+    sources: list = field(default_factory=list)
+    timeline: object | None = None
+    next_word: str | None = None
 
 
 @dataclass
@@ -47,6 +52,8 @@ class ServerState:
     # took: /kindle.png tells the Kindle when to come back for it
     next_render_at: float | None = None
     render_seconds: float = 0.0
+    # wall-clock time of the last /kindle.png answered to a Kindle (not to the admin's preview)
+    last_fetch_at: float | None = None
     # True while no config (neither the file nor its .bak) has ever loaded and ``cfg`` holds
     # only the defaults: the door then shows the setup or error screen instead of a status.
     using_defaults: bool = False

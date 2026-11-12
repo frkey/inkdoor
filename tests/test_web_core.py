@@ -827,3 +827,16 @@ def test_no_door_chip_while_the_image_is_stale(app, state, clock, rendered):
 def test_no_door_chip_without_an_image(app, state):
     state.last_render = RenderInfo(dt.datetime(2026, 10, 14, 16, 30), "Free", "until 5:00 PM", [])
     assert 'class="door-chip"' not in get(logged_in(app), "/screen").get_data(as_text=True)
+
+
+def test_kindle_fetch_is_recorded_but_the_admin_preview_is_not(app, state, rendered, clock):
+    c = client(app)
+    get(c, "/kindle.png?t=123")
+    assert state.last_fetch_at is None
+    get(c, "/kindle.png")
+    assert state.last_fetch_at == clock()
+
+
+def test_a_503_is_not_a_fetch(app, state):
+    assert get(client(app), "/kindle.png").status_code == 503
+    assert state.last_fetch_at is None
