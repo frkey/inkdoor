@@ -252,7 +252,7 @@
     "not_rendered": "The screen has not been drawn yet.",
     "status_stale": "The image is out of date, so the Kindle shows a notice instead of the status. The server may be stuck reading a calendar.",
     "screen_change": "The screen changes again at {time}",
-    "next_change_on": "Next change {date}, {time}",
+    "screen_change_on": "The screen changes again {date}, {time}",
     "next_change_to": "Changes to “{word}” at {time}",
     "next_update": "Next update at {time}",
     "last_fetch": "The Kindle fetched the image {duration} ago",

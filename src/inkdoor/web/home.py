@@ -87,13 +87,14 @@ def timeline_view(t, timeline, now: dt.datetime) -> dict | None:
 def status_facts(t, last, next_render_at: float | None, last_fetch_at: float | None,
                  now: float, known: bool = True) -> list[str]:
     """The lines under the door's status: its next change (only while the status is ``known``:
-    the line names the next word, or says that only the screen changes when the word stays),
-    the last and next update, and when a Kindle last fetched the image. ``now`` and the two times are wall time."""
+    the line names the next word, or says that only the screen changes when the word stays or
+    the day turns), the last and next update, and when a Kindle last fetched the image.
+    ``now`` and the two times are wall time."""
     facts = []
     if known and last.next_change is not None:
         when = t.time(last.next_change)
         if last.next_change.date() != last.at.date():
-            facts.append(t("admin.next_change_on", date=t.date_short(last.next_change),
+            facts.append(t("admin.screen_change_on", date=t.date_short(last.next_change),
                            time=when))
         elif last.next_word and last.next_word != last.word:
             facts.append(t("admin.next_change_to", word=last.next_word, time=when))

@@ -930,7 +930,7 @@ def test_a_change_on_another_day_carries_its_date_and_no_word(app, state, render
     state.last_render = info(word="Free", headline="after hours", at="20:00",
                              next_change=day_at("09:00", 15))
     page = home_page(app)
-    assert EN("admin.next_change_on", date=EN.date_short(day_at("09:00", 15)),
+    assert EN("admin.screen_change_on", date=EN.date_short(day_at("09:00", 15)),
               time=EN.time(day_at("09:00", 15))) in page
     assert EN("admin.screen_change", time=EN.time(day_at("09:00", 15))) not in page
 
@@ -945,6 +945,17 @@ def test_a_change_that_keeps_the_word_is_told_as_the_screens(app, state, rendere
     assert "screen" in line and line in page
     assert str(escape(EN("admin.next_change_to", word="In a meeting",
                          time=EN.time(day_at("10:45"))))) not in page
+
+
+@pytest.mark.parametrize("language, screen", [("en-US", "screen"), ("pt-BR", "tela")])
+def test_a_change_without_a_new_word_names_the_screen_in_each_language(language, screen):
+    """Today with the same word, or the day turning: neither may read as a change of status."""
+    from inkdoor.web.home import status_facts
+    t = Translator(language)
+    same_word = info(word="In a meeting", next_word="In a meeting", next_change=day_at("10:45"))
+    day_turns = info(word="Free", at="20:00", next_change=day_at("00:00", 15))
+    for last in (same_word, day_turns):
+        assert screen in status_facts(t, last, None, None, 0.0)[0].lower()
 
 
 def test_home_preview_names_the_night_light_hours(app, state, rendered):
