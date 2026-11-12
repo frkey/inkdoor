@@ -908,6 +908,14 @@ def test_choice_offers_an_empty_choice_only_for_a_value_outside_the_options():
         assert screen.choice(t, hours, value) == ([("", t("admin.choose"))] + hours, "")
 
 
+def test_screen_error_page_never_watches_for_a_new_screen(logged, state):
+    # a reload of the page that answers a POST would send the form again
+    logged.post("/screen", data=screen_form(logged, refresh_minutes="9"))   # a render is pending
+    page = body(logged.post("/screen", data=screen_form(logged, timezone="Mars/Olympus_Mons")))
+    assert 'id="timezone-error"' in page and "data-poll" not in page
+    assert "data-poll" in body(logged.get("/screen"))        # the flag is still there for the page
+
+
 def test_weekday_options_carry_the_short_and_the_full_name():
     options = screen.weekday_options(Translator("pt-BR"))
     assert options[0] == (0, "Seg", "Segunda") and options[6] == (6, "Dom", "Domingo")

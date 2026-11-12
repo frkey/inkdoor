@@ -148,7 +148,9 @@ def register(bp: Blueprint, ed: Editor) -> None:
                            weekdays=weekday_options(t()),
                            preview=ed.preview_token(), screen_size=screen_size(state.cfg),
                            at=last.at.isoformat() if last is not None else "",
-                           poll=ed.watching())
+                           # only the page a GET shows: reloading the answer to a POST (the
+                           # form with its errors) would send the form again
+                           poll=values is None and ed.watching())
         context["restore"] = ed.restore_offer(raw, problem, context.get("warning"))
         if context["locked"]:
             context["locked_name"] = dict(languages()).get(i18n.normalize(state.language),
