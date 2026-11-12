@@ -13,6 +13,8 @@ workday_start = 8           # before this hour the door shows "after hours"
 workday_end = 19            # after this hour the list switches to tomorrow (0-24)
 workdays = [0, 1, 2, 3, 4]  # 0 = Monday ... 6 = Sunday
 min_gap_minutes = 30        # only show "free · 45 min" for gaps at least this long
+# light_off = "22:00"       # turn the Kindle's frontlight off at this time (24-hour HH:MM)...
+# light_on = "07:00"        # ...and back to its previous level at this time
 
 [server]
 port = 3667

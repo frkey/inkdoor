@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Added
+
+- An optional schedule turns the Kindle's frontlight off at night and brings it back to its
+  previous level in the morning (Screen page, or `light_off`/`light_on` in `[display]`). Needs the
+  Kindle scripts 1.3.0.
+
 ## [1.1.2] - 2026-11-10
 
 A bug-fix release. Kindle scripts: 1.2.0 (unchanged).

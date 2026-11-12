@@ -87,6 +87,9 @@ the least room in layout units (`inkdoor demo --screen 600x800 10:20`, `--screen
   changes (`render.next_change`); `/kindle.png` sends `X-Inkdoor-Next` (seconds until that render
   is done) and `loop.sh` sleeps that long, clamped to 30 s..`INTERVAL`. Keep both sides working
   with an older version of the other: no header means `INTERVAL`, and extra headers are ignored.
+  `/kindle.png` also sends `X-Inkdoor-Light: on|off` (the night light schedule, `inkdoor.light`;
+  `on` when no schedule is set), and `X-Inkdoor-Next` also comes back just after each light change.
+  `apply_light` in `common.sh` follows it; no header leaves the light alone.
 - The Kindle side has a version (`kindle_files.KINDLE_VERSION`): KPM only upgrades to a higher
   one, so bump it whenever a file in `kindle/inkdoor/`, `kindle/documents/` or `kindle/kpm/`
   changes, and update `SCRIPTS_SHA256` (a test fails until both match).
