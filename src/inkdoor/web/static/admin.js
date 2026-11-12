@@ -6,9 +6,11 @@
 //   form[data-test-target]  runs a link test in the background and shows the result in the
 //                           element with that id; data-error is shown when the test cannot run
 //   button[data-copy]       copies the text of the element with that id (shown only with JS)
-//   [data-preview]          the home page's preview: with data-poll (after a save or Update now),
+//   input[data-enables]     a switch: the fields with the ids it lists are disabled while it is off
+//   form[data-dirty]        gets the class "is-dirty" once something in it changed
+//   [data-preview]          the door's preview: with data-poll (after a save or Update now),
 //                           asks /status.json every 3 s for a minute and reloads the page when
-//                           a new screen was drawn
+//                           a new screen was drawn, unless a form on it has unsaved changes
 (function () {
   "use strict";
 
@@ -141,6 +143,33 @@
     button.hidden = false;
   }
 
+  function enableWith(input) {
+    var ids = (input.getAttribute("data-enables") || "").split(/\s+/);
+
+    function apply() {
+      ids.forEach(function (id) {
+        var field = id ? document.getElementById(id) : null;
+        if (field) {
+          field.disabled = !input.checked;
+        }
+      });
+    }
+
+    input.addEventListener("change", apply);
+    // again once the page is shown: a browser restores a form's state (Back, reload) after this ran
+    window.addEventListener("pageshow", apply);
+    apply();
+  }
+
+  function markDirty(form) {
+    function dirty() {
+      form.classList.add("is-dirty");
+    }
+
+    form.addEventListener("input", dirty);
+    form.addEventListener("change", dirty);
+  }
+
   var POLL_EVERY = 3000;
   var POLL_TIMES = 20;  // one minute
 
@@ -177,6 +206,9 @@
         .then(function (data) {
           if (data && data.at && data.at !== at) {
             stop();
+            if (document.querySelector("form.is-dirty")) {
+              return;  // a reload would throw the changes away; the next save watches again
+            }
             // the whole page: the status, the preview and the chip in the top bar change together
             window.location.reload();
           }
@@ -190,5 +222,7 @@
   document.querySelectorAll("form[data-confirm]").forEach(confirmBeforeSubmit);
   document.querySelectorAll("form[data-test-target]").forEach(testInBackground);
   document.querySelectorAll("button[data-copy]").forEach(copyButton);
+  document.querySelectorAll("input[data-enables]").forEach(enableWith);
+  document.querySelectorAll("form[data-dirty]").forEach(markDirty);
   document.querySelectorAll("[data-preview]").forEach(pollPreview);
 })();

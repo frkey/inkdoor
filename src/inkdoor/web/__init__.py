@@ -357,12 +357,8 @@ def create_app(state: ServerState, *, clock=time.time, monotonic=time.monotonic)
         """What the door says, for the chip in the top bar, or None when nobody knows: nothing
         rendered yet, no image, or an image so old that /kindle.png serves the stale notice
         instead (the chip must not repeat an old "Free")."""
-        last = state.last_render
-        if last is None:
-            return None
-        try:
-            mtime = os.stat(os.path.join(state.output_dir, IMAGE_NAME)).st_mtime
-        except OSError:
+        last, mtime = state.last_render, state.image_mtime()
+        if last is None or mtime is None:
             return None
         return None if state.image_stale(clock(), mtime) else last
 

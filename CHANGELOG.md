@@ -13,6 +13,9 @@ It is shown next to each release.
 
 - Admin: a new look (ink on paper), with what the door says shown on every page. "Log out" is
   now only in the top bar.
+- Admin: the Screen page is grouped into cards, shows the door beside the form, and workday and
+  night light times use the same control (the light in half hours; a time set by hand in
+  `config.toml` is kept).
 
 ## [1.2.0] - 2026-11-12
 
