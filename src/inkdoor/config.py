@@ -124,7 +124,7 @@ def _has_port(host: str) -> bool:
 
 def _validate_light(display: dict) -> None:
     """The night light schedule: both keys or neither, valid "HH:MM", not equal. The detail is
-    ``field`` (``key`` is the translator's own parameter) and the value is never repeated back."""
+    ``field`` and the value is never repeated back."""
     keys = ("light_off", "light_on")
     present = [key in display for key in keys]
     if not any(present):
