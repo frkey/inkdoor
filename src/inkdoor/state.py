@@ -67,6 +67,12 @@ class ServerState:
         except OSError:
             return None
 
+    def image_current(self, now: float) -> bool:
+        """True when there is an image and /kindle.png serves it as it is (not the stale notice):
+        only then does the admin repeat what the door says."""
+        mtime = self.image_mtime()
+        return mtime is not None and not self.image_stale(now, mtime)
+
     def image_stale(self, now: float, image_mtime: float) -> bool:
         """True when the image on disk may show an old status, because the render loop is far
         past its next render (stuck on something) or, before this run's first render, the file

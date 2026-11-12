@@ -58,6 +58,13 @@ def test_no_timeline_on_a_day_off_or_without_a_busy_calendar():
     assert build_timeline(snapshot(), cfg()) is not None
 
 
+def test_no_timeline_while_a_busy_calendar_has_no_data():
+    # an empty strip would read as a free day, and nobody knows that
+    snap = snapshot(events=[event("10:00", "11:00")])
+    snap.unknown = ["Company"]
+    assert build_timeline(snap, cfg()) is None
+
+
 def test_a_timeline_block_never_holds_a_title():
     tl = build_timeline(snapshot(events=[event("10:00", "11:00")]), cfg())
     assert "Planning" not in repr(tl)

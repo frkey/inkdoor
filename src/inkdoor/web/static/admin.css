@@ -259,13 +259,6 @@ p {
   padding: 32px var(--space) 56px;
 }
 
-.columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
-  gap: 20px;
-  align-items: start;
-}
-
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -289,26 +282,6 @@ p {
 }
 
 /* --- status and preview --- */
-
-.status-word {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.status-headline {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.preview img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #ffffff;
-}
 
 /* --- messages --- */
 
@@ -645,17 +618,6 @@ select[aria-invalid="true"] {
   opacity: 0.85;
 }
 
-.stack-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-.status .alert {
-  margin-bottom: 12px;
-}
-
 .update {
   margin: 0;
 }
@@ -692,10 +654,6 @@ select[aria-invalid="true"] {
 
 .copy-row button {
   flex: none;
-}
-
-.preview-frame {
-  min-height: 1px;
 }
 
 /* --- screen and account --- */
@@ -793,10 +751,6 @@ input[readonly] {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .page {
     padding-top: 16px;
   }
@@ -807,10 +761,6 @@ input[readonly] {
 
   .card.narrow {
     margin-top: 16px;
-  }
-
-  .status-word {
-    font-size: 1.75rem;
   }
 
 }
@@ -1317,5 +1267,209 @@ html {
   .side-jump {
     display: block;
     margin: -12px 0 20px;
+  }
+}
+
+/* --- Home: what the door says, today, the sources --- */
+
+.split + .card,
+.card + .pair,
+.split + .pair {
+  margin-top: 20px;
+}
+
+/* the door's status, ink on paper turned around: the one dark block in the admin */
+.status-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 28px;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--ink-contrast);
+}
+
+.status-label {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.status-word {
+  margin: 0;
+  font-size: clamp(2.5rem, 7vw, 4rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+.status-headline {
+  margin: 8px 0 0;
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+
+.status-note {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  max-width: 44ch;
+}
+
+.status-facts {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9375rem;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.status-actions form {
+  margin: 0;
+}
+
+/* on the dark block the primary button and the link turn around too */
+.status-block button {
+  background: var(--ink-contrast);
+  color: var(--ink);
+  border-color: var(--ink-contrast);
+}
+
+.status-block a {
+  color: inherit;
+}
+
+.status-block :focus-visible {
+  outline-color: var(--ink-contrast);
+}
+
+/* today's workday as a strip: one block per event, in its calendar's marker */
+.timeline {
+  display: block;
+  overflow: visible;
+}
+
+.tl-track {
+  fill: var(--paper);
+  stroke: var(--border);
+}
+
+/* no fill here: a striped block gets its pattern from its fill attribute, which any CSS fill
+   would override */
+.tl-block {
+  stroke: var(--ink);
+  stroke-width: 2px;
+}
+
+.tl-solid {
+  fill: var(--ink);
+}
+
+.tl-stripe {
+  fill: var(--ink);
+}
+
+.tl-outline {
+  fill: var(--surface);
+}
+
+.tl-listed {
+  opacity: 0.45;
+}
+
+.tl-now {
+  stroke: var(--accent);
+  stroke-width: 3px;
+}
+
+.tl-tick {
+  fill: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+}
+
+.tl-first {
+  text-anchor: start;
+}
+
+.tl-last {
+  text-anchor: end;
+}
+
+.today .help {
+  margin-top: 8px;
+}
+
+/* two cards side by side that become one column when there is no room (or only one card) */
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.card-head a {
+  font-size: 0.875rem;
+}
+
+.source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.source-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: start;
+  padding: 12px 0;
+}
+
+.source-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.source-list li:last-child {
+  padding-bottom: 0;
+}
+
+.source-list .marker,
+.source-list .icon {
+  margin-top: 3px;
+}
+
+.source-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 2px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .status-block {
+    padding: 20px;
+  }
+
+  /* fewer hour labels: every other one */
+  .tl-tick:nth-of-type(even) {
+    display: none;
   }
 }

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
 {% block content %}
+<h1 class="visually-hidden">{{ t("admin.nav.home") }}</h1>
 {% if broken %}
 <div class="alert banner" role="alert">
   <p><strong>{{ t("admin.config_broken") }}</strong>
@@ -14,65 +15,111 @@
   <a class="button" href="/calendars/new">{{ t("admin.add_calendar") }}</a>
 </div>
 {% endif %}
-<div class="columns">
-  <div class="stack-cards">
-    <section class="card status" aria-live="polite">
-      <h1>{{ t("admin.home_title") }}</h1>
-      {% if last %}
-      <p class="status-word" data-status="word">{{ last.word }}</p>
-      <p class="status-headline" data-status="headline">{{ last.headline }}</p>
-      <p class="muted" data-status="updated">{{ updated }}</p>
-      <div class="alert" data-status="errors"{% if not last.errors %} hidden{% endif %}>
-        <p>{{ t("admin.failing_sources") }}</p>
-        <ul>
-          {% for source in last.errors %}<li>{{ source }}</li>{% endfor %}
-        </ul>
-      </div>
-      {% else %}
-      <p class="muted">{{ t("admin.not_rendered") }}</p>
-      {% endif %}
+<div class="split">
+  {# door: what /kindle.png shows now, or nothing when nobody knows (see door_status) #}
+  <section class="status-block" aria-labelledby="status-label">
+    <h2 class="status-label" id="status-label">{{ t("admin.door_chip_label") }}</h2>
+    {% if door %}
+    <p class="status-word">{{ door.word }}</p>
+    <p class="status-headline">{{ door.headline }}</p>
+    {% elif last %}
+    <p class="status-note">{{ t("admin.status_stale") }}</p>
+    {% else %}
+    <p class="status-note">{{ t("admin.not_rendered") }}</p>
+    {% endif %}
+    {% if facts %}
+    <ul class="status-facts">
+      {% for fact in facts %}<li>{{ fact }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <div class="status-actions">
       <form method="post" action="/render" class="update">
         {{ csrf_field() }}
         <button type="submit">{{ t("admin.update_now") }}</button>
       </form>
-    </section>
-    <section class="card">
-      <h2>{{ t("admin.kindle_title") }}</h2>
-      {% if kindle_url %}
-      {% if kindle_zip %}
-      <div class="kindle-download">
-        <a class="button" href="/kindle-files.zip" download>{{ t("admin.kindle_download") }}</a>
-        <p class="help">{{ t("admin.kindle_download_help") }}</p>
-      </div>
-      {% call m.howto(t("admin.howto_kindle_title")) %}
-      {{ m.steps("admin.howto_kindle") }}
-      <p class="help">{{ t("admin.howto_kindle_note") }}
-        <a href="{{ docs_url('kindle.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_kindle_more") }}</a></p>
-      {% endcall %}
-      {% call m.howto(t("admin.howto_kpm_title")) %}
-      <p>{{ t("admin.howto_kpm_intro") | emphasis }}</p>
-      <p class="help">{{ t("admin.howto_kpm_upgrade") }}</p>
-      <pre class="commands">;kpm update
-;kpm upgrade</pre>
-      <p class="help">{{ t("admin.howto_kpm_note") }}</p>
-      {% endcall %}
-      {% endif %}
-      {{ m.copy_field("kindle-url", t("admin.kindle_url_label"), kindle_url,
-                      help=t("admin.kindle_url_help")) }}
-      {% else %}
-      <p class="muted">{{ t("admin.kindle_url_unknown", port=port) }}</p>
-      {% endif %}
-    </section>
-  </div>
-  <section class="card preview">
-    <h2>{{ t("admin.preview_title") }}</h2>
-    <div class="preview-frame" data-preview data-at="{{ at }}"{% if poll %} data-poll{% endif %}>
-      {% if preview %}
-      <img src="/kindle.png?t={{ preview }}" alt="{{ t('admin.preview_alt') }}" width="{{ screen[0] }}" height="{{ screen[1] }}">
-      {% else %}
-      <p class="muted">{{ t("admin.not_rendered") }}</p>
-      {% endif %}
+      <a href="/screen">{{ t("admin.adjust_screen") }}</a>
     </div>
+  </section>
+  <aside class="side">
+    {{ m.door_preview(preview, screen, caption=caption, at=at, poll=poll) }}
+  </aside>
+</div>
+{% if timeline %}
+<section class="card today" aria-labelledby="today-title">
+  <h2 id="today-title">{{ t("admin.today_title") }}</h2>
+  {# positions are attributes in percent, never a style: the Content-Security-Policy allows no
+     inline style. The text below says the same in words. #}
+  <svg class="timeline" width="100%" height="64" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="tl-stripes" width="8" height="8" patternUnits="userSpaceOnUse"
+               patternTransform="rotate(45)">
+        <rect class="tl-stripe" width="4" height="8"></rect>
+      </pattern>
+    </defs>
+    <rect class="tl-track" x="0" y="0" width="100%" height="36" rx="6"></rect>
+    {% for block in timeline.blocks %}
+    <rect class="tl-block tl-{{ block.style }}{% if not block.busy %} tl-listed{% endif %}"
+          {%- if block.style == "striped" %} fill="url(#tl-stripes)"{% endif %}
+          x="{{ block.x / 10 }}%" y="0" width="{{ block.w / 10 }}%" height="36" rx="3"></rect>
+    {% endfor %}
+    {% if timeline.now_x is not none %}
+    <line class="tl-now" x1="{{ timeline.now_x / 10 }}%" x2="{{ timeline.now_x / 10 }}%" y1="0" y2="42"></line>
+    {% endif %}
+    {% for label, x in timeline.ticks %}
+    <text class="tl-tick{% if loop.first %} tl-first{% elif loop.last %} tl-last{% endif %}" x="{{ x / 10 }}%" y="60">{{ label }}</text>
+    {% endfor %}
+  </svg>
+  <p class="help">{{ timeline.summary }}</p>
+</section>
+{% endif %}
+<div class="pair">
+  {% if sources %}
+  <section class="card sources" aria-labelledby="sources-title">
+    <div class="card-head">
+      <h2 id="sources-title">{{ t("admin.sources_title") }}</h2>
+      <a href="/calendars">{{ t("admin.manage_calendars") }}</a>
+    </div>
+    <ul class="source-list">
+      {% for source in sources %}
+      <li>
+        {% if source.kind == "tasks" %}{{ icons.icon("tasks") }}
+        {%- else %}<span class="marker marker-{{ source.style }}" aria-hidden="true"></span>{% endif %}
+        <div class="source-main">
+          <p class="source-name"><strong>{{ source.name }}</strong>
+            {{ m.source_state(source.state, source.state_text) }}</p>
+          <p class="help">{{ source.sentence }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  <section class="card install" aria-labelledby="install-title">
+    <h2 id="install-title">{{ t("admin.install_title") }}</h2>
+    {% if kindle_url %}
+    {% if kindle_zip %}
+    <div class="kindle-download">
+      <a class="button-secondary" href="/kindle-files.zip" download>{{ t("admin.kindle_download") }}</a>
+      <p class="help">{{ t("admin.kindle_download_help") }}</p>
+    </div>
+    {% call m.howto(t("admin.howto_kindle_title")) %}
+    {{ m.steps("admin.howto_kindle") }}
+    <p class="help">{{ t("admin.howto_kindle_note") }}
+      <a href="{{ docs_url('kindle.md') }}" target="_blank" rel="noopener noreferrer">{{ t("admin.howto_kindle_more") }}</a></p>
+    {% endcall %}
+    {% call m.howto(t("admin.howto_kpm_title")) %}
+    <p>{{ t("admin.howto_kpm_intro") | emphasis }}</p>
+    <p class="help">{{ t("admin.howto_kpm_upgrade") }}</p>
+    <pre class="commands">;kpm update
+;kpm upgrade</pre>
+    <p class="help">{{ t("admin.howto_kpm_note") }}</p>
+    {% endcall %}
+    {% endif %}
+    {{ m.copy_field("kindle-url", t("admin.kindle_url_label"), kindle_url,
+                    help=t("admin.kindle_url_help")) }}
+    {% else %}
+    <p class="muted">{{ t("admin.kindle_url_unknown", port=port) }}</p>
+    {% endif %}
   </section>
 </div>
 {% endblock %}

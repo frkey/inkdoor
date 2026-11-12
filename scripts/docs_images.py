@@ -26,7 +26,9 @@ from PIL import Image, ImageChops, ImageDraw
 
 from inkdoor import config_edit, demo, net
 from inkdoor.config import with_defaults
-from inkdoor.render import H, W, compute_status, render, translator_for
+from inkdoor.dashboard import build_timeline, next_word
+from inkdoor.render import H, W, compute_status, next_change, render, translator_for
+from inkdoor.sources import SourceHealth
 from inkdoor.state import IMAGE_NAME, RenderInfo, ServerState
 from inkdoor.web import auth, create_app
 
@@ -92,11 +94,24 @@ def _admin_pages(language: str, folder: Path) -> list[str]:
     demo_cfg = demo.demo_config(language)
     snap = demo.demo_snapshot(demo_cfg, "10:20")
     render(snap, demo_cfg).save(work / IMAGE_NAME)
-    status = compute_status(snap, demo_cfg, translator_for(demo_cfg))
-    state.last_render = RenderInfo(snap.now, status.word, status.headline, [])
+    t = translator_for(demo_cfg)
+    status = compute_status(snap, demo_cfg, t)
+    change = next_change(snap, demo_cfg)
+    # what a render leaves for Home: every source read fine at the demo's time
+    health = [SourceHealth("calendar", c["name"], c["style"], True, "ok",
+                           sum(1 for e in snap.today if e.source == c["name"]), snap.now, None)
+              for c in demo_cfg["calendar"]]
+    health.append(SourceHealth("tasks", "TickTick", None, False, "ok", len(snap.tasks),
+                               snap.now, None))
+    state.last_render = RenderInfo(
+        snap.now, status.word, status.headline, [], change, sources=health,
+        timeline=build_timeline(snap, demo_cfg), next_word=next_word(snap, demo_cfg, t, change))
+    now = snap.now.timestamp()               # the admin's clock stands at the demo's time
+    os.utime(work / IMAGE_NAME, (now, now))
+    state.next_render_at, state.last_fetch_at = now + 180, now - 120
     net.lan_address = lambda: FAKE_ADDRESS
 
-    client = create_app(state).test_client()
+    client = create_app(state, clock=lambda: now).test_client()
     base = f"http://{FAKE_ADDRESS}:3667"
     login = client.get("/login", base_url=base).get_data(as_text=True)
     token = re.search(r'name="csrf" value="([^"]+)"', login).group(1)

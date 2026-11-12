@@ -167,8 +167,10 @@ Opções: `--lang en-US|pt-BR`, `--timezone Area/Cidade` (para uma config nova),
 O admin é um pequeno site servido pelo `inkdoor serve` na mesma porta da imagem do Kindle.
 Depois de entrar, você pode:
 
-- **Início**: ver uma prévia da porta, o status, quando ela atualizou pela última vez e quais
-  links estão falhando; atualizar na hora; copiar o endereço para o Kindle.
+- **Início**: ver o que a porta diz e quando muda, uma prévia da tela, o expediente de hoje
+  numa linha do tempo, o estado de cada agenda (em dia, dados antigos, sem dados) com o motivo
+  quando um link falha, e quando o Kindle buscou a imagem pela última vez; atualizar na hora;
+  baixar os arquivos do Kindle ou copiar o endereço para o Kindle.
 - **Agendas** e **Tarefas**: adicionar, editar, reordenar e remover agendas e o link do
   TickTick, e testar cada link. Um link salvo nunca volta a aparecer inteiro, só o começo dele.
 - **Tela**: o modelo do Kindle, idioma, fuso horário, relógio, horário e dias do expediente, a menor folga a

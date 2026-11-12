@@ -30,9 +30,11 @@ class Timeline:
 
 def build_timeline(snap: Snapshot, cfg: dict) -> Timeline | None:
     """Today's workday with its events, or None when there is no day to show: no busy calendar
-    (the door does not follow a day then) or a day off."""
+    (the door does not follow a day then), a day off, or a busy calendar with no data at all
+    (a strip without its events would read as free time, and nobody knows that)."""
     display = cfg["display"]
-    if snap.configured != "busy" or snap.now.weekday() not in display["workdays"]:
+    if snap.configured != "busy" or snap.unknown or \
+            snap.now.weekday() not in display["workdays"]:
         return None
     midnight = dt.datetime.combine(snap.now.date(), dt.time.min, snap.now.tzinfo)
     start = midnight + dt.timedelta(hours=display["workday_start"])

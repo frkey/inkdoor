@@ -164,8 +164,10 @@ Options: `--lang en-US|pt-BR`, `--timezone Area/City` (for a new config), `--ref
 The admin is a small website served by `inkdoor serve` on the same port as the Kindle image.
 After logging in you can:
 
-- **Home**: see a preview of the door, its status, when it last updated and which links are
-  failing; update it now; copy the Kindle's address.
+- **Home**: see what the door says and when it changes next, a preview of the screen, today's
+  workday as a timeline, each calendar's state (up to date, old data, no data) with the reason
+  when a link fails, and when the Kindle last fetched the image; update it now; download the
+  Kindle files or copy the Kindle's address.
 - **Calendars** and **Tasks**: add, edit, reorder and remove calendars and the TickTick link,
   and test each link. A saved link is never shown again in full, only its start.
 - **Screen**: the Kindle model, language, time zone, clock, workday hours and days, the shortest free gap to
