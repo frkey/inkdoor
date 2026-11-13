@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inkdoor"
-version = "1.3.2"
+version = "1.3.3"
 description = "An e-ink calendar display for your door, made from an old Kindle."
 readme = "README.md"
 license = { text = "MIT" }
