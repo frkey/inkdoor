@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-13
+
+A small release: servers now also trust a second release signing key, so the release key can be
+replaced. Nothing changes in `config.toml` or on the Kindle. Kindle scripts: 1.3.0 (unchanged).
+
 ### Security
 
 - `deploy/install.sh` now also trusts a second release signing key, so a later release can be
@@ -182,7 +187,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/frkey/inkdoor/releases/tag/v1.3.2
 [1.3.1]: https://github.com/frkey/inkdoor/releases/tag/v1.3.1
 [1.3.0]: https://github.com/frkey/inkdoor/releases/tag/v1.3.0
 [1.2.0]: https://github.com/frkey/inkdoor/releases/tag/v1.2.0
