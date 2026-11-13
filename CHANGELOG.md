@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Security
+
+- `deploy/install.sh` no longer trusts the previous release signing key; releases are signed with
+  the key added in 1.3.2. Servers still on 1.3.1 or older must update to 1.3.2 first (or use
+  `--ref`). ([#137](https://github.com/frkey/inkdoor/issues/137))
+
 ## [1.3.2] - 2026-11-13
 
 A small release: servers now also trust a second release signing key, so the release key can be
