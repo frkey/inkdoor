@@ -9,6 +9,12 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Security
+
+- `deploy/install.sh` now also trusts a second release signing key, so a later release can be
+  signed with it. Releases signed with the current key keep installing.
+  ([#137](https://github.com/frkey/inkdoor/issues/137))
+
 ## [1.3.1] - 2026-11-12
 
 A small release: a restart no longer makes the door forget the day's calendars. Nothing changes

@@ -202,6 +202,8 @@ itself with that same version. The check runs in the installer that is already i
 - Sign with SSH: `git config gpg.format ssh` and `git config user.signingkey <path to the
   public key>`. Keep the private key off shared machines, with a passphrase, and backed up.
 - Add the public key to GitHub as a *signing* key too, so tags show as verified.
+- `RELEASE_SIGNERS` is one single-quoted string with one key per line; keep it a single
+  `RELEASE_SIGNERS='...'` statement (a test reads it).
 - To change keys, add the new key to `RELEASE_SIGNERS` and ship that in a release signed with a
   key already listed; remove the old key in a later release. A tag that no listed key signed is
   refused by every server, and the only way past it is `--ref`.
