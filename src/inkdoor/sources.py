@@ -13,6 +13,11 @@ from zoneinfo import ZoneInfo
 import icalendar
 import recurring_ical_events
 
+try:  # icalendar 6 and later
+    from icalendar.timezone.windows_to_olson import WINDOWS_TO_OLSON
+except ImportError:  # icalendar 5
+    from icalendar.windows_to_olson import WINDOWS_TO_OLSON
+
 from . import files, isolate, net
 from .config import is_configured
 
@@ -298,7 +303,85 @@ def events_from(content: bytes, calendar: dict, start: dt.datetime, end: dt.date
 
 
 def _events_from(content: bytes, calendar: dict, start, end, tz) -> list[Event]:
-    return parse_events(icalendar.Calendar.from_ical(content), calendar, start, end, tz)
+    return parse_events(_parse(content), calendar, start, end, tz)
+
+
+def _parse(content: bytes):
+    return icalendar.Calendar.from_ical(without_windows_zones(content))
+
+
+def without_windows_zones(content: bytes) -> bytes:
+    """``content`` without the VTIMEZONE blocks of Windows zone names that icalendar maps to an
+    IANA zone this machine has; every other line is kept as it is.
+
+    Outlook names zones the Windows way ("Mountain Standard Time") and sends a VTIMEZONE for each,
+    with rules from 1601. icalendar 7.3 builds a dateutil zone from that block instead of the IANA
+    zone, and each UTC offset lookup in it walks every year since 1601: an Outlook calendar of a few
+    hundred events took over 30 s to read. The block may also be outdated (Brazil's daylight saving
+    time, dropped in 2019). Without it icalendar resolves the name through its own mapping to the
+    IANA zone, as versions 5.0 to 7.2 did.
+    """
+    out, block, tzid = [], None, None
+    for group in _logical_lines(content):
+        text = b"".join([group[0].rstrip(b"\r\n")] + [line.rstrip(b"\r\n")[1:] for line in group[1:]])
+        if block is None:
+            if text.strip().upper() == b"BEGIN:VTIMEZONE":
+                block, tzid = list(group), None
+            else:
+                out += group
+            continue
+        block += group
+        if tzid is None and _property_name(text) == b"TZID":
+            tzid = _property_value(text)
+        elif text.strip().upper() == b"END:VTIMEZONE":
+            if not _maps_to_iana(tzid):
+                out += block
+            block = None
+    if block is not None:  # never closed: leave it to the parser
+        out += block
+    return b"".join(out)
+
+
+def _logical_lines(content: bytes):
+    """Groups of physical lines (with their line endings), one group per unfolded line."""
+    group = []
+    for line in content.splitlines(keepends=True):
+        if group and line[:1] in (b" ", b"\t"):
+            group.append(line)
+            continue
+        if group:
+            yield group
+        group = [line]
+    if group:
+        yield group
+
+
+def _property_name(text: bytes) -> bytes:
+    return re.split(rb"[;:]", text, maxsplit=1)[0].strip().upper()
+
+
+def _property_value(text: bytes) -> bytes:
+    """What follows the first colon outside a quoted parameter value."""
+    quoted = False
+    for i, char in enumerate(text):
+        if char == 0x22:  # "
+            quoted = not quoted
+        elif char == 0x3A and not quoted:  # :
+            return text[i + 1:]
+    return b""
+
+
+def _maps_to_iana(tzid: bytes | None) -> bool:
+    """Whether icalendar resolves this TZID by itself: only the exact name is looked up (icalendar
+    5 strips nothing), and the IANA zone must exist here, or the events would lose their zone."""
+    try:
+        name = WINDOWS_TO_OLSON.get(tzid.decode("utf-8")) if tzid is not None else None
+        if name is None:
+            return False
+        ZoneInfo(name)
+    except Exception:  # not UTF-8, or not in this machine's time zone data: keep the block
+        return False
+    return True
 
 
 def parse_events(cal, calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
@@ -345,7 +428,7 @@ def tasks_from(content: bytes, tasks_cfg: dict, today: dt.date, tz) -> list[Task
 
 
 def _tasks_from(content: bytes, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
-    return parse_tasks(icalendar.Calendar.from_ical(content), tasks_cfg, today, tz)
+    return parse_tasks(_parse(content), tasks_cfg, today, tz)
 
 
 def parse_tasks(cal, tasks_cfg: dict, today: dt.date, tz) -> list[Task]:
