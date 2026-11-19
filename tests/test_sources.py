@@ -36,6 +36,67 @@ def test_windows_time_zone_names(cfg):
     assert review.location == ""                        # Teams links are hidden
 
 
+# Outlook sends a VTIMEZONE with rules from 1601 for each Windows zone name it uses. This one still
+# has Brazil's old daylight saving time (October to February), which IANA dropped in 2019.
+OUTLOOK_SAO_PAULO = (
+    "BEGIN:VTIMEZONE\r\nTZID:E. South America Standard\r\n  Time\r\n"     # folded line
+    "BEGIN:STANDARD\r\nDTSTART:16010101T000000\r\nTZOFFSETFROM:-0200\r\nTZOFFSETTO:-0300\r\n"
+    "RRULE:FREQ=YEARLY;BYDAY=3SU;BYMONTH=2\r\nEND:STANDARD\r\n"
+    "BEGIN:DAYLIGHT\r\nDTSTART:16010101T000000\r\nTZOFFSETFROM:-0300\r\nTZOFFSETTO:-0200\r\n"
+    "RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=10\r\nEND:DAYLIGHT\r\nEND:VTIMEZONE\r\n")
+CUSTOM_ZONE = (
+    "BEGIN:VTIMEZONE\nTZID:Customized Time Zone\nBEGIN:STANDARD\nDTSTART:16010101T000000\n"
+    "TZOFFSETFROM:-0500\nTZOFFSETTO:-0500\nEND:STANDARD\nEND:VTIMEZONE\n")
+
+
+def ics_bytes(body: str, newline: str = "\r\n") -> bytes:
+    head = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//inkdoor//tests//EN\n".replace("\n", newline)
+    return (head + body + "END:VCALENDAR" + newline).encode()
+
+
+def test_windows_zone_names_follow_iana_not_outlooks_vtimezone(cfg, tmp_path):
+    # with the VTIMEZONE's stale rule, 10:00 there would be 09:00 in Sao Paulo
+    path = tmp_path / "outlook.ics"
+    path.write_bytes(ics_bytes(
+        OUTLOOK_SAO_PAULO + "BEGIN:VEVENT\r\nUID:a@test\r\n"
+        'DTSTART;TZID="E. South America Standard Time":20261014T100000\r\n'
+        "DTEND;TZID=E. South America Standard Time:20261014T110000\r\n"
+        "SUMMARY:Planning\r\nEND:VEVENT\r\n"))
+    cfg["calendar"] = [{"name": "Work", "style": "solid", "busy": True, "url": str(path)}]
+    snap = collect(cfg, at("12:00"))
+    assert snap.errors == []
+    assert rows(snap.today) == [("10:00", "Planning", "Work")]
+
+
+def test_a_zone_icalendar_cannot_map_keeps_its_vtimezone(cfg, tmp_path):
+    path = tmp_path / "custom.ics"
+    path.write_bytes(ics_bytes(
+        CUSTOM_ZONE + "BEGIN:VEVENT\nUID:a@test\nDTSTART;TZID=Customized Time Zone:20261014T100000\n"
+        "DTEND;TZID=Customized Time Zone:20261014T110000\nSUMMARY:Call\nEND:VEVENT\n", "\n"))
+    cfg["calendar"] = [{"name": "Work", "style": "solid", "busy": True, "url": str(path)}]
+    snap = collect(cfg, at("12:00"))
+    assert rows(snap.today) == [("12:00", "Call", "Work")]            # 10:00 at -05:00
+
+
+def test_only_vtimezones_of_mapped_windows_names_are_dropped():
+    event = "BEGIN:VEVENT\r\nUID:a@test\r\nDTSTART:20261014T100000Z\r\nEND:VEVENT\r\n"
+    content = ics_bytes(OUTLOOK_SAO_PAULO + CUSTOM_ZONE.replace("\n", "\r\n") + event)
+    cleaned = sources.without_windows_zones(content)
+    assert cleaned == ics_bytes(CUSTOM_ZONE.replace("\n", "\r\n") + event)
+    # the same with LF line endings
+    lf = content.replace(b"\r\n", b"\n")
+    assert sources.without_windows_zones(lf) == cleaned.replace(b"\r\n", b"\n")
+    # nothing to drop: the same bytes
+    assert sources.without_windows_zones(ics_bytes(event)) == ics_bytes(event)
+
+
+def test_a_windows_name_whose_zone_is_missing_keeps_its_vtimezone(monkeypatch):
+    monkeypatch.setitem(sources.WINDOWS_TO_OLSON, "Nowhere Standard Time", "Nowhere/Nowhere")
+    zone = OUTLOOK_SAO_PAULO.replace("E. South America Standard\r\n  Time", "Nowhere Standard Time")
+    content = ics_bytes(zone)
+    assert sources.without_windows_zones(content) == content
+
+
 def test_recurrence_and_cancellations(cfg):
     snap = collect(cfg, at("12:00"))
     assert ("09:00", "Daily", "Work") in rows(snap.today)

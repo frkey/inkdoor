@@ -9,6 +9,14 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Outlook calendars that name their time zones the Windows way ("Mountain Standard Time") read
+  in a couple of seconds again, instead of timing out and turning the door to "Knock first". Those
+  names now follow the IANA time zone rules, as before icalendar 7.3, so an outdated time zone
+  definition in the calendar no longer shifts its events by an hour.
+  ([#144](https://github.com/frkey/inkdoor/issues/144))
+
 ## [1.3.3] - 2026-11-13
 
 A small release: servers stop trusting the previous release signing key, and releases are signed
