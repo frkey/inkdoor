@@ -306,6 +306,25 @@ def test_expansion_goes_past_the_window_and_counts_each_occurrence_once(tmp_path
     assert [t.title for t in tasks] == ["Tonight"]                    # 22:00 on the 14th, local
 
 
+def test_a_canceled_copy_does_not_hide_the_meeting(tmp_path, monkeypatch):
+    import icalendar
+    body = ("BEGIN:VEVENT\nDTSTART:20261014T130000Z\nDTEND:20261014T140000Z\nSUMMARY:Review\n"
+            "STATUS:CANCELLED\nEND:VEVENT\n"
+            "BEGIN:VEVENT\nDTSTART:20261014T130000Z\nDTEND:20261014T140000Z\nSUMMARY:Review\n"
+            "END:VEVENT\n")                                           # no UID: alike but for STATUS
+    cal = icalendar.Calendar.from_ical(open(write_ics(tmp_path / "c.ics", body), "rb").read())
+    items = cal.walk("VEVENT")                                        # the canceled one first
+
+    class Query:
+        def between(self, start, stop):
+            return list(items)
+
+    monkeypatch.setattr(sources.recurring_ical_events, "of", lambda cal, components: Query())
+    start = at("00:00")
+    found = sources.parse_events(cal, {"name": "Work"}, start, start + dt.timedelta(days=2), TZ)
+    assert rows(found) == [("10:00", "Review", "Work")]
+
+
 def test_a_multi_day_event_does_not_slow_the_reading(tmp_path, monkeypatch):
     # The library's after() halves its search window whenever the window holds any occurrence,
     # so a trip under way made it read in 15-minute steps, each one expanding every series (#145).

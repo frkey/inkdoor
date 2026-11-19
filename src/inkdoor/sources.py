@@ -309,8 +309,9 @@ def _occurrences(cal, start, end, tz, components=("VEVENT",)):
 
 def _identity(item) -> tuple:
     """What tells one occurrence from another when two slices return it. Two that only differ in
-    other properties look the same on the screen, and ``deduplicate`` would merge them anyway."""
-    return (item.name, str(item.get("UID", "")), str(item.get("SUMMARY", "")),
+    other properties look the same on the screen, and ``deduplicate`` would merge them anyway;
+    STATUS is part of it so a canceled copy never hides the one that still happens."""
+    return (item.name, *(str(item.get(name, "")) for name in ("UID", "SUMMARY", "STATUS")),
             *(_moment(item.get(name)) for name in ("RECURRENCE-ID", "DTSTART", "DTEND", "DUE")))
 
 
