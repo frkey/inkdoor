@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-11-19
+
+A small release: a multi-day event no longer slows down reading the rest of its calendar.
+Nothing changes in `config.toml` or on the Kindle. Kindle scripts: 1.3.0 (unchanged).
+
 ### Fixed
 
 - A multi-day event (a trip, a conference, time off) no longer slows down reading the rest of its
@@ -220,7 +225,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.4...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.5...HEAD
+[1.3.5]: https://github.com/frkey/inkdoor/releases/tag/v1.3.5
 [1.3.4]: https://github.com/frkey/inkdoor/releases/tag/v1.3.4
 [1.3.3]: https://github.com/frkey/inkdoor/releases/tag/v1.3.3
 [1.3.2]: https://github.com/frkey/inkdoor/releases/tag/v1.3.2

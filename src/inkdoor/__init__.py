@@ -1,3 +1,3 @@
 """inkdoor: an e-ink calendar display for your door, made from an old Kindle."""
 
-__version__ = "1.3.4"
+__version__ = "1.3.5"
