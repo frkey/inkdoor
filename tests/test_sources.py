@@ -285,8 +285,9 @@ def test_endless_tasks_are_a_failed_source(cfg):
     assert "TickTick: TooManyOccurrences" in snap.errors and snap.tasks == []
 
 
-def test_expansion_goes_past_the_window_before_stopping(tmp_path, monkeypatch):
-    # the library may yield an occurrence that starts after the window before one inside it
+def test_expansion_goes_past_the_window_and_counts_each_occurrence_once(tmp_path, monkeypatch):
+    # the library may return an occurrence that starts after the window before one inside it,
+    # and every slice returns again the occurrences that overlap it
     import icalendar
     path = write_ics(tmp_path / "t.ics", "BEGIN:VTODO\nUID:a@test\nDUE;VALUE=DATE:20261015\n"
                      "SUMMARY:Tomorrow\nEND:VTODO\nBEGIN:VTODO\nUID:b@test\n"
@@ -296,12 +297,44 @@ def test_expansion_goes_past_the_window_before_stopping(tmp_path, monkeypatch):
     items.sort(key=lambda i: str(i["SUMMARY"]) != "Tomorrow")         # "Tomorrow" first
 
     class Query:
-        def after(self, start):
-            return iter(items)
+        def between(self, start, stop):
+            return list(items)
 
     monkeypatch.setattr(sources.recurring_ical_events, "of", lambda cal, components: Query())
+    monkeypatch.setattr(sources, "MAX_OCCURRENCES", 2)                # two occurrences, not 2 per slice
     tasks = sources.parse_tasks(cal, {"overdue_days": 7}, dt.date(2026, 10, 14), TZ)
     assert [t.title for t in tasks] == ["Tonight"]                    # 22:00 on the 14th, local
+
+
+def test_a_multi_day_event_does_not_slow_the_reading(tmp_path, monkeypatch):
+    # The library's after() halves its search window whenever the window holds any occurrence,
+    # so a trip under way made it read in 15-minute steps, each one expanding every series (#145).
+    import icalendar
+    query_class = getattr(sources.recurring_ical_events, "CalendarQuery", None)
+    if not hasattr(query_class, "_occurrences_between"):
+        pytest.skip("this version of recurring-ical-events has no per-window query to count")
+    weekly = "".join(
+        f"BEGIN:VEVENT\nUID:s{n}@test\nDTSTART:202610{12 + n % 5:02d}T{12 + n % 6:02d}0000Z\n"
+        f"DURATION:PT30M\nRRULE:FREQ=WEEKLY\nSUMMARY:Series {n}\nEND:VEVENT\n" for n in range(30))
+    path = write_ics(tmp_path / "x.ics", weekly + (
+        "BEGIN:VEVENT\nUID:trip@test\nDTSTART;VALUE=DATE:20261013\nDTEND;VALUE=DATE:20261018\n"
+        "SUMMARY:Trip\nEND:VEVENT\n"))
+    cal = icalendar.Calendar.from_ical(open(path, "rb").read())
+    windows = []
+    original = query_class._occurrences_between
+
+    def counting(self, *args, **kwargs):
+        windows.append(args)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(query_class, "_occurrences_between", counting)
+    start = at("00:00")
+    found = sources.parse_events(cal, {"name": "Work"}, start, start + dt.timedelta(days=2), TZ)
+    # two days plus the ordering slack, in 6-hour slices
+    assert len(windows) <= 12
+    assert [e.title for e in found].count("Trip") == 1
+    assert [e.start for e in found] == sorted(e.start for e in found)  # inkdoor check lists them in order
+    assert len([e for e in found if e.title.startswith("Series")]) == 12
 
 
 # --- per-source health (what the admin's Home shows) -------------------------------------------

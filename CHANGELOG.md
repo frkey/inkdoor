@@ -9,6 +9,13 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A multi-day event (a trip, a conference, time off) no longer slows down reading the rest of its
+  calendar. While one was under way, a large calendar could take over 30 seconds to read and turn
+  the door to "Knock first"; it now reads in about the same time as on any other day.
+  ([#145](https://github.com/frkey/inkdoor/issues/145))
+
 ## [1.3.4] - 2026-11-19
 
 A small release: Outlook calendars that name their time zones the Windows way read within the

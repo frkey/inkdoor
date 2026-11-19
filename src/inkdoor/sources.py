@@ -29,9 +29,12 @@ _CANCELLED_PREFIXES = ("canceled:", "cancelled:", "cancelado:", "cancelada:")
 # days, and a task list a few thousand at most over a year of overdue days; a rule that repeats
 # every second has 172,800 in two days. Each costs a few KB while the child reads.
 MAX_OCCURRENCES = 20000
-# The library orders dates and floating times without our time zone, so its order can be off by up
-# to a UTC offset: the expansion goes this far past the window before it stops.
+# The library places dates and floating times without our time zone, so it can be off by up to a
+# UTC offset: the expansion goes this far past the window.
 _ORDER_SLACK = dt.timedelta(days=1)
+# The expansion reads the window in slices of this size, so one query holds at most a slice's
+# occurrences: a rule that repeats every second has 21,600, about MAX_OCCURRENCES.
+_SLICE = dt.timedelta(hours=6)
 
 
 class TooManyOccurrences(Exception):
@@ -275,20 +278,47 @@ def _start(item, tz):
 
 
 def _occurrences(cal, start, end, tz, components=("VEVENT",)):
-    """Occurrences that overlap [start, end). The library yields them lazily, in order of start,
-    so the expansion stops just past ``end`` and goes through at most MAX_OCCURRENCES."""
-    found = []
+    """Occurrences that overlap [start, end), in order of start. The expansion reads slices of
+    _SLICE through ``end`` plus the ordering slack and goes through at most MAX_OCCURRENCES.
+
+    The library's lazy ``after()`` halves its search window whenever the window holds any
+    occurrence, even one it already returned: while a multi-day event was under way it read in
+    15-minute steps, each one expanding every series again, and a large calendar ran out of time.
+    Fixed slices cost the same whatever overlaps them."""
     query = recurring_ical_events.of(cal, components=list(components))
-    for seen, item in enumerate(query.after(start)):
-        if seen == MAX_OCCURRENCES:
-            raise TooManyOccurrences()
-        begins = _start(item, tz)
-        if begins is not None and begins >= end:
-            if begins >= end + _ORDER_SLACK:
-                break
-            continue
-        found.append(item)
-    return found
+    found, seen = [], set()
+    stop = end + _ORDER_SLACK
+    slice_start = start
+    while slice_start < stop:
+        slice_end = min(slice_start + _SLICE, stop)
+        for item in query.between(slice_start, slice_end):
+            key = _identity(item)
+            if key in seen:  # an occurrence comes back in every slice it overlaps
+                continue
+            seen.add(key)
+            if len(seen) > MAX_OCCURRENCES:
+                raise TooManyOccurrences()
+            begins = _start(item, tz)
+            if begins is None or begins < end:
+                found.append((begins, item))
+        slice_start = slice_end
+    # a stable sort: the ones without a date go last, as they came
+    found.sort(key=lambda pair: (1, 0) if pair[0] is None else (0, pair[0]))
+    return [item for _, item in found]
+
+
+def _identity(item) -> tuple:
+    """What tells one occurrence from another when two slices return it. Two that only differ in
+    other properties look the same on the screen, and ``deduplicate`` would merge them anyway."""
+    return (item.name, str(item.get("UID", "")), str(item.get("SUMMARY", "")),
+            *(_moment(item.get(name)) for name in ("RECURRENCE-ID", "DTSTART", "DTEND", "DUE")))
+
+
+def _moment(prop):
+    if prop is None:
+        return None
+    value = getattr(prop, "dt", None)
+    return str(prop) if value is None else value
 
 
 def read_calendar(calendar: dict, start: dt.datetime, end: dt.datetime, tz) -> list[Event]:
