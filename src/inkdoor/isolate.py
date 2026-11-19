@@ -7,8 +7,8 @@ status) or exhaust its memory. In a child it costs at most ``timeout`` seconds: 
 killed and the source counts as failed, so the door falls back on that calendar's last good data
 or "Knock first", never "Free".
 
-Memory is bounded by what the child reads, not by a limit set here: the recurrence expansion is
-lazy and capped (``sources.MAX_OCCURRENCES``). The service's seccomp filter
+Memory is bounded by what the child reads, not by a limit set here: the recurrence expansion reads
+the window in slices (``sources._SLICE``) and is capped (``sources.MAX_OCCURRENCES``). The service's seccomp filter
 (``SystemCallFilter=~@resources``) kills a process that calls setrlimit, so the child sets none.
 
 The child starts from a fork server where there is one (Linux, macOS): it forks from a small,
