@@ -9,6 +9,11 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-11-23
+
+A Kindle fix: the display keeps the Kindle awake and logs its power state. Nothing changes
+in `config.toml`. Kindle scripts: 1.3.1 (`;kpm update`, then `;kpm upgrade`).
+
 ### Fixed
 
 - The Kindle no longer falls asleep when another part of its system turns its "stay awake"
@@ -234,7 +239,8 @@ The first public release. Kindle scripts: 1.2.0.
 - English (US) and Brazilian Portuguese, with each language's clock and dates, in the door, the
   admin, the command line, the Kindle messages, the installers and the docs.
 
-[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.5...HEAD
+[Unreleased]: https://github.com/frkey/inkdoor/compare/v1.3.6...HEAD
+[1.3.6]: https://github.com/frkey/inkdoor/releases/tag/v1.3.6
 [1.3.5]: https://github.com/frkey/inkdoor/releases/tag/v1.3.5
 [1.3.4]: https://github.com/frkey/inkdoor/releases/tag/v1.3.4
 [1.3.3]: https://github.com/frkey/inkdoor/releases/tag/v1.3.3
