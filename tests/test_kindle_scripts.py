@@ -363,3 +363,13 @@ def test_keep_awake_keeps_the_loops_variables(tmp_path, powerd):
     out = run(tmp_path, 'count=7; failures=2; pause=60; n=5; i=3; keep_awake; '
                         'echo "$count $failures $pause $n $i"', path_dirs=[powerd])
     assert out == "7 2 60 5 3"
+
+
+def test_the_loop_keeps_the_kindle_awake_on_every_pass():
+    # after the download's if/else, so a failed download (no Wi-Fi, server down) also keeps it awake
+    with open(os.path.join(FOLDER, "loop.sh")) as f:
+        lines = [line.strip() for line in f]
+    end = lines.index("done")
+    assert lines[end - 1] == 'sleep "$pause"'
+    assert lines[end - 2].startswith("keep_awake")
+    assert lines[end - 3] == "fi"

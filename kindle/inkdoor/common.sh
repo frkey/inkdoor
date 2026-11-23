@@ -52,9 +52,10 @@ case "$LANGUAGE" in
 esac
 
 log() {
-  # keep the log small: it lives on the Kindle's user storage
+  # keep the log small: it lives on the Kindle's user storage. 500 lines are about three weeks of
+  # keep_awake's hourly power line, so a freeze is still there when someone looks.
   if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 102400 ]; then
-    tail -n 200 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+    tail -n 500 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
   fi
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
 }
