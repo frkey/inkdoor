@@ -43,6 +43,14 @@ As mensagens do Kindle não têm acento: a fonte de tela do aparelho não tem es
   ele nunca mudar.
 - **Histórico**: cada tentativa fica registrada em `inkdoor/log.txt` no Kindle (ligue-o no USB
   para ler).
+- **A porta congelou num status antigo** (o horário no topo parou, muitas vezes com a luz
+  apagada): o Kindle entrou em descanso ou reiniciou, e o painel não volta sozinho. Reinicie o
+  aparelho e toque em **inkdoor - start display**. A partir dos scripts do Kindle 1.3.1
+  (`;kpm update` e depois `;kpm upgrade`), o painel mantém o Kindle acordado a cada atualização e
+  registra o estado de energia em `inkdoor/log.txt` quando ele muda e uma vez por hora, em linhas
+  como `power: state=active prevent=1 battery=100 charging=1`. A última delas mostra quando ele
+  parou. Bateria caindo com `charging=0` quer dizer que o carregador não está alimentando o
+  Kindle: confira o cabo e o carregador.
 - **Voltar ao Kindle normal**: reinicie o aparelho (segure o botão liga/desliga). O painel não
   volta sozinho.
 
