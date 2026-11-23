@@ -1,5 +1,6 @@
 """The Kindle's shell helpers (kindle/inkdoor/common.sh), run with sh on this computer."""
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -252,3 +253,113 @@ def test_light_off_never_saves_a_level_of_0(tmp_path, lipc, nodes):
     run(tmp_path, "apply_light", path_dirs=[lipc])
     assert not saved(tmp_path).exists() and not (tmp_path / "calls").exists()
     assert read(nodes["pw2"]) == read(nodes["pw1"]) == "0"
+
+
+# --- staying awake: keep_awake ----------------------------------------------------------------
+
+POWERD_GET = """#!/bin/sh
+[ "$1" = com.lab126.powerd ] && [ -f "{root}/powerd/$2" ] || exit 1
+cat "{root}/powerd/$2"
+"""
+POWERD_SET = """#!/bin/sh
+[ -e "{root}/fail-set" ] && exit 1
+echo "$*" >> "{root}/calls"
+[ "$2" = preventScreenSaver ] && echo "$3" > "{root}/powerd/preventScreenSaver"
+exit 0
+"""
+# date +%s reads tmp_path/now, so the hourly line can be tested; other formats are the real date's
+FAKE_DATE = """#!/bin/sh
+if [ "$1" = "+%s" ]; then cat "{root}/now"; else exec "{date}" "$@"; fi
+"""
+
+
+@pytest.fixture
+def powerd(tmp_path):
+    """Stand-in lipc tools answering powerd's properties from tmp_path/powerd/<name>."""
+    bin_dir = tmp_path / "powerd-bin"
+    bin_dir.mkdir()
+    for name, body in (("lipc-get-prop", POWERD_GET), ("lipc-set-prop", POWERD_SET),
+                       ("date", FAKE_DATE)):
+        (bin_dir / name).write_text(body.format(root=tmp_path, date=shutil.which("date")))
+        (bin_dir / name).chmod(0o755)
+    props = tmp_path / "powerd"
+    props.mkdir()
+    for name, value in (("state", "active"), ("preventScreenSaver", "1"), ("battLevel", "100"),
+                        ("isCharging", "1")):
+        (props / name).write_text(value + "\n")
+    (tmp_path / "now").write_text("1000000\n")
+    return bin_dir
+
+
+def power_lines(tmp_path):
+    log = tmp_path / "inkdoor" / "log.txt"
+    text = log.read_text() if log.exists() else ""
+    return [line.split(" ", 2)[2] for line in text.splitlines() if " power: " in line]
+
+
+def calls(tmp_path):
+    path = tmp_path / "calls"
+    return path.read_text().splitlines() if path.exists() else []
+
+
+def test_keep_awake_sets_the_property_back_when_something_cleared_it(tmp_path, powerd):
+    # contentpackd sets preventScreenSaver to 0 after updating fonts, whatever it was before
+    (tmp_path / "powerd" / "preventScreenSaver").write_text("0\n")
+    run(tmp_path, "keep_awake", path_dirs=[powerd])
+    assert "com.lab126.powerd preventScreenSaver 1" in calls(tmp_path)
+    assert read(tmp_path / "powerd" / "preventScreenSaver") == "1"
+    assert power_lines(tmp_path) == ["power: state=active prevent=0 battery=100 charging=1"]
+
+
+def test_keep_awake_restarts_the_idle_timer_on_every_pass(tmp_path, powerd):
+    run(tmp_path, "keep_awake; keep_awake", path_dirs=[powerd])
+    assert calls(tmp_path) == ["com.lab126.powerd touchScreenSaverTimeout 1"] * 2
+
+
+def test_keep_awake_logs_changes_not_every_pass(tmp_path, powerd):
+    run(tmp_path, "keep_awake; keep_awake; echo 0 > powerd/isCharging; keep_awake; keep_awake; "
+                  "echo screenSaver > powerd/state; keep_awake", path_dirs=[powerd])
+    assert power_lines(tmp_path) == ["power: state=active prevent=1 battery=100 charging=1",
+                                     "power: state=active prevent=1 battery=100 charging=0",
+                                     "power: state=screenSaver prevent=1 battery=100 charging=0"]
+
+
+def test_keep_awake_logs_the_battery_in_steps_of_ten(tmp_path, powerd):
+    steps = "; ".join(f"echo {level} > powerd/battLevel; keep_awake" for level in (95, 91, 89, 80, 79))
+    run(tmp_path, steps, path_dirs=[powerd])
+    assert [line.split()[3] for line in power_lines(tmp_path)] == [
+        "battery=95", "battery=89", "battery=79"]
+
+
+def test_keep_awake_logs_once_an_hour_when_nothing_changes(tmp_path, powerd):
+    run(tmp_path, "keep_awake; echo 1003599 > now; keep_awake; echo 1003600 > now; keep_awake; "
+                  "echo 1003000 > now; keep_awake",            # a clock set back also logs
+        path_dirs=[powerd])
+    assert len(power_lines(tmp_path)) == 3
+
+
+def test_keep_awake_tries_again_when_setting_the_property_fails(tmp_path, powerd):
+    (tmp_path / "powerd" / "preventScreenSaver").write_text("0\n")
+    (tmp_path / "fail-set").write_text("")
+    run(tmp_path, "keep_awake; rm fail-set; keep_awake", path_dirs=[powerd])
+    assert calls(tmp_path) == ["com.lab126.powerd touchScreenSaverTimeout 1",
+                               "com.lab126.powerd preventScreenSaver 1"]
+
+
+def test_keep_awake_logs_only_letters_and_digits(tmp_path, powerd):
+    (tmp_path / "powerd" / "state").write_text("active\r\n")
+    (tmp_path / "powerd" / "battLevel").write_text(" 87 %\n")
+    (tmp_path / "powerd" / "isCharging").write_text("1; rm -rf /\n")
+    run(tmp_path, "keep_awake", path_dirs=[powerd])
+    assert power_lines(tmp_path) == ["power: state=active prevent=1 battery=87 charging=1rmrf"]
+
+
+def test_keep_awake_without_lipc_still_returns(tmp_path):
+    assert run(tmp_path, "keep_awake && echo ok") == "ok"        # a Kindle without lipc on PATH
+    assert power_lines(tmp_path) == ["power: state=? prevent=? battery=? charging=?"]
+
+
+def test_keep_awake_keeps_the_loops_variables(tmp_path, powerd):
+    out = run(tmp_path, 'count=7; failures=2; pause=60; n=5; i=3; keep_awake; '
+                        'echo "$count $failures $pause $n $i"', path_dirs=[powerd])
+    assert out == "7 2 60 5 3"

@@ -31,5 +31,6 @@ while true; do
     # after 3 failures, show a small notice in the corner
     [ $failures -ge 3 ] && eips 1 1 "$MSG_NO_CONNECTION"
   fi
+  keep_awake                # on every pass: an asleep Kindle never updates the door again
   sleep "$pause"
 done

@@ -41,6 +41,14 @@ The door never says **Free** without knowing: whenever it cannot tell, it says *
   router so it never moves.
 - **History**: every attempt is logged in `inkdoor/log.txt` on the Kindle (connect it over USB
   to read it).
+- **The door froze on an old status** (the time at the top stopped, often with the light off):
+  the Kindle went to sleep or restarted, and the display does not come back on its own. Restart it
+  and tap **inkdoor - start display**. From the Kindle scripts 1.3.1 (`;kpm update`, then
+  `;kpm upgrade`), the display keeps the Kindle awake on every update and writes its power state to
+  `inkdoor/log.txt` when it changes and once an hour, in lines like
+  `power: state=active prevent=1 battery=100 charging=1`. The last of them shows when it stopped.
+  A battery that keeps dropping while `charging=0` means the charger is not powering the Kindle:
+  check the cable and the charger.
 - **Back to the normal Kindle**: restart it (hold the power button). The display does not start
   again on its own.
 

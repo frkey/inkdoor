@@ -166,6 +166,46 @@ light_restore() {
   return 0
 }
 
+# Keeps the Kindle awake. loop.sh sets preventScreenSaver once, but the system can set it back to 0
+# (contentpackd does after updating fonts), and then powerd sleeps when its 10-minute idle timer
+# runs out: Wi-Fi and the light go off and the door keeps its last image until a restart. So every
+# pass restarts that timer and sets the property again when it is not 1. powerd's state goes to the
+# log when it changes, and at least once an hour, so a frozen door shows when it stopped and whether
+# it was charging. Variables start with power_ (no "local" in POSIX sh); POWER_SEEN and
+# POWER_LOGGED keep what was last logged between passes. Every path returns 0.
+keep_awake() {
+  power_state="$(power_prop state)"
+  power_prevent="$(power_prop preventScreenSaver)"
+  power_battery="$(power_prop battLevel)"
+  power_charging="$(power_prop isCharging)"
+  # the battery counts as a change once per ten points, so a slow discharge logs a line per step
+  case "$power_battery" in
+    ''|*[!0-9]*) power_step="?" ;;
+    *) power_step=$((power_battery / 10)) ;;
+  esac
+  power_seen="$power_state $power_prevent $power_charging $power_step"
+  power_now="$(date +%s 2>/dev/null)"
+  case "$power_now" in ''|*[!0-9]*) power_now=0 ;; esac
+  power_age=$((power_now - ${POWER_LOGGED:-0}))
+  # a clock set back (a negative age) also logs, so the hourly line cannot stop for good
+  if [ "$power_seen" != "$POWER_SEEN" ] || [ "$power_age" -ge 3600 ] || [ "$power_age" -lt 0 ]; then
+    log "power: state=$power_state prevent=$power_prevent battery=$power_battery charging=$power_charging"
+    POWER_SEEN=$power_seen
+    POWER_LOGGED=$power_now
+  fi
+  lipc-set-prop com.lab126.powerd touchScreenSaverTimeout 1 >/dev/null 2>&1
+  if [ "$power_prevent" != "1" ]; then
+    lipc-set-prop com.lab126.powerd preventScreenSaver 1 >/dev/null 2>&1
+  fi
+  return 0
+}
+
+# One powerd property, as letters and digits only (it goes into the log), or "?" when unreadable.
+power_prop() {
+  power_value="$(lipc-get-prop com.lab126.powerd "$1" 2>/dev/null | tr -cd 'A-Za-z0-9')"
+  echo "${power_value:-?}"
+}
+
 ensure_wifi() {
   lipc-set-prop com.lab126.wifid enable 1 >/dev/null 2>&1
   i=0

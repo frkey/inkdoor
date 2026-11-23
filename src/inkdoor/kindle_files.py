@@ -25,8 +25,8 @@ KPM_HOOKS = ("kpm/install.sh", "kpm/uninstall.sh")
 # Version of the Kindle side, as KPM sees it: ";kpm upgrade" only installs a higher version, so
 # bump it whenever a file in SCRIPTS or KPM_HOOKS changes. A test compares SCRIPTS_SHA256 with
 # the files and fails until both are updated.
-KINDLE_VERSION = (1, 3, 0)
-SCRIPTS_SHA256 = "18fa98dbed02c4eff89eaa3b2b605513deda8aff7614be7475f54b91e97a6eab"
+KINDLE_VERSION = (1, 3, 1)
+SCRIPTS_SHA256 = "b6befa7048ba0996ca5aa6a43babdae18cab22bbd07dec03fbd68b089982123a"
 PACKAGE_ID = "inkdoor"
 _STAMP = (2026, 1, 1, 0, 0, 0)            # fixed timestamps: the same files make the same archive
 _MTIME = int(dt.datetime(*_STAMP, tzinfo=dt.timezone.utc).timestamp())

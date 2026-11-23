@@ -9,6 +9,15 @@ It is shown next to each release.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Kindle no longer falls asleep when another part of its system turns its "stay awake"
+  setting back off (its font updater does), which froze the door on an old status with the light
+  off until a restart. The display now checks the setting on every update, and `inkdoor/log.txt`
+  records the Kindle's power state (sleep state, battery, charging) when it changes and once an
+  hour, so a door that froze shows when it stopped and whether it was charging. Needs the Kindle
+  scripts 1.3.1. ([#152](https://github.com/frkey/inkdoor/issues/152))
+
 ## [1.3.5] - 2026-11-19
 
 A small release: a multi-day event no longer slows down reading the rest of its calendar.
